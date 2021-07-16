@@ -1,13 +1,9 @@
 #Requires -Version 5
 $PSVersion = (Get-Host).Version.Major
-<<<<<<< HEAD
 $ScriptHeader = '# Created with YamlCreate.ps1 v2.0.0'
 $ManifestVersion = '1.0.0'
 $PSDefaultParameterValues = @{ '*:Encoding' = 'UTF8' }
 $Utf8NoBomEncoding = New-Object System.Text.UTF8Encoding $False
-=======
-$ScriptHeader = '# Created with YamlCreate.ps1 v1.1.5'
->>>>>>> ce4b7d706 (Create function for adding list parameters)
 
 <#
 .SYNOPSIS
