@@ -822,7 +822,7 @@ Function Submit-Manifest {
             git commit -m "$CommitType`: $PackageIdentifier version $PackageVersion"
 
             git switch -c "$PackageIdentifier-$PackageVersion"
-            git push
+            git push --set-upstream origin "$PackageIdentifier-$PackageVersion"
 
             if (Get-Command 'gh.exe' -ErrorAction SilentlyContinue) {
             
