@@ -795,6 +795,7 @@ Function Submit-Manifest {
             $keyInfo = [Console]::ReadKey($false)
         } until ($keyInfo.Key)
         Write-Host
+        Write-Host
 
         switch ($keyInfo.Key) {
             'Y' { $PromptSubmit = '0' }
