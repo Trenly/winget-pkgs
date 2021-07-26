@@ -483,24 +483,26 @@ Function Read-WinGet-LocaleManifest {
         } while ($PackageName.Length -gt '128')
     }
 
-    if ([string]::IsNullOrWhiteSpace($Moniker)) {
-        do {
-            Write-Host
-            Write-Host -ForegroundColor 'Yellow' -Object '[Optional] Enter the Moniker (friendly name/alias). For example: vscode'
-            $script:Moniker = Read-Host -Prompt 'Moniker' | TrimString
-        } while ($Moniker.Length -gt '40')
-    }
-    else {
-        do {
-            Write-Host
-            Write-Host -ForegroundColor 'Yellow' -Object '[Optional] Enter the Moniker (friendly name/alias). For example: vscode'
-            Write-Host -ForegroundColor 'DarkGray' "Old Variable: $Moniker"
-            $NewMoniker = Read-Host -Prompt 'Moniker' | TrimString
-    
-            if (-not [string]::IsNullOrWhiteSpace($NewMoniker)) {
-                $script:Moniker = $NewMoniker
-            }
-        } while ($Moniker.Length -gt '40')
+    if ($Option -ne 'NewLocale') {
+        if ([string]::IsNullOrWhiteSpace($Moniker)) {
+            do {
+                Write-Host
+                Write-Host -ForegroundColor 'Yellow' -Object '[Optional] Enter the Moniker (friendly name/alias). For example: vscode'
+                $script:Moniker = Read-Host -Prompt 'Moniker' | TrimString
+            } while ($Moniker.Length -gt '40')
+        }
+        else {
+            do {
+                Write-Host
+                Write-Host -ForegroundColor 'Yellow' -Object '[Optional] Enter the Moniker (friendly name/alias). For example: vscode'
+                Write-Host -ForegroundColor 'DarkGray' "Old Variable: $Moniker"
+                $NewMoniker = Read-Host -Prompt 'Moniker' | TrimString
+        
+                if (-not [string]::IsNullOrWhiteSpace($NewMoniker)) {
+                    $script:Moniker = $NewMoniker
+                }
+            } while ($Moniker.Length -gt '40')
+        }
     }
 
     if ([string]::IsNullOrWhiteSpace($PublisherUrl)) {
@@ -794,6 +796,8 @@ Function Submit-Manifest {
         do {
             $keyInfo = [Console]::ReadKey($false)
         } until ($keyInfo.Key)
+        Write-Host
+        Write-Host
 
         switch ($keyInfo.Key) {
             'Y' { $PromptSubmit = '0' }
@@ -814,25 +818,28 @@ Function Submit-Manifest {
             'NewLocale' { $CommitType = 'Locale' }
         }
 
-        git fetch upstream
-        git checkout -b "$PackageIdentifier-$PackageVersion" FETCH_HEAD
+        git fetch upstream master -q
+        git switch -d upstream/master
+        if ($LASTEXITCODE -eq '0') {
+            git add -A
+            git commit -m "$CommitType`: $PackageIdentifier version $PackageVersion"
 
-        git add -A
-        git commit -m "$CommitType`: $PackageIdentifier version $PackageVersion"
-        git push
+            git switch -c "$PackageIdentifier-$PackageVersion"
+            git push --set-upstream origin "$PackageIdentifier-$PackageVersion"
 
-        if (Get-Command 'gh.exe' -ErrorAction SilentlyContinue) {
-        
-            if (Test-Path -Path "$PSScriptRoot\..\.github\PULL_REQUEST_TEMPLATE.md") {
-                gh pr create --body-file "$PSScriptRoot\..\.github\PULL_REQUEST_TEMPLATE.md" -f
-            }
-            else {
-                while ([string]::IsNullOrWhiteSpace($SandboxScriptPath)) {
-                    Write-Host
-                    Write-Host -ForegroundColor 'Green' -Object 'PULL_REQUEST_TEMPLATE.md not found, input path'
-                    $PRTemplate = Read-Host -Prompt 'PR Template' | TrimString
+            if (Get-Command 'gh.exe' -ErrorAction SilentlyContinue) {
+            
+                if (Test-Path -Path "$PSScriptRoot\..\.github\PULL_REQUEST_TEMPLATE.md") {
+                    gh pr create --body-file "$PSScriptRoot\..\.github\PULL_REQUEST_TEMPLATE.md" -f
                 }
-                gh pr create --body-file "$PRTemplate" -f
+                else {
+                    while ([string]::IsNullOrWhiteSpace($SandboxScriptPath)) {
+                        Write-Host
+                        Write-Host -ForegroundColor 'Green' -Object 'PULL_REQUEST_TEMPLATE.md not found, input path'
+                        $PRTemplate = Read-Host -Prompt 'PR Template' | TrimString
+                    }
+                    gh pr create --body-file "$PRTemplate" -f
+                }
             }
         }
     }
