@@ -588,6 +588,10 @@ Function SortYamlKeys {
 }
 
 Function Read-WinGet-InstallerManifest {
+    $MaxItemsFileExtensions = $InstallerSchema.definitions.FileExtensions.maxItems
+    $MaxItemsProtocols = $InstallerSchema.definitions.Protocols.maxItems
+    $MaxItemsCommands = $InstallerSchema.definitions.Commands.maxItems
+    $MaxItemsInstallerSuccessCodes = $InstallerSchema.definitions.InstallerSuccessCodes.maxItems
     Write-Host
     do {
         if (!$FileExtensions) { $FileExtensions = '' }
