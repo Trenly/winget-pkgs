@@ -34,9 +34,7 @@ TO-DO:
     - Ensure licensing for powershell-yaml is met
 #>
 
-if (Get-Module -ListAvailable -Name powershell-yaml) {
-} 
-else {
+if (-not(Get-Module -ListAvailable -Name powershell-yaml)) {
     try {
         Install-Module -Name powershell-yaml -Force -Repository PSGallery -Scope CurrentUser
     } 
