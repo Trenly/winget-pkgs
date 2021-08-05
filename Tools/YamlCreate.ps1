@@ -816,7 +816,6 @@ Function Enter-PR-Parameters {
         Write-Host
     } else {Write-Host}
 
-    winget validate $AppFolder | Out-Null
     if ($?) {
         $PrBodyContent[2] = "- [X] Have you validated your manifest locally with `winget validate --manifest <path>`?"
     } else {
