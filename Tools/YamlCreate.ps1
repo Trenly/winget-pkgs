@@ -860,7 +860,7 @@ Function Enter-PR-Parameters {
         } elseif ($_ -like "*schema*") {
             Write-Host
             Write-Host
-            Write-Host -ForegroundColor 'White' "Does your manifest confirm to the 1.0 schema?"
+            Write-Host -ForegroundColor 'White' "Does your manifest conform to the 1.0 schema?"
             Write-Host "Reference Link: https://github.com/microsoft/winget-cli/blob/master/doc/ManifestSpecv1.0.md"
             Write-Host -ForegroundColor 'White' -NoNewline "[Y] Yes  "
             Write-Host -ForegroundColor 'Yellow' -NoNewline "[N] No "
