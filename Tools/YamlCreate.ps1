@@ -863,7 +863,6 @@ Function Enter-PR-Parameters {
         $keyInfo = [Console]::ReadKey($false)
     } until ($keyInfo.Key)
     if ($keyInfo.Key -eq 'Y') {
-        Test-Manifest
         $PrBodyContent[4] = "- [X] Does your manifest conform to the [1.0 schema](https://github.com/microsoft/winget-cli/blob/master/doc/ManifestSpecv1.0.md)?"
         Write-Host
     } else {Write-Host}
