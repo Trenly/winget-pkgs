@@ -870,7 +870,6 @@ Function Enter-PR-Parameters {
 
     Write-Host
     Write-Host -ForegroundColor 'White' "Does this pull request resolve any issues?"
-    Write-Host "Enter issue number. For example`: 21983, 43509"
     Write-Host -ForegroundColor 'White' -NoNewline "[Y] Yes  "
     Write-Host -ForegroundColor 'Yellow' -NoNewline "[N] No "
     Write-Host -NoNewline "(default is 'N'): "
@@ -879,6 +878,7 @@ Function Enter-PR-Parameters {
     } until ($keyInfo.Key)
     if ($keyInfo.Key -eq 'Y') {
         Write-Host
+        Write-Host "Enter issue number. For example`: 21983, 43509"
         $PrBodyContent[7] += "`n"
         $ResolvedIssues = Read-Host -Prompt 'Resolved Issues' | TrimString
         Foreach($i in ($ResolvedIssues.Split(","))) {
