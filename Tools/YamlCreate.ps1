@@ -880,7 +880,7 @@ Function Enter-PR-Parameters {
         Write-Host "Enter issue number. For example`: 21983, 43509"
         $PrBodyContent[7] += "`n"
         $ResolvedIssues = Read-Host -Prompt 'Resolved Issues' | TrimString
-        Foreach($i in ($ResolvedIssues.Split(","))) {
+        Foreach($i in ($ResolvedIssues.Split(",").Trim())) {
             $PrBodyContent[7] += "Resolves #$i`n"
         }
     } else {Write-Host}
