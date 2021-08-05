@@ -907,6 +907,7 @@ Function Enter-PR-Parameters {
                 $PrBodyContentReply += "Resolves #$i`n"
             }
         } else {Write-Host}
+        $PrBodyContentReply = ($PrBodyContentReply.Trim() -ne '')
         Set-Content -Path PrBodyFile -Value $PrBodyContentReply | Out-Null
         gh pr create --body-file PrBodyFile -f
         Remove-Item PrBodyFile     
