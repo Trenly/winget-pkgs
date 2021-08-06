@@ -832,10 +832,9 @@ Function Submit-Manifest {
     if ($PromptSubmit -eq '0') {
         switch ($Option) {
             'New' {
-                if ($script:OldManifestType -eq 'None') { $CommitType = 'New' }
-                else {
-                    $CommitType = 'Update'
-                }
+                if ( $script:OldManifestType -eq 'None' ) { $CommitType = 'New' }
+                elseif ($script:LastVersion -ieq $script:PackageVersion ) { $CommitType = 'Update' }
+                else { $CommitType = 'Add Version' }
             }
             'EditMetadata' { $CommitType = 'Metadata' }
             'NewLocale' { $CommitType = 'Locale' }
@@ -1101,7 +1100,7 @@ Function Read-PreviousWinGet-Manifest-Yaml {
     
     if (!$LastVersion) {
         try {
-            $LastVersion = Split-Path (Split-Path (Get-ChildItem -Path "$AppFolder\..\" -Recurse -Depth 1 -File).FullName ) -Leaf | Sort-Object $ToNatural | Select-Object -Last 1
+            $script:LastVersion = Split-Path (Split-Path (Get-ChildItem -Path "$AppFolder\..\" -Recurse -Depth 1 -File).FullName ) -Leaf | Sort-Object $ToNatural | Select-Object -Last 1
             Write-Host -ForegroundColor 'DarkYellow' -Object "Found Existing Version: $LastVersion"
             $script:OldManifests = Get-ChildItem -Path "$AppFolder\..\$LastVersion"
         }
