@@ -301,6 +301,7 @@ Function Read-WinGet-InstallerValues {
 
     do {
         Write-Host
+        Write-Host
         Write-Host -ForegroundColor 'Yellow' -Object '[Optional] Enter the installer locale. For example: en-US, en-CA'
         Write-Host -ForegroundColor 'Blue' -Object 'https://docs.microsoft.com/openspecs/office_standards/ms-oe376/6c085406-a698-4e12-9d4d-c3b0ee3dbc4a'
         $InstallerLocale = Read-Host -Prompt 'InstallerLocale' | TrimString
@@ -843,7 +844,7 @@ Function Enter-PR-Parameters {
                 Write-Host -ForegroundColor 'Yellow' -NoNewline "[N] No "
                 Write-Host -NoNewline "(default is 'N'): "
                 do {
-                    keyInfo = [Console]::ReadKey($false)
+                    $keyInfo = [Console]::ReadKey($false)
                 } until ($keyInfo.Key)
                 if ($keyInfo.Key -eq 'Y') {
                     $PrBodyContentReply += $_.Replace("[ ]","[X]"), "`n"
