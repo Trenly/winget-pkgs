@@ -764,12 +764,12 @@ Function Test-Manifest {
         } until ($keyInfo.Key)
 
         switch ($keyInfo.Key) {
-            'Y' { $SandboxTest = '0' }
-            'N' { $SandboxTest = '1' }
-            default { $SandboxTest = '0' }
+            'Y' { $script:SandboxTest = '0' }
+            'N' { $script:SandboxTest = '1' }
+            default { $script:SandboxTest = '0' }
         }
 
-        if ($SandboxTest -eq '0') {
+        if ($script:SandboxTest -eq '0') {
             if (Test-Path -Path "$PSScriptRoot\SandboxTest.ps1") {
                 $SandboxScriptPath = (Resolve-Path "$PSScriptRoot\SandboxTest.ps1").Path
             }
@@ -789,8 +789,7 @@ Function Test-Manifest {
 Function Enter-PR-Parameters {
     $PrBodyContent = Get-Content $args[0]
     ForEach ($_ in ($PrBodyContent | Where-Object { $_ -like '-*[ ]*' })) {
-        switch -Wildcard ( $_ )
-        {
+        switch -Wildcard ( $_ ) {
             '*CLA*' {
                 Write-Host
                 Write-Host -ForegroundColor 'White' "Have you signed the Contributor License Agreement (CLA)?"
