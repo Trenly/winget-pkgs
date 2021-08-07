@@ -832,9 +832,10 @@ Function Submit-Manifest {
     if ($PromptSubmit -eq '0') {
         switch ($Option) {
             'New' {
-                if ( $script:OldManifestType -eq 'None' ) { $CommitType = 'New' }
-                elseif ($script:LastVersion -ieq $script:PackageVersion ) { $CommitType = 'Update' }
-                else { $CommitType = 'Add Version' }
+                if ( $script:OldManifestType -eq 'None' ) { $CommitType = 'New Package' }
+                elseif ($script:LastVersion -lt $script:PackageVersion ) { $CommitType = 'New Version' }
+                elseif ($script:LastVersion -gt $script:PackageVersion ) { $CommitType = 'Add Version' }
+                else { $CommitType = 'Update' }
             }
             'EditMetadata' { $CommitType = 'Metadata' }
             'NewLocale' { $CommitType = 'Locale' }
