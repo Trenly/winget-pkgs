@@ -819,7 +819,7 @@ Function Enter-PR-Parameters {
                 Write-Host -ForegroundColor 'Yellow' -NoNewline "[N] No "
                 Write-Host -NoNewline "(default is 'N'): "
                 do {
-                    keyInfo = [Console]::ReadKey($false)
+                    $keyInfo = [Console]::ReadKey($false)
                 } until ($keyInfo.Key)
                 if ($keyInfo.Key -eq 'Y') {
                     $PrBodyContentReply += $_.Replace("[ ]","[X]"), "`n"
