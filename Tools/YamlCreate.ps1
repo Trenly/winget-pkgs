@@ -789,12 +789,51 @@ Function Test-Manifest {
 Function Enter-PR-Parameters {
     $PrBodyContent = Get-Content $args[0]
     ForEach ($_ in ($PrBodyContent | Where-Object { $_ -like '-*[ ]*' })) {
-            switch -Wildcard ( $_ )
-            {
-                '*CLA*' {
+        switch -Wildcard ( $_ )
+        {
+            '*CLA*' {
+                Write-Host
+                Write-Host -ForegroundColor 'White' "Have you signed the Contributor License Agreement (CLA)?"
+                Write-Host "Reference Link: https://cla.opensource.microsoft.com/microsoft/winget-pkgs"
+                Write-Host -ForegroundColor 'White' -NoNewline "[Y] Yes  "
+                Write-Host -ForegroundColor 'Yellow' -NoNewline "[N] No "
+                Write-Host -NoNewline "(default is 'N'): "
+                do {
+                    keyInfo = [Console]::ReadKey($false)
+                } until ($keyInfo.Key)
+                if ($keyInfo.Key -eq 'Y') {
+                    $PrBodyContentReply += $_.Replace("[ ]","[X]"), "`n"
+                } else {
+                    $PrBodyContentReply += $_, "`n"
+                }
+            }
+    
+            '*open `[pull requests`]*' {
+                Write-Host
+                Write-Host
+                Write-Host -ForegroundColor 'White' "Have you checked that there aren't other open pull requests for the same manifest update/change?"
+                Write-Host "Reference Link: https://github.com/microsoft/winget-pkgs/pulls"
+                Write-Host -ForegroundColor 'White' -NoNewline "[Y] Yes  "
+                Write-Host -ForegroundColor 'Yellow' -NoNewline "[N] No "
+                Write-Host -NoNewline "(default is 'N'): "
+                do {
+                    $keyInfo = [Console]::ReadKey($false)
+                } until ($keyInfo.Key)
+                if ($keyInfo.Key -eq 'Y') {
+                    $PrBodyContentReply += $_.Replace("[ ]","[X]"), "`n"
+                } else {
+                    $PrBodyContentReply += $_, "`n"
+                }
+            }
+    
+            '*winget validate*' {
+                if($?) {
+                    $PrBodyContentReply += $_.Replace("[ ]","[X]"), "`n"
+                } else {
                     Write-Host
-                    Write-Host -ForegroundColor 'White' "Have you signed the Contributor License Agreement (CLA)?"
-                    Write-Host "Reference Link: https://cla.opensource.microsoft.com/microsoft/winget-pkgs"
+                    Write-Host
+                    Write-Host -ForegroundColor 'Red' "Automatic manifest validation failed. Check your manifest and try again"
+                    Write-Host -ForegroundColor 'White' "Have you validated your manifest locally with 'winget validate --manifest <path>'"
                     Write-Host -ForegroundColor 'White' -NoNewline "[Y] Yes  "
                     Write-Host -ForegroundColor 'Yellow' -NoNewline "[N] No "
                     Write-Host -NoNewline "(default is 'N'): "
@@ -807,12 +846,16 @@ Function Enter-PR-Parameters {
                         $PrBodyContentReply += $_, "`n"
                     }
                 }
+            }
     
-                '*open `[pull requests`]*' {
+            '*tested your manifest*' {
+                if ($script:SandboxTest -eq '0') {
+                    $PrBodyContentReply += $_.Replace("[ ]","[X]"), "`n"
+                } else {
                     Write-Host
                     Write-Host
-                    Write-Host -ForegroundColor 'White' "Have you checked that there aren't other open pull requests for the same manifest update/change?"
-                    Write-Host "Reference Link: https://github.com/microsoft/winget-pkgs/pulls"
+                    Write-Host -ForegroundColor 'Yellow' "You did not test your Manifest in Windows Sandbox previously."
+                    Write-Host -ForegroundColor 'White' "Have you tested your manifest locally with 'winget install --manifest <path>'"
                     Write-Host -ForegroundColor 'White' -NoNewline "[Y] Yes  "
                     Write-Host -ForegroundColor 'Yellow' -NoNewline "[N] No "
                     Write-Host -NoNewline "(default is 'N'): "
@@ -825,110 +868,68 @@ Function Enter-PR-Parameters {
                         $PrBodyContentReply += $_, "`n"
                     }
                 }
+            }
     
-                '*winget validate*' {
-                    if($?) {
-                        $PrBodyContentReply += $_.Replace("[ ]","[X]"), "`n"
-                    } else {
-                        Write-Host
-                        Write-Host
-                        Write-Host -ForegroundColor 'Red' "Automatic manifest validation failed. Check your manifest and try again"
-                        Write-Host -ForegroundColor 'White' "Have you validated your manifest locally with 'winget validate --manifest <path>'"
-                        Write-Host -ForegroundColor 'White' -NoNewline "[Y] Yes  "
-                        Write-Host -ForegroundColor 'Yellow' -NoNewline "[N] No "
-                        Write-Host -NoNewline "(default is 'N'): "
-                        do {
-                            $keyInfo = [Console]::ReadKey($false)
-                        } until ($keyInfo.Key)
-                        if ($keyInfo.Key -eq 'Y') {
-                            $PrBodyContentReply += $_.Replace("[ ]","[X]"), "`n"
-                        } else {
-                            $PrBodyContentReply += $_, "`n"
-                        }
-                    }
+            '*schema*' {
+                Write-Host
+                Write-Host
+                Write-Host -ForegroundColor 'White' "Does your manifest conform to the 1.0 schema?"
+                Write-Host "Reference Link: https://github.com/microsoft/winget-cli/blob/master/doc/ManifestSpecv1.0.md"
+                Write-Host -ForegroundColor 'White' -NoNewline "[Y] Yes  "
+                Write-Host -ForegroundColor 'Yellow' -NoNewline "[N] No "
+                Write-Host -NoNewline "(default is 'N'): "
+                do {
+                    $keyInfo = [Console]::ReadKey($false)
+                } until ($keyInfo.Key)
+                if ($keyInfo.Key -eq 'Y') {
+                    $PrBodyContentReply += $_.Replace("[ ]","[X]"), "`n"
+                } else {
+                    $PrBodyContentReply += $_, "`n"
                 }
+            }
     
-                '*tested your manifest*' {
-                    if ($SandboxTest -eq '0') {
-                        $PrBodyContentReply += $_.Replace("[ ]","[X]"), "`n"
-                    } else {
-                        Write-Host
-                        Write-Host
-                        Write-Host -ForegroundColor 'Yellow' "You did not test your Manifest in Windows Sandbox previously."
-                        Write-Host -ForegroundColor 'White' "Have you tested your manifest locally with 'winget install --manifest <path>'"
-                        Write-Host -ForegroundColor 'White' -NoNewline "[Y] Yes  "
-                        Write-Host -ForegroundColor 'Yellow' -NoNewline "[N] No "
-                        Write-Host -NoNewline "(default is 'N'): "
-                        do {
-                            $keyInfo = [Console]::ReadKey($false)
-                        } until ($keyInfo.Key)
-                        if ($keyInfo.Key -eq 'Y') {
-                            $PrBodyContentReply += $_.Replace("[ ]","[X]"), "`n"
-                        } else {
-                            $PrBodyContentReply += $_, "`n"
-                        }
-                    }
-                }
-    
-                '*schema*' {
-                    Write-Host
-                    Write-Host
-                    Write-Host -ForegroundColor 'White' "Does your manifest conform to the 1.0 schema?"
-                    Write-Host "Reference Link: https://github.com/microsoft/winget-cli/blob/master/doc/ManifestSpecv1.0.md"
-                    Write-Host -ForegroundColor 'White' -NoNewline "[Y] Yes  "
-                    Write-Host -ForegroundColor 'Yellow' -NoNewline "[N] No "
-                    Write-Host -NoNewline "(default is 'N'): "
-                    do {
-                        $keyInfo = [Console]::ReadKey($false)
-                    } until ($keyInfo.Key)
-                    if ($keyInfo.Key -eq 'Y') {
-                        $PrBodyContentReply += $_.Replace("[ ]","[X]"), "`n"
-                    } else {
-                        $PrBodyContentReply += $_, "`n"
-                    }
-                }
-    
-                Default {
-                    Write-Host
-                    Write-Host
-                    Write-Host -ForegroundColor 'White' $_.TrimStart("- [ ]")
-                    Write-Host -ForegroundColor 'White' -NoNewline "[Y] Yes  "
-                    Write-Host -ForegroundColor 'Yellow' -NoNewline "[N] No "
-                    Write-Host -NoNewline "(default is 'N'): "
-                    do {
-                        $keyInfo = [Console]::ReadKey($false)
-                    } until ($keyInfo.Key)
-                    if ($keyInfo.Key -eq 'Y') {
-                        $PrBodyContentReply += $_.Replace("[ ]","[X]"), "`n"
-                    } else {
-                        $PrBodyContentReply += $_, "`n"
-                    }
+            Default {
+                Write-Host
+                Write-Host
+                Write-Host -ForegroundColor 'White' $_.TrimStart("- [ ]")
+                Write-Host -ForegroundColor 'White' -NoNewline "[Y] Yes  "
+                Write-Host -ForegroundColor 'Yellow' -NoNewline "[N] No "
+                Write-Host -NoNewline "(default is 'N'): "
+                do {
+                    $keyInfo = [Console]::ReadKey($false)
+                } until ($keyInfo.Key)
+                if ($keyInfo.Key -eq 'Y') {
+                    $PrBodyContentReply += $_.Replace("[ ]","[X]"), "`n"
+                } else {
+                    $PrBodyContentReply += $_, "`n"
                 }
             }
         }
-        Write-Host
-        Write-Host
-        Write-Host -ForegroundColor 'White' "Does this pull request resolve any issues?"
-        Write-Host -ForegroundColor 'White' -NoNewline "[Y] Yes  "
-        Write-Host -ForegroundColor 'Yellow' -NoNewline "[N] No "
-        Write-Host -NoNewline "(default is 'N'): "
-        do {
-            $keyInfo = [Console]::ReadKey($false)
-        } until ($keyInfo.Key)
-        if ($keyInfo.Key -eq 'Y') {
-            Write-Host
-            Write-Host "Enter issue number. For example`: 21983, 43509"
-            $ResolvedIssues = Read-Host -Prompt 'Resolved Issues'
-            Foreach($i in ($ResolvedIssues.Split(",").Trim())) {
-                $PrBodyContentReply += "Resolves #$i`n"
-            }
-        } else {Write-Host}
-        $PrBodyContentReply = ($PrBodyContentReply.Trim() -ne '')
-        Set-Content -Path PrBodyFile -Value $PrBodyContentReply | Out-Null
-        gh pr create --body-file PrBodyFile -f
-        Remove-Item PrBodyFile     
-}
+    }
 
+    Write-Host
+    Write-Host
+    Write-Host -ForegroundColor 'White' "Does this pull request resolve any issues?"
+    Write-Host -ForegroundColor 'White' -NoNewline "[Y] Yes  "
+    Write-Host -ForegroundColor 'Yellow' -NoNewline "[N] No "
+    Write-Host -NoNewline "(default is 'N'): "
+    do {
+        $keyInfo = [Console]::ReadKey($false)
+    } until ($keyInfo.Key)
+    if ($keyInfo.Key -eq 'Y') {
+        Write-Host
+        Write-Host "Enter issue number. For example`: 21983, 43509"
+        $ResolvedIssues = Read-Host -Prompt 'Resolved Issues'
+        Foreach($i in ($ResolvedIssues.Split(",").Trim())) {
+            $PrBodyContentReply += "Resolves #$i`n"
+        }
+    } else {Write-Host}
+
+    $PrBodyContentReply = ($PrBodyContentReply.Trim() -ne '')
+    Set-Content -Path PrBodyFile -Value $PrBodyContentReply | Out-Null
+    gh pr create --body-file PrBodyFile -f
+    Remove-Item PrBodyFile     
+}
 Function Submit-Manifest {
     if (Get-Command 'git.exe' -ErrorAction SilentlyContinue) {
         Write-Host
