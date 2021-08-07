@@ -267,9 +267,7 @@ Function Read-WinGet-InstallerValues {
                 $SignatureSha256 = Read-Host -Prompt 'SignatureSha256' | TrimString
             } while (-not [string]::IsNullOrWhiteSpace($SignatureSha256) -and ($SignatureSha256 -notmatch $InstallerSchema.definitions.Installer.properties.SignatureSha256.pattern))
         }
-    }
 
-    if ($InstallerType -ieq 'msix' -or $InstallerType -ieq 'appx') {
         do {
             Write-Host
             Write-Host -ForegroundColor 'Yellow' -Object '[Recommended] Enter the installer PackageFamilyName'
