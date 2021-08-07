@@ -141,6 +141,8 @@ Function Read-WinGet-InstallerValues {
         "InstallerType"
         "InstallerUrl"
         "InstallerSha256"
+        "SignatureSha256"
+        "PackageFamilyName"
         "Custom"
         "Silent"
         "SilentWithProgress"
@@ -197,6 +199,7 @@ Function Read-WinGet-InstallerValues {
             $InstallerSha256 = (Get-FileHash -Path $dest -Algorithm SHA256).Hash
             $FileInformation = Get-AppLockerFileInformation -Path $dest | Select-Object Publisher | Select-String -Pattern "{[A-Z0-9]{8}-([A-Z0-9]{4}-){3}[A-Z0-9]{12}}"
             $MSIProductCode = $FileInformation.Matches
+            if (Get-Command 'winget.exe' -ErrorAction SilentlyContinue) { $SignatureSha256 = winget hash -m $dest | Select-String -Pattern "SignatureSha256:" | ConvertFrom-String; if ($SignatureSha256.P2) { $SignatureSha256 = $SignatureSha256.P2.ToUpper() }}
             if ($SaveOption -eq '1') { Remove-Item -Path $dest }
         }
     }
@@ -254,6 +257,22 @@ Function Read-WinGet-InstallerValues {
             Write-Host -ForegroundColor 'Yellow' -Object '[Optional] Enter any custom switches for the installer. For example: /NORESTART, -norestart, /CURRENTUSER, /ALLUSERS'
             $Custom = Read-Host -Prompt 'CustomSwitch' | TrimString
         } while ($Silent.Length -gt $InstallerSchema.definitions.InstallerSwitches.properties.Silent.maxLength -or $SilentWithProgress.Lenth -gt $InstallerSchema.definitions.InstallerSwitches.properties.SilentWithProgress.maxLength -or $Custom.Length -gt $InstallerSchema.definitions.InstallerSwitches.properties.Custom.maxLength)
+    }
+
+    if ($InstallerType -ieq 'msix' -or $InstallerType -ieq 'appx') {
+        if ([string]::IsNullOrWhiteSpace($SignatureSha256)) {
+            do {
+                Write-Host
+                Write-Host -ForegroundColor 'Yellow' -Object '[Recommended] Enter the installer SignatureSha256'
+                $SignatureSha256 = Read-Host -Prompt 'SignatureSha256' | TrimString
+            } while (-not [string]::IsNullOrWhiteSpace($SignatureSha256) -and ($SignatureSha256 -notmatch $InstallerSchema.definitions.Installer.properties.SignatureSha256.pattern))
+        }
+
+        do {
+            Write-Host
+            Write-Host -ForegroundColor 'Yellow' -Object '[Recommended] Enter the installer PackageFamilyName'
+            $PackageFamilyName = Read-Host -Prompt 'PackageFamilyName' | TrimString
+        } while (-not [string]::IsNullOrWhiteSpace($PackageFamilyName) -and ($PackageFamilyName.Length -gt $InstallerSchema.definitions.PackageFamilyName.maxLength))
     }
 
     do {
@@ -318,6 +337,8 @@ Function Read-WinGet-InstallerValues {
         "Scope"           = $Scope
         "InstallerUrl"    = $InstallerUrl
         "InstallerSha256" = $InstallerSha256
+        "SignatureSha256" = $SignatureSha256
+        "PackageFamilyName" = $PackageFamilyName
     }
     foreach ($_Item in $_InstallerSingletons.GetEnumerator()) {
         If ($_Item.Value) { AddYamlParameter $_Installer $_Item.Name $_Item.Value }
