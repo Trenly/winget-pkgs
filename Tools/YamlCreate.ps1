@@ -271,7 +271,7 @@ Function Read-WinGet-InstallerValues {
         do {
             Write-Host
             Write-Host -ForegroundColor 'Yellow' -Object '[Recommended] Enter the installer PackageFamilyName'
-            Write-Host -ForegroundColor 'White' "[F] Find Automatically [Note: This will install the pacakge to find Family Name and then removes it.]"
+            Write-Host -ForegroundColor 'White' "[F] Find Automatically [Note: This will install the package to find Family Name and then removes it.]"
             Write-Host -ForegroundColor 'White' "[M] Manually Enter PackageFamilyName"
             Write-Host -NoNewline "Enter Choice (default is 'F'): "
             do {
