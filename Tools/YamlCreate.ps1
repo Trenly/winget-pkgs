@@ -860,8 +860,8 @@ Function Test-Manifest {
 
 Function Enter-PR-Parameters {
     $PrBodyContent = Get-Content $args[0]
-    ForEach ($_ in ($PrBodyContent | Where-Object { $_ -like '-*[ ]*' })) {
-        switch -Wildcard ( $_ ) {
+    ForEach ($_line in ($PrBodyContent | Where-Object { $_ -like '-*[ ]*' })) {
+        switch -Wildcard ( $_line ) {
             '*CLA*' {
                 $_menu = @{
                     entries       = @("[Y] Yes"; "*[N] No")
@@ -871,8 +871,8 @@ Function Enter-PR-Parameters {
                 }
                 
                 switch ( KeypressMenu -Prompt $_menu["Prompt"] -Entries $_menu["Entries"] -DefaultString $_menu["DefaultString"] -HelpText $_menu["HelpText"]) {
-                    'Y' { $PrBodyContentReply += $_.Replace("[ ]", "[X]"), "`n" }
-                    default { $PrBodyContentReply += $_, "`n" }
+                    'Y' { $PrBodyContentReply += $_line.Replace("[ ]", "[X]"), "`n" }
+                    default { $PrBodyContentReply += $_line, "`n" }
                 }
             }
     
@@ -885,14 +885,14 @@ Function Enter-PR-Parameters {
                 }
                 
                 switch ( KeypressMenu -Prompt $_menu["Prompt"] -Entries $_menu["Entries"] -DefaultString $_menu["DefaultString"] -HelpText $_menu["HelpText"]) {
-                    'Y' { $PrBodyContentReply += $_.Replace("[ ]", "[X]"), "`n" }
-                    default { $PrBodyContentReply += $_, "`n" }
+                    'Y' { $PrBodyContentReply += $_line.Replace("[ ]", "[X]"), "`n" }
+                    default { $PrBodyContentReply += $_line, "`n" }
                 }
             }
     
             '*winget validate*' {
                 if ($?) {
-                    $PrBodyContentReply += $_.Replace("[ ]", "[X]"), "`n"
+                    $PrBodyContentReply += $_line.Replace("[ ]", "[X]"), "`n"
                 }
                 else {
                     Write-Host
@@ -904,15 +904,15 @@ Function Enter-PR-Parameters {
                     }
                     
                     switch ( KeypressMenu -Prompt $_menu["Prompt"] -Entries $_menu["Entries"] -DefaultString $_menu["DefaultString"]) {
-                        'Y' { $PrBodyContentReply += $_.Replace("[ ]", "[X]"), "`n" }
-                        default { $PrBodyContentReply += $_, "`n" }
+                        'Y' { $PrBodyContentReply += $_line.Replace("[ ]", "[X]"), "`n" }
+                        default { $PrBodyContentReply += $_line, "`n" }
                     }
                 }
             }
     
             '*tested your manifest*' {
                 if ($script:SandboxTest -eq '0') {
-                    $PrBodyContentReply += $_.Replace("[ ]", "[X]"), "`n"
+                    $PrBodyContentReply += $_line.Replace("[ ]", "[X]"), "`n"
                 }
                 else {
                     Write-Host
@@ -924,8 +924,8 @@ Function Enter-PR-Parameters {
                     }
                     
                     switch ( KeypressMenu -Prompt $_menu["Prompt"] -Entries $_menu["Entries"] -DefaultString $_menu["DefaultString"]) {
-                        'Y' { $PrBodyContentReply += $_.Replace("[ ]", "[X]"), "`n" }
-                        default { $PrBodyContentReply += $_, "`n" }
+                        'Y' { $PrBodyContentReply += $_line.Replace("[ ]", "[X]"), "`n" }
+                        default { $PrBodyContentReply += $_line, "`n" }
                     }
                 }
             }
@@ -939,21 +939,21 @@ Function Enter-PR-Parameters {
                 }
                 
                 switch ( KeypressMenu -Prompt $_menu["Prompt"] -Entries $_menu["Entries"] -DefaultString $_menu["DefaultString"] -HelpText $_menu["HelpText"]) {
-                    'Y' { $PrBodyContentReply += $_.Replace("[ ]", "[X]"), "`n" }
-                    default { $PrBodyContentReply += $_, "`n" }
+                    'Y' { $PrBodyContentReply += $_line.Replace("[ ]", "[X]"), "`n" }
+                    default { $PrBodyContentReply += $_line, "`n" }
                 }
             }
     
             Default {
                 $_menu = @{
                     entries       = @("[Y] Yes"; "*[N] No")
-                    Prompt        = $_.TrimStart("- [ ]")
+                    Prompt        = $_line.TrimStart("- [ ]")
                     DefaultString = "N"
                 }
 
                 switch ( KeypressMenu -Prompt $_menu["Prompt"] -Entries $_menu["Entries"] -DefaultString $_menu["DefaultString"]) {
-                    'Y' { $PrBodyContentReply += $_.Replace("[ ]", "[X]"), "`n" }
-                    default { $PrBodyContentReply += $_, "`n" }
+                    'Y' { $PrBodyContentReply += $_line.Replace("[ ]", "[X]"), "`n" }
+                    default { $PrBodyContentReply += $_line, "`n" }
                 }
             }
         }
