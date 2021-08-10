@@ -81,6 +81,51 @@ Function Write-Colors {
         $_index++
     }
 }
+
+Function KeypressMenu {
+    Param
+    (
+        [Parameter(Mandatory = $true, Position = 0)]
+        [string] $Prompt,
+        [Parameter(Mandatory = $true, Position = 1)]
+        [string[]] $Entries,
+        [Parameter(Mandatory = $false)]
+        [string] $HelpText,
+        [Parameter(Mandatory = $false)]
+        [string] $DefaultString
+    )
+
+    Write-Host "`n"
+    Write-Host -ForegroundColor 'Yellow' $Prompt
+    if ($null -ne $HelpText) { Write-Host -ForegroundColor 'Blue' $HelpText }
+    foreach ($entry in $Entries) {
+        $_isDefault = $entry.StartsWith('*')
+        if ($_isDefault) {
+            $_entry = "  " + $entry.Substring(1)
+            $_color = 'Green'
+        }
+        else {
+            $_entry = "  " + $entry
+            $_color = 'White'
+        }
+        Write-Host -ForegroundColor $_color $_entry
+    }
+    Write-Host
+    if ($null -ne $DefaultString) {
+        Write-Host -NoNewline "Enter Choice (default is '$DefaultString'): "
+    }
+    else {
+        Write-Host -NoNewline "Enter Choice ("
+        Write-Host -NoNewline -ForegroundColor 'Green' "Green"
+        Write-Host -NoNewline " is default): "
+    }
+
+    do {
+        $keyInfo = [Console]::ReadKey($false)
+    } until ($keyInfo.Key)
+
+    return $keyInfo.Key
+}
 Function Show-OptionMenu {
     Clear-Host
     Write-Host -ForegroundColor 'Cyan' "Select Mode"
@@ -160,18 +205,13 @@ Function Read-WinGet-InstallerValues {
         $InstallerUrl = Read-Host -Prompt 'Url' | TrimString
     }
 
-    Write-Host
-    Write-Host -ForegroundColor 'White' "Save to disk?"
-    Write-Host "Do you want to save the files to the Temp folder?"
-    Write-Host -ForegroundColor 'White' -NoNewline "[Y] Yes  "
-    Write-Host -ForegroundColor 'Yellow' -NoNewline '[N] No  '
-    Write-Host -ForegroundColor 'White' -NoNewline "[M] Manually Enter SHA256 "
-    Write-Host -NoNewline "(default is 'N'): "
-    do {
-        $keyInfo = [Console]::ReadKey($false)
-    } until ($keyInfo.Key)
+    $_menu = @{
+        entries       = @("[Y] Yes"; "*[N] No"; "[M] Manually Enter SHA256")
+        Prompt        = "Do you want to save the files to the Temp folder?"
+        DefaultString = "N"
+    }
 
-    switch ($keyInfo.Key) {
+    switch ( KeypressMenu -Prompt $_menu["Prompt"] -Entries $_menu["Entries"] -DefaultString $_menu["DefaultString"]) {
         'Y' { $script:SaveOption = '0' }
         'N' { $script:SaveOption = '1' }
         'M' { $script:SaveOption = '2' }
@@ -269,19 +309,18 @@ Function Read-WinGet-InstallerValues {
         }
         
         do {
-            Write-Host
-            Write-Host -ForegroundColor 'Yellow' -Object '[Recommended] Enter the installer PackageFamilyName'
-            Write-Host -ForegroundColor 'White' "[F] Find Automatically [Note: This will install the package to find Family Name and then removes it.]"
-            Write-Host -ForegroundColor 'White' "[M] Manually Enter PackageFamilyName"
-            Write-Host -NoNewline "Enter Choice (default is 'F'): "
-            do {
-                $keyInfo = [Console]::ReadKey($false)
-            } until ($keyInfo.Key)
-            switch ($keyInfo.Key) {
-                'F' {$ChoicePfn = '0'}
-                'M' {$ChoicePfn = '1'}
-                default {$ChoicePfn = '0'}
+            $_menu = @{
+                entries       = @("*[F] Find Automatically [Note: This will install the package to find Family Name and then removes it.]"; "[M] Manually Enter PackageFamilyName")
+                Prompt        = "[Recommended] Enter the installer PackageFamilyName"
+                DefaultString = "M"
             }
+        
+            switch ( KeypressMenu -Prompt $_menu["Prompt"] -Entries $_menu["Entries"] -DefaultString $_menu["DefaultString"]) {
+                'F' { $ChoicePfn = '0' }
+                'M' { $ChoicePfn = '1' }
+                default { $ChoicePfn = '0' }
+            }
+
             if ($ChoicePfn -eq '0') {
                 Add-AppxPackage -Path $script:dest
                 $InstalledPkg = Get-AppxPackage | Select-Object -Last 1 | Select-Object PackageFamilyName,PackageFullName
@@ -317,35 +356,26 @@ Function Read-WinGet-InstallerValues {
         $ProductCode = Read-Host -Prompt 'ProductCode' | TrimString
     } while (-not [string]::IsNullOrWhiteSpace($ProductCode) -and ($ProductCode.Length -lt $InstallerSchema.definitions.ProductCode.minLength -or $ProductCode.Length -gt $InstallerSchema.definitions.ProductCode.maxLength))
 
-    Write-Host
-    Write-Host -ForegroundColor 'White' "Scope"
-    Write-Host "[Optional] Enter the Installer Scope."
-    Write-Host -ForegroundColor 'White' -NoNewline "[M] Machine  [U] User  "
-    Write-Host -ForegroundColor 'Yellow' -NoNewline '[N] No idea '
-    Write-Host -NoNewline "(default is 'N'): "
-    do {
-        $keyInfo = [Console]::ReadKey($false)
-    } until ($keyInfo.Key)
+    $_menu = @{
+        entries       = @("[M] Machine"; "[U] User"; '*[N] No idea')
+        Prompt        = "[Optional] Enter the Installer Scope"
+        DefaultString = "N"
+    }
 
-    switch ($keyInfo.Key) {
+    switch ( KeypressMenu -Prompt $_menu["Prompt"] -Entries $_menu["Entries"] -DefaultString $_menu["DefaultString"]) {
         'M' { $Scope = 'machine' }
         'U' { $Scope = 'user' }
         'N' { $Scope = '' }
         default { $Scope = '' }
     }
 
-    Write-Host
-    Write-Host
-    Write-Host -ForegroundColor 'White' "UpgradeBehavior"
-    Write-Host "[Optional] Enter the UpgradeBehavior."
-    Write-Host -ForegroundColor 'Yellow' -NoNewline '[I] install  '
-    Write-Host -ForegroundColor 'White' -NoNewline "[U] uninstallPrevious "
-    Write-Host -NoNewline "(default is 'I'): "
-    do {
-        $keyInfo = [Console]::ReadKey($false)
-    } until ($keyInfo.Key)
+    $_menu = @{
+        entries       = @("*[I] install"; "[U] uninstallPrevious")
+        Prompt        = "[Optional] Enter the Upgrade Behavior"
+        DefaultString = "I"
+    }
 
-    switch ($keyInfo.Key) {
+    switch ( KeypressMenu -Prompt $_menu["Prompt"] -Entries $_menu["Entries"] -DefaultString $_menu["DefaultString"]) {
         'I' { $UpgradeBehavior = 'install' }
         'U' { $UpgradeBehavior = 'uninstallPrevious' }
         default { $UpgradeBehavior = 'install' }
@@ -391,18 +421,16 @@ Function Read-WinGet-InstallerValues {
 
     $script:Installers += $_Installer
 
-    Write-Host
-    Write-Host
-    Write-Host -ForegroundColor 'White' "Another Installer"
-    Write-Host "[Optional] Do you want to create another installer?"
-    Write-Host -ForegroundColor 'White' -NoNewline "[Y] Yes  "
-    Write-Host -ForegroundColor 'Yellow' -NoNewline '[N] No '
-    Write-Host -NoNewline "(default is 'N'): "
-    do {
-        $keyInfo = [Console]::ReadKey($false)
-    } until ($keyInfo.Key)
+    $_menu = @{
+        entries       = @(
+            "[Y] Yes"
+            "*[N] No"
+        )
+        Prompt        = "Do you want to create another installer?"
+        DefaultString = "N"
+    }
 
-    switch ($keyInfo.Key) {
+    switch ( KeypressMenu -Prompt $_menu["Prompt"] -Entries $_menu["Entries"] -DefaultString $_menu["DefaultString"]) {
         'Y' { $AnotherInstaller = '0' }
         'N' { $AnotherInstaller = '1' }
         default { $AnotherInstaller = '1' }
@@ -800,17 +828,14 @@ Function Test-Manifest {
     if (Get-Command 'winget.exe' -ErrorAction SilentlyContinue) { winget validate $AppFolder }
 
     if (Get-Command 'WindowsSandbox.exe' -ErrorAction SilentlyContinue) {
-        Write-Host
-        Write-Host -ForegroundColor 'White' "Sandbox Test"
-        Write-Host "[Recommended] Do you want to test your Manifest in Windows Sandbox?"
-        Write-Host -ForegroundColor 'Yellow' -NoNewline '[Y] Yes  '
-        Write-Host -ForegroundColor 'White' -NoNewline "[N] No "
-        Write-Host -NoNewline "(default is 'Y'): "
-        do {
-            $keyInfo = [Console]::ReadKey($false)
-        } until ($keyInfo.Key)
 
-        switch ($keyInfo.Key) {
+        $_menu = @{
+            entries       = @("*[Y] Yes"; "[N] No")
+            Prompt        = "[Recommended] Do you want to test your Manifest in Windows Sandbox?"
+            DefaultString = "Y"
+        }
+        
+        switch ( KeypressMenu -Prompt $_menu["Prompt"] -Entries $_menu["Entries"] -DefaultString $_menu["DefaultString"]) {
             'Y' { $script:SandboxTest = '0' }
             'N' { $script:SandboxTest = '1' }
             default { $script:SandboxTest = '0' }
@@ -838,160 +863,134 @@ Function Enter-PR-Parameters {
     ForEach ($_ in ($PrBodyContent | Where-Object { $_ -like '-*[ ]*' })) {
         switch -Wildcard ( $_ ) {
             '*CLA*' {
-                Write-Host
-                Write-Host -ForegroundColor 'White' "Have you signed the Contributor License Agreement (CLA)?"
-                Write-Host "Reference Link: https://cla.opensource.microsoft.com/microsoft/winget-pkgs"
-                Write-Host -ForegroundColor 'White' -NoNewline "[Y] Yes  "
-                Write-Host -ForegroundColor 'Yellow' -NoNewline "[N] No "
-                Write-Host -NoNewline "(default is 'N'): "
-                do {
-                    $keyInfo = [Console]::ReadKey($false)
-                } until ($keyInfo.Key)
-                if ($keyInfo.Key -eq 'Y') {
-                    $PrBodyContentReply += $_.Replace("[ ]","[X]"), "`n"
-                } else {
-                    $PrBodyContentReply += $_, "`n"
+                $_menu = @{
+                    entries       = @("[Y] Yes"; "*[N] No")
+                    Prompt        = "Have you signed the Contributor License Agreement (CLA)?"
+                    HelpText      = "Reference Link: https://cla.opensource.microsoft.com/microsoft/winget-pkgs"
+                    DefaultString = "N"
+                }
+                
+                switch ( KeypressMenu -Prompt $_menu["Prompt"] -Entries $_menu["Entries"] -DefaultString $_menu["DefaultString"] -HelpText $_menu["HelpText"]) {
+                    'Y' { $PrBodyContentReply += $_.Replace("[ ]", "[X]"), "`n" }
+                    default { $PrBodyContentReply += $_, "`n" }
                 }
             }
     
             '*open `[pull requests`]*' {
-                Write-Host
-                Write-Host
-                Write-Host -ForegroundColor 'White' "Have you checked that there aren't other open pull requests for the same manifest update/change?"
-                Write-Host "Reference Link: https://github.com/microsoft/winget-pkgs/pulls"
-                Write-Host -ForegroundColor 'White' -NoNewline "[Y] Yes  "
-                Write-Host -ForegroundColor 'Yellow' -NoNewline "[N] No "
-                Write-Host -NoNewline "(default is 'N'): "
-                do {
-                    $keyInfo = [Console]::ReadKey($false)
-                } until ($keyInfo.Key)
-                if ($keyInfo.Key -eq 'Y') {
-                    $PrBodyContentReply += $_.Replace("[ ]","[X]"), "`n"
-                } else {
-                    $PrBodyContentReply += $_, "`n"
+                $_menu = @{
+                    entries       = @("[Y] Yes"; "*[N] No")
+                    Prompt        = "Have you checked that there aren't other open pull requests for the same manifest update/change?"
+                    HelpText      = "Reference Link: https://github.com/microsoft/winget-pkgs/pulls"
+                    DefaultString = "N"
+                }
+                
+                switch ( KeypressMenu -Prompt $_menu["Prompt"] -Entries $_menu["Entries"] -DefaultString $_menu["DefaultString"] -HelpText $_menu["HelpText"]) {
+                    'Y' { $PrBodyContentReply += $_.Replace("[ ]", "[X]"), "`n" }
+                    default { $PrBodyContentReply += $_, "`n" }
                 }
             }
     
             '*winget validate*' {
-                if($?) {
-                    $PrBodyContentReply += $_.Replace("[ ]","[X]"), "`n"
-                } else {
-                    Write-Host
+                if ($?) {
+                    $PrBodyContentReply += $_.Replace("[ ]", "[X]"), "`n"
+                }
+                else {
                     Write-Host
                     Write-Host -ForegroundColor 'Red' "Automatic manifest validation failed. Check your manifest and try again"
-                    Write-Host -ForegroundColor 'White' "Have you validated your manifest locally with 'winget validate --manifest <path>'"
-                    Write-Host -ForegroundColor 'White' -NoNewline "[Y] Yes  "
-                    Write-Host -ForegroundColor 'Yellow' -NoNewline "[N] No "
-                    Write-Host -NoNewline "(default is 'N'): "
-                    do {
-                        $keyInfo = [Console]::ReadKey($false)
-                    } until ($keyInfo.Key)
-                    if ($keyInfo.Key -eq 'Y') {
-                        $PrBodyContentReply += $_.Replace("[ ]","[X]"), "`n"
-                    } else {
-                        $PrBodyContentReply += $_, "`n"
+                    $_menu = @{
+                        entries       = @("[Y] Yes"; "*[N] No")
+                        Prompt        = "Have you validated your manifest locally with 'winget validate --manifest <path>'"
+                        DefaultString = "N"
+                    }
+                    
+                    switch ( KeypressMenu -Prompt $_menu["Prompt"] -Entries $_menu["Entries"] -DefaultString $_menu["DefaultString"]) {
+                        'Y' { $PrBodyContentReply += $_.Replace("[ ]", "[X]"), "`n" }
+                        default { $PrBodyContentReply += $_, "`n" }
                     }
                 }
             }
     
             '*tested your manifest*' {
                 if ($script:SandboxTest -eq '0') {
-                    $PrBodyContentReply += $_.Replace("[ ]","[X]"), "`n"
-                } else {
+                    $PrBodyContentReply += $_.Replace("[ ]", "[X]"), "`n"
+                }
+                else {
                     Write-Host
-                    Write-Host
-                    Write-Host -ForegroundColor 'Yellow' "You did not test your Manifest in Windows Sandbox previously."
-                    Write-Host -ForegroundColor 'White' "Have you tested your manifest locally with 'winget install --manifest <path>'"
-                    Write-Host -ForegroundColor 'White' -NoNewline "[Y] Yes  "
-                    Write-Host -ForegroundColor 'Yellow' -NoNewline "[N] No "
-                    Write-Host -NoNewline "(default is 'N'): "
-                    do {
-                        $keyInfo = [Console]::ReadKey($false)
-                    } until ($keyInfo.Key)
-                    if ($keyInfo.Key -eq 'Y') {
-                        $PrBodyContentReply += $_.Replace("[ ]","[X]"), "`n"
-                    } else {
-                        $PrBodyContentReply += $_, "`n"
+                    Write-Host -ForegroundColor 'Blue' "You did not test your Manifest in Windows Sandbox previously."
+                    $_menu = @{
+                        entries       = @("[Y] Yes"; "*[N] No")
+                        Prompt        = "Have you tested your manifest locally with 'winget install --manifest <path>'"
+                        DefaultString = "N"
+                    }
+                    
+                    switch ( KeypressMenu -Prompt $_menu["Prompt"] -Entries $_menu["Entries"] -DefaultString $_menu["DefaultString"]) {
+                        'Y' { $PrBodyContentReply += $_.Replace("[ ]", "[X]"), "`n" }
+                        default { $PrBodyContentReply += $_, "`n" }
                     }
                 }
             }
     
             '*schema*' {
-                Write-Host
-                Write-Host
-                Write-Host -ForegroundColor 'White' "Does your manifest conform to the 1.0 schema?"
-                Write-Host "Reference Link: https://github.com/microsoft/winget-cli/blob/master/doc/ManifestSpecv1.0.md"
-                Write-Host -ForegroundColor 'White' -NoNewline "[Y] Yes  "
-                Write-Host -ForegroundColor 'Yellow' -NoNewline "[N] No "
-                Write-Host -NoNewline "(default is 'N'): "
-                do {
-                    $keyInfo = [Console]::ReadKey($false)
-                } until ($keyInfo.Key)
-                if ($keyInfo.Key -eq 'Y') {
-                    $PrBodyContentReply += $_.Replace("[ ]","[X]"), "`n"
-                } else {
-                    $PrBodyContentReply += $_, "`n"
+                $_menu = @{
+                    entries       = @("[Y] Yes"; "*[N] No")
+                    Prompt        = "Does your manifest conform to the 1.0 schema?"
+                    HelpText      = "Reference Link: https://github.com/microsoft/winget-cli/blob/master/doc/ManifestSpecv1.0.md"
+                    DefaultString = "N"
+                }
+                
+                switch ( KeypressMenu -Prompt $_menu["Prompt"] -Entries $_menu["Entries"] -DefaultString $_menu["DefaultString"] -HelpText $_menu["HelpText"]) {
+                    'Y' { $PrBodyContentReply += $_.Replace("[ ]", "[X]"), "`n" }
+                    default { $PrBodyContentReply += $_, "`n" }
                 }
             }
     
             Default {
-                Write-Host
-                Write-Host
-                Write-Host -ForegroundColor 'White' $_.TrimStart("- [ ]")
-                Write-Host -ForegroundColor 'White' -NoNewline "[Y] Yes  "
-                Write-Host -ForegroundColor 'Yellow' -NoNewline "[N] No "
-                Write-Host -NoNewline "(default is 'N'): "
-                do {
-                    $keyInfo = [Console]::ReadKey($false)
-                } until ($keyInfo.Key)
-                if ($keyInfo.Key -eq 'Y') {
-                    $PrBodyContentReply += $_.Replace("[ ]","[X]"), "`n"
-                } else {
-                    $PrBodyContentReply += $_, "`n"
+                $_menu = @{
+                    entries       = @("[Y] Yes"; "*[N] No")
+                    Prompt        = $_.TrimStart("- [ ]")
+                    DefaultString = "N"
+                }
+
+                switch ( KeypressMenu -Prompt $_menu["Prompt"] -Entries $_menu["Entries"] -DefaultString $_menu["DefaultString"]) {
+                    'Y' { $PrBodyContentReply += $_.Replace("[ ]", "[X]"), "`n" }
+                    default { $PrBodyContentReply += $_, "`n" }
                 }
             }
         }
     }
 
-    Write-Host
-    Write-Host
-    Write-Host -ForegroundColor 'White' "Does this pull request resolve any issues?"
-    Write-Host -ForegroundColor 'White' -NoNewline "[Y] Yes  "
-    Write-Host -ForegroundColor 'Yellow' -NoNewline "[N] No "
-    Write-Host -NoNewline "(default is 'N'): "
-    do {
-        $keyInfo = [Console]::ReadKey($false)
-    } until ($keyInfo.Key)
-    if ($keyInfo.Key -eq 'Y') {
-        Write-Host
-        Write-Host "Enter issue number. For example`: 21983, 43509"
-        $ResolvedIssues = Read-Host -Prompt 'Resolved Issues'
-        Foreach($i in ($ResolvedIssues.Split(",").Trim())) {
-            $PrBodyContentReply += "Resolves #$i`n"
+    $_menu = @{
+        entries       = @("[Y] Yes"; "*[N] No")
+        Prompt        = "Does this pull request resolve any issues?"
+        DefaultString = "N"
+    }
+    
+    switch ( KeypressMenu -Prompt $_menu["Prompt"] -Entries $_menu["Entries"] -DefaultString $_menu["DefaultString"]) {
+        'Y' {
+            Write-Host
+            Write-Host "Enter issue number. For example`: 21983, 43509"
+            $ResolvedIssues = Read-Host -Prompt 'Resolved Issues'
+            Foreach ($i in ($ResolvedIssues.Split(",").Trim())) {
+                $PrBodyContentReply += "Resolves #$i`n"
+            }
         }
-    } else {Write-Host}
+        default { Write-Host }
+    }
 
     $PrBodyContentReply = ($PrBodyContentReply.Trim() -ne '')
     Set-Content -Path PrBodyFile -Value $PrBodyContentReply | Out-Null
     gh pr create --body-file PrBodyFile -f
-    Remove-Item PrBodyFile     
+    Remove-Item PrBodyFile  
 }
 Function Submit-Manifest {
     if (Get-Command 'git.exe' -ErrorAction SilentlyContinue) {
-        Write-Host
-        Write-Host
-        Write-Host -ForegroundColor 'White' "Submit PR?"
-        Write-Host "Do you want to submit your PR now?"
-        Write-Host -ForegroundColor 'Yellow' -NoNewline '[Y] Yes  '
-        Write-Host -ForegroundColor 'White' -NoNewline "[N] No "
-        Write-Host -NoNewline "(default is 'Y'): "
-        do {
-            $keyInfo = [Console]::ReadKey($false)
-        } until ($keyInfo.Key)
-        Write-Host
-        Write-Host
-
-        switch ($keyInfo.Key) {
+        $_menu = @{
+            entries       = @("*[Y] Yes"; "[N] No")
+            Prompt        = "Do you want to submit your PR now?"
+            DefaultString = "Y"
+        }
+        
+        switch ( KeypressMenu -Prompt $_menu["Prompt"] -Entries $_menu["Entries"] -DefaultString $_menu["DefaultString"]) {
             'Y' { $PromptSubmit = '0' }
             'N' { $PromptSubmit = '1' }
             default { $PromptSubmit = '0' }
