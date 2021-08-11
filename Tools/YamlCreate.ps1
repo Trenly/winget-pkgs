@@ -908,7 +908,7 @@ Function Enter-PR-Parameters {
                 else {
                     $_menu = @{
                         entries       = @("[Y] Yes"; "*[N] No")
-                        Prompt        = "Have you validated your manifest locally with 'winget validate --manifest <path>'"
+                        Prompt        = "Have you validated your manifest locally with 'winget validate --manifest <path>'?"
                         HelpText      = "Automatic manifest validation failed. Check your manifest and try again"
                         HelpTextColor = "Red"
                         DefaultString = "N"
@@ -928,7 +928,7 @@ Function Enter-PR-Parameters {
                 else {
                     $_menu = @{
                         entries       = @("[Y] Yes"; "*[N] No")
-                        Prompt        = "Have you tested your manifest locally with 'winget install --manifest <path>'"
+                        Prompt        = "Have you tested your manifest locally with 'winget install --manifest <path>'?"
                         HelpText      = "You did not test your Manifest in Windows Sandbox previously."
                         DefaultString = "N"
                     }
@@ -1026,7 +1026,7 @@ Function Submit-Manifest {
         } else {
             git config --global --add core.safecrlf false
         }
-        
+
         git fetch upstream master --quiet
         git switch -d upstream/master       
         if ($LASTEXITCODE -eq '0') {
@@ -1292,8 +1292,9 @@ Function Read-PreviousWinGet-Manifest-Yaml {
     
     if (!$LastVersion) {
         try {
-            $script:LastVersion = Split-Path (Split-Path (Get-ChildItem -Path "$AppFolder\..\" -Recurse -Depth 1 -File -Exclude ".validation").FullName ) -Leaf | Sort-Object $ToNatural | Select-Object -Last 1
-            $script:ExistingVersions = Split-Path (Split-Path (Get-ChildItem -Path "$AppFolder\..\" -Recurse -Depth 1 -File -Exclude ".validation").FullName ) -Leaf | Sort-Object $ToNatural | Select-Object -Unique
+            $script:LastVersion = Split-Path (Split-Path (Get-ChildItem -Path "$AppFolder\..\" -Recurse -Depth 1 -File -Filter "*.yaml").FullName ) -Leaf | Sort-Object $ToNatural | Select-Object -Last 1
+            $script:ExistingVersions = Split-Path (Split-Path (Get-ChildItem -Path "$AppFolder\..\" -Recurse -Depth 1 -File -Filter "*.yaml").FullName ) -Leaf | Sort-Object $ToNatural | Select-Object -Unique
+            Write-Host Split-Path (Get-ChildItem -Path "$AppFolder\..\" -Recurse -Depth 1 -File -Filter "*.yaml").FullName 
             Write-Host -ForegroundColor 'DarkYellow' -Object "Found Existing Version: $LastVersion"
             $script:OldManifests = Get-ChildItem -Path "$AppFolder\..\$LastVersion"
         }
