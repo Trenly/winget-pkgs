@@ -1020,14 +1020,21 @@ Function Submit-Manifest {
             'NewLocale' { $CommitType = 'Locale' }
         }
 
-        git fetch upstream master -q
-        git switch -d upstream/master
+        $_previousConfig = git config --global --get core.safecrlf
+        if ($_previousConfig) {
+            git config --global --replace core.safecrlf false
+        } else {
+            git config --global --add core.safecrlf false
+        }
+        
+        git fetch upstream master --quiet
+        git switch -d upstream/master       
         if ($LASTEXITCODE -eq '0') {
             git add -A
-            git commit -m "$CommitType`: $PackageIdentifier version $PackageVersion"
+            git commit -m "$CommitType`: $PackageIdentifier version $PackageVersion" --quiet
 
-            git switch -c "$PackageIdentifier-$PackageVersion"
-            git push --set-upstream origin "$PackageIdentifier-$PackageVersion"
+            git switch -c "$PackageIdentifier-$PackageVersion" --quiet
+            git push --set-upstream origin "$PackageIdentifier-$PackageVersion" --quiet
 
             if (Get-Command 'gh.exe' -ErrorAction SilentlyContinue) {
             
@@ -1043,6 +1050,11 @@ Function Submit-Manifest {
                     Enter-PR-Parameters "$PRTemplate"
                 }
             }
+        }
+        if ($_previousConfig) {
+            git config --global --replace core.safecrlf $_previousConfig
+        } else {
+            git config --global --unset core.safecrlf
         }
     }
     else {
