@@ -45,11 +45,11 @@ if (-not(Get-Module -ListAvailable -Name powershell-yaml)) {
 
 try {
     $ProgressPreference = 'SilentlyContinue'
-    $LocaleSchema = @(Invoke-WebRequest 'https://raw.githubusercontent.com/microsoft/winget-cli/master/schemas/JSON/manifests/v1.0.0/manifest.locale.1.0.0.json' -UseBasicParsing| ConvertFrom-Json)
+    $LocaleSchema = @(Invoke-WebRequest 'https://raw.githubusercontent.com/microsoft/winget-cli/master/schemas/JSON/manifests/v1.0.0/manifest.locale.1.0.0.json' -UseBasicParsing | ConvertFrom-Json)
     $LocaleProperties = (ConvertTo-Yaml $LocaleSchema.properties | ConvertFrom-Yaml -Ordered).Keys
-    $VersionSchema = @(Invoke-WebRequest 'https://raw.githubusercontent.com/microsoft/winget-cli/master/schemas/JSON/manifests/v1.0.0/manifest.version.1.0.0.json' -UseBasicParsing| ConvertFrom-Json)
+    $VersionSchema = @(Invoke-WebRequest 'https://raw.githubusercontent.com/microsoft/winget-cli/master/schemas/JSON/manifests/v1.0.0/manifest.version.1.0.0.json' -UseBasicParsing | ConvertFrom-Json)
     $VersionProperties = (ConvertTo-Yaml $VersionSchema.properties | ConvertFrom-Yaml -Ordered).Keys
-    $InstallerSchema = @(Invoke-WebRequest 'https://raw.githubusercontent.com/microsoft/winget-cli/master/schemas/JSON/manifests/v1.0.0/manifest.installer.1.0.0.json' -UseBasicParsing| ConvertFrom-Json)
+    $InstallerSchema = @(Invoke-WebRequest 'https://raw.githubusercontent.com/microsoft/winget-cli/master/schemas/JSON/manifests/v1.0.0/manifest.installer.1.0.0.json' -UseBasicParsing | ConvertFrom-Json)
     $InstallerProperties = (ConvertTo-Yaml $InstallerSchema.properties | ConvertFrom-Yaml -Ordered).Keys
     $InstallerSwitchProperties = (ConvertTo-Yaml $InstallerSchema.definitions.InstallerSwitches.properties | ConvertFrom-Yaml -Ordered).Keys
     $InstallerEntryProperties = (ConvertTo-Yaml $InstallerSchema.definitions.Installer.properties | ConvertFrom-Yaml -Ordered).Keys
@@ -92,12 +92,21 @@ Function KeypressMenu {
         [Parameter(Mandatory = $false)]
         [string] $HelpText,
         [Parameter(Mandatory = $false)]
+        [string] $HelpTextColor,
+        [Parameter(Mandatory = $false)]
         [string] $DefaultString
     )
 
     Write-Host "`n"
     Write-Host -ForegroundColor 'Yellow' $Prompt
-    if ($null -ne $HelpText) { Write-Host -ForegroundColor 'Blue' $HelpText }
+    if ($PSBoundParameters.ContainsKey('HelpText')) {
+        if ($PSBoundParameters.ContainsKey('HelpTextColor')) {
+            Write-Host -ForegroundColor $HelpTextColor $HelpText 
+        }
+        else {
+            Write-Host -ForegroundColor 'Blue' $HelpText
+        }
+    }
     foreach ($entry in $Entries) {
         $_isDefault = $entry.StartsWith('*')
         if ($_isDefault) {
@@ -239,7 +248,7 @@ Function Read-WinGet-InstallerValues {
             $InstallerSha256 = (Get-FileHash -Path $script:dest -Algorithm SHA256).Hash
             $FileInformation = Get-AppLockerFileInformation -Path $script:dest | Select-Object Publisher | Select-String -Pattern "{[A-Z0-9]{8}-([A-Z0-9]{4}-){3}[A-Z0-9]{12}}"
             $MSIProductCode = $FileInformation.Matches
-            if ($script:SaveOption -eq '1' -and -not($script:dest.EndsWith('appx','CurrentCultureIgnoreCase') -or $script:dest.EndsWith('msix','CurrentCultureIgnoreCase') -or $script:dest.EndsWith('appxbundle','CurrentCultureIgnoreCase') -or $script:dest.EndsWith('msixbundle','CurrentCultureIgnoreCase'))) {Remove-Item -Path $script:dest}
+            if ($script:SaveOption -eq '1' -and -not($script:dest.EndsWith('appx', 'CurrentCultureIgnoreCase') -or $script:dest.EndsWith('msix', 'CurrentCultureIgnoreCase') -or $script:dest.EndsWith('appxbundle', 'CurrentCultureIgnoreCase') -or $script:dest.EndsWith('msixbundle', 'CurrentCultureIgnoreCase'))) { Remove-Item -Path $script:dest }
         }
     }
 
@@ -299,7 +308,7 @@ Function Read-WinGet-InstallerValues {
     }
 
     if ($InstallerType -ieq 'msix' -or $InstallerType -ieq 'appx') {
-        if (Get-Command 'winget.exe' -ErrorAction SilentlyContinue) {$SignatureSha256 = winget hash -m $script:dest | Select-String -Pattern "SignatureSha256:" | ConvertFrom-String; if ($SignatureSha256.P2) {$SignatureSha256 = $SignatureSha256.P2.ToUpper()}}
+        if (Get-Command 'winget.exe' -ErrorAction SilentlyContinue) { $SignatureSha256 = winget hash -m $script:dest | Select-String -Pattern "SignatureSha256:" | ConvertFrom-String; if ($SignatureSha256.P2) { $SignatureSha256 = $SignatureSha256.P2.ToUpper() } }
         if ([string]::IsNullOrWhiteSpace($SignatureSha256)) {
             do {
                 Write-Host
@@ -323,20 +332,21 @@ Function Read-WinGet-InstallerValues {
 
             if ($ChoicePfn -eq '0') {
                 Add-AppxPackage -Path $script:dest
-                $InstalledPkg = Get-AppxPackage | Select-Object -Last 1 | Select-Object PackageFamilyName,PackageFullName
+                $InstalledPkg = Get-AppxPackage | Select-Object -Last 1 | Select-Object PackageFamilyName, PackageFullName
                 $PackageFamilyName = $InstalledPkg.PackageFamilyName
                 Remove-AppxPackage $InstalledPkg.PackageFullName
                 if ([string]::IsNullOrWhiteSpace($PackageFamilyName)) {
                     Write-Host -ForegroundColor 'Red' "Error finding PackageFamilyName. Please enter manually."
                     $PackageFamilyName = Read-Host -Prompt 'PackageFamilyName' | TrimString
                 }
-            } else {
+            }
+            else {
                 Write-Host
                 $PackageFamilyName = Read-Host -Prompt 'PackageFamilyName' | TrimString
             }
         } while (-not [string]::IsNullOrWhiteSpace($PackageFamilyName) -and ($PackageFamilyName.Length -gt $InstallerSchema.definitions.PackageFamilyName.maxLength))
         
-        if($script:SaveOption -eq '1') {Remove-Item -Path $script:dest}
+        if ($script:SaveOption -eq '1') { Remove-Item -Path $script:dest }
     }
 
     do {
@@ -387,13 +397,13 @@ Function Read-WinGet-InstallerValues {
     $_Installer = [ordered] @{}
 
     $_InstallerSingletons = [ordered] @{
-        "InstallerLocale" = $InstallerLocale
-        "Architecture"    = $Architecture
-        "InstallerType"   = $InstallerType
-        "Scope"           = $Scope
-        "InstallerUrl"    = $InstallerUrl
-        "InstallerSha256" = $InstallerSha256
-        "SignatureSha256" = $SignatureSha256
+        "InstallerLocale"   = $InstallerLocale
+        "Architecture"      = $Architecture
+        "InstallerType"     = $InstallerType
+        "Scope"             = $Scope
+        "InstallerUrl"      = $InstallerUrl
+        "InstallerSha256"   = $InstallerSha256
+        "SignatureSha256"   = $SignatureSha256
         "PackageFamilyName" = $PackageFamilyName
     }
     foreach ($_Item in $_InstallerSingletons.GetEnumerator()) {
@@ -841,6 +851,7 @@ Function Test-Manifest {
             default { $script:SandboxTest = '0' }
         }
 
+        Write-Host
         if ($script:SandboxTest -eq '0') {
             if (Test-Path -Path "$PSScriptRoot\SandboxTest.ps1") {
                 $SandboxScriptPath = (Resolve-Path "$PSScriptRoot\SandboxTest.ps1").Path
@@ -895,15 +906,15 @@ Function Enter-PR-Parameters {
                     $PrBodyContentReply += $_line.Replace("[ ]", "[X]"), "`n"
                 }
                 else {
-                    Write-Host
-                    Write-Host -ForegroundColor 'Red' "Automatic manifest validation failed. Check your manifest and try again"
                     $_menu = @{
                         entries       = @("[Y] Yes"; "*[N] No")
                         Prompt        = "Have you validated your manifest locally with 'winget validate --manifest <path>'"
+                        HelpText      = "Automatic manifest validation failed. Check your manifest and try again"
+                        HelpTextColor = "Red"
                         DefaultString = "N"
                     }
                     
-                    switch ( KeypressMenu -Prompt $_menu["Prompt"] -Entries $_menu["Entries"] -DefaultString $_menu["DefaultString"]) {
+                    switch ( KeypressMenu -Prompt $_menu["Prompt"] -Entries $_menu["Entries"] -DefaultString $_menu["DefaultString"] -HelpText $_menu["HelpText"] -HelpTextColor $_menu["HelpTextColor"]) {
                         'Y' { $PrBodyContentReply += $_line.Replace("[ ]", "[X]"), "`n" }
                         default { $PrBodyContentReply += $_line, "`n" }
                     }
@@ -915,15 +926,14 @@ Function Enter-PR-Parameters {
                     $PrBodyContentReply += $_line.Replace("[ ]", "[X]"), "`n"
                 }
                 else {
-                    Write-Host
-                    Write-Host -ForegroundColor 'Blue' "You did not test your Manifest in Windows Sandbox previously."
                     $_menu = @{
                         entries       = @("[Y] Yes"; "*[N] No")
                         Prompt        = "Have you tested your manifest locally with 'winget install --manifest <path>'"
+                        HelpText      = "You did not test your Manifest in Windows Sandbox previously."
                         DefaultString = "N"
                     }
                     
-                    switch ( KeypressMenu -Prompt $_menu["Prompt"] -Entries $_menu["Entries"] -DefaultString $_menu["DefaultString"]) {
+                    switch ( KeypressMenu -Prompt $_menu["Prompt"] -Entries $_menu["Entries"] -DefaultString $_menu["DefaultString"] -HelpText $_menu["HelpText"]) {
                         'Y' { $PrBodyContentReply += $_line.Replace("[ ]", "[X]"), "`n" }
                         default { $PrBodyContentReply += $_line, "`n" }
                     }
@@ -997,6 +1007,7 @@ Function Submit-Manifest {
         }
     }
 
+    Write-Host
     if ($PromptSubmit -eq '0') {
         switch ($Option) {
             'New' {
