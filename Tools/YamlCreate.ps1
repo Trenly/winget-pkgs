@@ -914,7 +914,7 @@ Function Enter-PR-Parameters {
     
             '*winget validate*' {
                 if ($?) {
-                    $PrBodyContentReply += $_line.Replace("[ ]", "[X]"), "`n"
+                    $PrBodyContentReply += @($_line.Replace("[ ]", "[X]"))
                     $_showMenu = $false
                 }
                 else {
