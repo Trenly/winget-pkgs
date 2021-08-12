@@ -99,8 +99,8 @@ Function KeypressMenu {
 
     Write-Host "`n"
     Write-Host -ForegroundColor 'Yellow' $Prompt
-    if ($PSBoundParameters.ContainsKey('HelpText') -and ($HelpText -ne "")) {
-        if ($PSBoundParameters.ContainsKey('HelpTextColor') -and ($HelpTextColor -ne "")) {
+    if ($PSBoundParameters.ContainsKey('HelpText') -and (![string]::IsNullOrWhiteSpace($HelpText))) {
+        if ($PSBoundParameters.ContainsKey('HelpTextColor') -and (![string]::IsNullOrWhiteSpace($HelpTextColor))) {
             Write-Host -ForegroundColor $HelpTextColor $HelpText 
         }
         else {
@@ -120,7 +120,7 @@ Function KeypressMenu {
         Write-Host -ForegroundColor $_color $_entry
     }
     Write-Host
-    if ($PSBoundParameters.ContainsKey('DefaultString') -and ($DefaultString -ne "")) {
+    if ($PSBoundParameters.ContainsKey('DefaultString') -and (![string]::IsNullOrWhiteSpace($DefaultString))) {
         Write-Host -NoNewline "Enter Choice (default is '$DefaultString'): "
     }
     else {
@@ -134,6 +134,24 @@ Function KeypressMenu {
     } until ($keyInfo.Key)
 
     return $keyInfo.Key
+}
+
+Function TestUrlValidity {
+    Param
+    (
+        [Parameter(Mandatory = $true, Position = 0)]
+        [string] $URL
+    )
+    try {
+        $HTTP_Request = [System.Net.WebRequest]::Create($URL)
+        $HTTP_Response = $HTTP_Request.GetResponse()
+        $HTTP_Status = [int]$HTTP_Response.StatusCode
+    }
+    catch {}
+    If ($null -eq $HTTP_Response) { } 
+    Else { $HTTP_Response.Close() }
+
+    return $HTTP_Status
 }
 Function Show-OptionMenu {
     Clear-Host
@@ -968,9 +986,37 @@ Function Enter-PR-Parameters {
             $ResolvedIssues = Read-Host -Prompt 'Resolved Issues'
             $PrBodyContentReply += @("")
             Foreach ($i in ($ResolvedIssues.Split(",").Trim())) {
-                if ($i.Contains("#")){
+
+                if ($i.Contains("#")) {
+                    $_UrlParameters = $i.Split("#")
+                    switch ($_UrlParameters.Count) {
+                        2 {
+                            if ([string]::IsNullOrWhiteSpace($_urlParameters[0])) {
+                                $_checkedURL = "https://github.com/microsoft/winget-pkgs/issues/$($_urlParameters[1])" 
+                            }
+                            else {
+                                $_checkedURL = "https://github.com/$($_urlParameters[0])/issues/$($_urlParameters[1])" 
+                            }
+                        }
+                        default {
+                            Write-Host -ForegroundColor "Red" "Invalid Issue: $i"
+                            continue
+                        }
+                    }
+                    $_responseCode = TestUrlValidity $_checkedURL
+                    if ($_responseCode -ne 200) {
+                        Write-Host -ForegroundColor "Red" "Invalid Issue: $i"
+                        continue
+                    }
                     $PrBodyContentReply += @("Resolves $i")
-                } else {
+                }
+                else {
+                    $_checkedURL = "https://github.com/microsoft/winget-pkgs/issues/$i"
+                    $_responseCode = TestUrlValidity $_checkedURL
+                    if ($_responseCode -ne 200) {
+                        Write-Host -ForegroundColor "Red" "Invalid Issue: $i"
+                        continue
+                    }
                     $PrBodyContentReply += @("Resolves #$i")
                 }
             }
