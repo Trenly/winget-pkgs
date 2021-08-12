@@ -930,7 +930,7 @@ Function Enter-PR-Parameters {
     
             '*tested your manifest*' {
                 if ($script:SandboxTest -eq '0') {
-                    $PrBodyContentReply += $_line.Replace("[ ]", "[X]"), "`n"
+                    $PrBodyContentReply += @($_line.Replace("[ ]", "[X]"))
                     $_showMenu = $false
                 }
                 else {
