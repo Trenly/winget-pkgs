@@ -473,6 +473,24 @@ Function PromptInstallerManifestValue {
         return $Variable
     }
 }
+Function GetEscapedString {
+    Param
+    (
+        [Parameter(Mandatory = $true, Position = 0)]
+        $Variable
+    )
+    
+    return $($Variable | ConvertTo-Json | ForEach-Object {
+            [Regex]::Replace($_, 
+                "\\u(?<Value>[a-zA-Z0-9]{4})",
+                {
+                    param($m) ([char]([int]::Parse($m.Groups['Value'].Value,
+                                [System.Globalization.NumberStyles]::HexNumber))).ToString() 
+                } 
+            )
+        }
+    )
+}
 
 Function SortYamlKeys {
     Param
