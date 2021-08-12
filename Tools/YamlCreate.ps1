@@ -99,8 +99,8 @@ Function KeypressMenu {
 
     Write-Host "`n"
     Write-Host -ForegroundColor 'Yellow' $Prompt
-    if ($PSBoundParameters.ContainsKey('HelpText')) {
-        if ($PSBoundParameters.ContainsKey('HelpTextColor')) {
+    if ($PSBoundParameters.ContainsKey('HelpText') -and ($HelpText -ne "")) {
+        if ($PSBoundParameters.ContainsKey('HelpTextColor') -and ($HelpTextColor -ne "")) {
             Write-Host -ForegroundColor $HelpTextColor $HelpText 
         }
         else {
@@ -120,7 +120,7 @@ Function KeypressMenu {
         Write-Host -ForegroundColor $_color $_entry
     }
     Write-Host
-    if ($null -ne $DefaultString) {
+    if ($PSBoundParameters.ContainsKey('DefaultString') -and ($DefaultString -ne "")) {
         Write-Host -NoNewline "Enter Choice (default is '$DefaultString'): "
     }
     else {
@@ -872,99 +872,85 @@ Function Test-Manifest {
 Function Enter-PR-Parameters {
     $PrBodyContent = Get-Content $args[0]
     ForEach ($_line in ($PrBodyContent | Where-Object { $_ -like '-*[ ]*' })) {
+        $_showMenu = $true
         switch -Wildcard ( $_line ) {
             '*CLA*' {
                 $_menu = @{
-                    entries       = @("[Y] Yes"; "*[N] No")
                     Prompt        = "Have you signed the Contributor License Agreement (CLA)?"
+                    Entries       = @("[Y] Yes"; "*[N] No")
                     HelpText      = "Reference Link: https://cla.opensource.microsoft.com/microsoft/winget-pkgs"
+                    HelpTextColor = ""
                     DefaultString = "N"
-                }
-                
-                switch ( KeypressMenu -Prompt $_menu["Prompt"] -Entries $_menu["Entries"] -DefaultString $_menu["DefaultString"] -HelpText $_menu["HelpText"]) {
-                    'Y' { $PrBodyContentReply += @($_line.Replace("[ ]", "[X]")) }
-                    default { $PrBodyContentReply += @($_line) }
                 }
             }
     
             '*open `[pull requests`]*' {
                 $_menu = @{
-                    entries       = @("[Y] Yes"; "*[N] No")
                     Prompt        = "Have you checked that there aren't other open pull requests for the same manifest update/change?"
+                    Entries       = @("[Y] Yes"; "*[N] No")
                     HelpText      = "Reference Link: https://github.com/microsoft/winget-pkgs/pulls"
+                    HelpTextColor = ""
                     DefaultString = "N"
-                }
-                
-                switch ( KeypressMenu -Prompt $_menu["Prompt"] -Entries $_menu["Entries"] -DefaultString $_menu["DefaultString"] -HelpText $_menu["HelpText"]) {
-                    'Y' { $PrBodyContentReply += @($_line.Replace("[ ]", "[X]")) }
-                    default { $PrBodyContentReply += @($_line) }
                 }
             }
     
             '*winget validate*' {
                 if ($?) {
-                    $PrBodyContentReply += @($_line.Replace("[ ]", "[X]"))
+                    $PrBodyContentReply += $_line.Replace("[ ]", "[X]"), "`n"
+                    $_showMenu = $false
                 }
                 else {
                     $_menu = @{
-                        entries       = @("[Y] Yes"; "*[N] No")
                         Prompt        = "Have you validated your manifest locally with 'winget validate --manifest <path>'?"
+                        Entries       = @("[Y] Yes"; "*[N] No")
                         HelpText      = "Automatic manifest validation failed. Check your manifest and try again"
                         HelpTextColor = "Red"
                         DefaultString = "N"
-                    }
-                    
-                    switch ( KeypressMenu -Prompt $_menu["Prompt"] -Entries $_menu["Entries"] -DefaultString $_menu["DefaultString"] -HelpText $_menu["HelpText"] -HelpTextColor $_menu["HelpTextColor"]) {
-                        'Y' { $PrBodyContentReply += @($_line.Replace("[ ]", "[X]")) }
-                        default { $PrBodyContentReply += @($_line) }
                     }
                 }
             }
     
             '*tested your manifest*' {
                 if ($script:SandboxTest -eq '0') {
-                    $PrBodyContentReply += @($_line.Replace("[ ]", "[X]"))
+                    $PrBodyContentReply += $_line.Replace("[ ]", "[X]"), "`n"
+                    $_showMenu = $false
                 }
                 else {
                     $_menu = @{
-                        entries       = @("[Y] Yes"; "*[N] No")
                         Prompt        = "Have you tested your manifest locally with 'winget install --manifest <path>'?"
+                        Entries       = @("[Y] Yes"; "*[N] No")
                         HelpText      = "You did not test your Manifest in Windows Sandbox previously."
+                        HelpTextColor = "Red"
                         DefaultString = "N"
-                    }
-                    
-                    switch ( KeypressMenu -Prompt $_menu["Prompt"] -Entries $_menu["Entries"] -DefaultString $_menu["DefaultString"] -HelpText $_menu["HelpText"]) {
-                        'Y' { $PrBodyContentReply += @($_line.Replace("[ ]", "[X]")) }
-                        default { $PrBodyContentReply += @($_line) }
                     }
                 }
             }
     
             '*schema*' {
                 $_menu = @{
-                    entries       = @("[Y] Yes"; "*[N] No")
                     Prompt        = "Does your manifest conform to the 1.0 schema?"
+                    Entries       = @("[Y] Yes"; "*[N] No")
                     HelpText      = "Reference Link: https://github.com/microsoft/winget-cli/blob/master/doc/ManifestSpecv1.0.md"
+                    HelpTextColor = ""
                     DefaultString = "N"
-                }
-                
-                switch ( KeypressMenu -Prompt $_menu["Prompt"] -Entries $_menu["Entries"] -DefaultString $_menu["DefaultString"] -HelpText $_menu["HelpText"]) {
-                    'Y' { $PrBodyContentReply += @($_line.Replace("[ ]", "[X]")) }
-                    default { $PrBodyContentReply += @($_line) }
                 }
             }
     
             Default {
                 $_menu = @{
-                    entries       = @("[Y] Yes"; "*[N] No")
                     Prompt        = $_line.TrimStart("- [ ]")
+                    Entries       = @("[Y] Yes"; "*[N] No")
+                    HelpText      = ""
+                    HelpTextColor = ""
                     DefaultString = "N"
                 }
+            }
+        }
 
-                switch ( KeypressMenu -Prompt $_menu["Prompt"] -Entries $_menu["Entries"] -DefaultString $_menu["DefaultString"]) {
-                    'Y' { $PrBodyContentReply += @($_line.Replace("[ ]", "[X]")) }
-                    default { $PrBodyContentReply += @($_line) }
-                }
+        if ($_showMenu) {
+            switch ( KeypressMenu -Prompt $_menu["Prompt"] -Entries $_menu["Entries"] -DefaultString $_menu["DefaultString"] -HelpText $_menu["HelpText"] -HelpTextColor $_menu["HelpTextColor"]) {
+                'Y' { $PrBodyContentReply += $_line.Replace("[ ]", "[X]"), "`n" }
+                default { $PrBodyContentReply += $_line, "`n" }
             }
         }
     }
@@ -982,7 +968,11 @@ Function Enter-PR-Parameters {
             $ResolvedIssues = Read-Host -Prompt 'Resolved Issues'
             $PrBodyContentReply += @("")
             Foreach ($i in ($ResolvedIssues.Split(",").Trim())) {
-                $PrBodyContentReply += @("Resolves #$i")
+                if ($i.Contains("#")){
+                    $PrBodyContentReply += @("Resolves $i")
+                } else {
+                    $PrBodyContentReply += @("Resolves #$i")
+                }
             }
         }
         default { Write-Host }
@@ -1023,7 +1013,8 @@ Function Submit-Manifest {
         $_previousConfig = git config --global --get core.safecrlf
         if ($_previousConfig) {
             git config --global --replace core.safecrlf false
-        } else {
+        }
+        else {
             git config --global --add core.safecrlf false
         }
 
@@ -1053,7 +1044,8 @@ Function Submit-Manifest {
         }
         if ($_previousConfig) {
             git config --global --replace core.safecrlf $_previousConfig
-        } else {
+        }
+        else {
             git config --global --unset core.safecrlf
         }
     }
