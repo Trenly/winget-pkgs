@@ -967,8 +967,8 @@ Function Enter-PR-Parameters {
 
         if ($_showMenu) {
             switch ( KeypressMenu -Prompt $_menu["Prompt"] -Entries $_menu["Entries"] -DefaultString $_menu["DefaultString"] -HelpText $_menu["HelpText"] -HelpTextColor $_menu["HelpTextColor"]) {
-                'Y' { $PrBodyContentReply += $_line.Replace("[ ]", "[X]"), "`n" }
-                default { $PrBodyContentReply += $_line, "`n" }
+                'Y' { $PrBodyContentReply += @($_line.Replace("[ ]", "[X]")) }
+                default { $PrBodyContentReply += @($_line) }
             }
         }
     }
