@@ -344,7 +344,7 @@ Function Read-WinGet-InstallerValues {
                 Write-Host
                 $PackageFamilyName = Read-Host -Prompt 'PackageFamilyName' | TrimString
             }
-        } while (-not [string]::IsNullOrWhiteSpace($PackageFamilyName) -and ($PackageFamilyName.Length -gt $InstallerSchema.definitions.PackageFamilyName.maxLength) -or ($PackageFamilyName -notmatch $InstallerSchema.definitions.PackageFamilyName.pattern))
+        } while (-not [string]::IsNullOrWhiteSpace($PackageFamilyName) -and ($PackageFamilyName.Length -gt $InstallerSchema.definitions.PackageFamilyName.maxLength -or $PackageFamilyName -notmatch $InstallerSchema.definitions.PackageFamilyName.pattern))
         
         if ($script:SaveOption -eq '1') { Remove-Item -Path $script:dest }
     }
