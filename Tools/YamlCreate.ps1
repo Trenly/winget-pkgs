@@ -594,22 +594,22 @@ Function Read-WinGet-InstallerManifest {
     do {
         if (!$Protocols) { $Protocols = '' }
         $script:Protocols = PromptInstallerManifestValue $Protocols 'Protocols' "[Optional] Enter any Protocols the application provides a handler for. For example: http, https (Max $($Patterns.MaxItemsProtocols))"
-    } while (($script:Protocols -split ", ").Count -gt $Patterns.MaxItemsProtocols)
+    } while (($script:Protocols -split ",").Count -gt $Patterns.MaxItemsProtocols)
 
     do {
         if (!$Commands) { $Commands = '' }
         $script:Commands = PromptInstallerManifestValue $Commands 'Commands' "[Optional] Enter any Commands or aliases to run the application. For example: msedge (Max $($Patterns.MaxItemsCommands))"
-    } while (($script:Commands -split ", ").Count -gt $Patterns.MaxItemsCommands)
+    } while (($script:Commands -split ",").Count -gt $Patterns.MaxItemsCommands)
 
     do {
         if (!$InstallerSuccessCodes) { $InstallerSuccessCodes = '' }
         $script:InstallerSuccessCodes = PromptInstallerManifestValue $InstallerSuccessCodes 'InstallerSuccessCodes' "[Optional] List of additional non-zero installer success exit codes other than known default values by winget (Max $($Patterns.MaxItemsInstallerSuccessCodes))"
-    } while (($script:InstallerSuccessCodes -split ", ").Count -gt $Patterns.MaxItemsSuccessCodes)
+    } while (($script:InstallerSuccessCodes -split ",").Count -gt $Patterns.MaxItemsSuccessCodes)
 
     do {
         if (!$InstallModes) { $InstallModes = '' }
         $script:InstallModes = PromptInstallerManifestValue $InstallModes 'InstallModes' '[Optional] List of supported installer modes. Options: interactive, silent, silentWithProgress'
-    } while (($script:InstallModes -split ", ").Count -gt $Patterns.MaxItemsInstallModes)
+    } while (($script:InstallModes -split ",").Count -gt $Patterns.MaxItemsInstallModes)
 }
 
 Function Read-WinGet-LocaleManifest {
