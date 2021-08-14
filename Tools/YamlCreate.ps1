@@ -589,7 +589,7 @@ Function Read-WinGet-InstallerManifest {
     do {
         if (!$FileExtensions) { $FileExtensions = '' }
         $script:FileExtensions = PromptInstallerManifestValue $FileExtensions 'FileExtensions' "[Optional] Enter any File Extensions the application could support. For example: html, htm, url (Max $($Patterns.MaxItemsFileExtensions))"
-    } while (($script:FileExtensions -split ", ").Count -gt $Patterns.MaxItemsFileExtensions)
+    } while (($script:FileExtensions -split ",").Count -gt $Patterns.MaxItemsFileExtensions)
 
     do {
         if (!$Protocols) { $Protocols = '' }
@@ -603,7 +603,7 @@ Function Read-WinGet-InstallerManifest {
 
     do {
         if (!$InstallerSuccessCodes) { $InstallerSuccessCodes = '' }
-        $script:InstallerSuccessCodes = PromptInstallerManifestValue $InstallerSuccessCodes 'InstallerSuccessCodes' "[Optional] List of additional non-zero installer success exit codes other than known default values by winget (Max $($Patterns.MaxItemsInstallerSuccessCodes))"
+        $script:InstallerSuccessCodes = PromptInstallerManifestValue $InstallerSuccessCodes 'InstallerSuccessCodes' "[Optional] List of additional non-zero installer success exit codes other than known default values by winget (Max $($Patterns.MaxItemsSuccessCodes))"
     } while (($script:InstallerSuccessCodes -split ",").Count -gt $Patterns.MaxItemsSuccessCodes)
 
     do {
@@ -866,7 +866,7 @@ Function Read-WinGet-LocaleManifest {
             Write-Host
             Write-Host -ForegroundColor 'Yellow' -Object '[Optional] Enter any tags that would be useful to discover this tool. For example: zip, c++ (Max', ($Patterns.TagsMaxItems), 'items)'
             $script:Tags = Read-Host -Prompt 'Tags' | TrimString
-        } while (($script:Tags -split ", ").Count -gt $Patterns.TagsMaxItems)
+        } while (($script:Tags -split ",").Count -gt $Patterns.TagsMaxItems)
     }
     else {
         do {
@@ -878,7 +878,7 @@ Function Read-WinGet-LocaleManifest {
             if (-not [string]::IsNullOrWhiteSpace($NewTags)) {
                 $script:Tags = $NewTags
             }
-        } while (($script:Tags -split ", ").Count -gt $Patterns.TagsMaxItems)
+        } while (($script:Tags -split ",").Count -gt $Patterns.TagsMaxItems)
     }
 
     if ([string]::IsNullOrWhiteSpace($script:ShortDescription)) {
