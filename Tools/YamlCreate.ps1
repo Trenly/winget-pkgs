@@ -106,6 +106,7 @@ $Patterns = @{
     ShortDescriptionMaxLength = $LocaleSchema.properties.ShortDescription.maxLength
     DescriptionMinLength      = $LocaleSchema.properties.Description.minLength
     DescriptionMaxLength      = $LocaleSchema.properties.Description.maxLength
+    ValidInstallModes         = $InstallerSchema.definitions.InstallModes.items.enum
 }
 Function String.IsValid {
     Param
@@ -608,8 +609,8 @@ Function Read-WinGet-InstallerManifest {
 
     do {
         if (!$InstallModes) { $InstallModes = '' }
-        $script:InstallModes = PromptInstallerManifestValue $InstallModes 'InstallModes' '[Optional] List of supported installer modes. Options: interactive, silent, silentWithProgress'
-    } while (($script:InstallModes -split ",").Count -gt $Patterns.MaxItemsInstallModes)
+        $script:InstallModes = PromptInstallerManifestValue $InstallModes 'InstallModes' "[Optional] List of supported installer modes. Options: $($Patterns.ValidInstallModes -join ", ")"
+    } while (($script:InstallModes -split ",").Count -gt $Patterns.MaxItemsInstallModes -or !([string]::IsNullOrEmpty($($script:InstallModes -split "," | TrimString | Where-Object {$_ -notin $Patterns.ValidInstallModes} | Select-Object -First 1))))
 }
 
 Function Read-WinGet-LocaleManifest {
