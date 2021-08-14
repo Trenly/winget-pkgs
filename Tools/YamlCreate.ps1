@@ -148,9 +148,7 @@ Function TestUrlValidity {
         $HTTP_Status = [int]$HTTP_Response.StatusCode
     }
     catch {}
-    If ($null -eq $HTTP_Response) { } 
-    Else { $HTTP_Response.Close() }
-
+    If (-not($null -eq $HTTP_Response)) { $HTTP_Response.Close() }
     return $HTTP_Status
 }
 Function Show-OptionMenu {
