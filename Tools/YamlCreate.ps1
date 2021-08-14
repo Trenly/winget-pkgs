@@ -100,13 +100,15 @@ $Patterns = @{
     AuthorMinLength           = $LocaleSchema.properties.Author.minLength
     AuthorMaxLength           = $LocaleSchema.properties.Author.maxLength
     LicenseMaxLength          = $LocaleSchema.properties.License.maxLength
-    CopyrightMinLength        = $script:LocaleSchema.properties.Copyright.minLength
-    CopyrightMaxLength        = $script:LocaleSchema.properties.Copyright.maxLength
+    CopyrightMinLength        = $LocaleSchema.properties.Copyright.minLength
+    CopyrightMaxLength        = $LocaleSchema.properties.Copyright.maxLength
     TagsMaxItems              = $LocaleSchema.properties.Tags.maxItems
     ShortDescriptionMaxLength = $LocaleSchema.properties.ShortDescription.maxLength
     DescriptionMinLength      = $LocaleSchema.properties.Description.minLength
     DescriptionMaxLength      = $LocaleSchema.properties.Description.maxLength
     ValidInstallModes         = $InstallerSchema.definitions.InstallModes.items.enum
+    FileExtension             = $InstallerSchema.definitions.FileExtensions.items.pattern
+    FileExtensionMaxLength    = $InstallerSchema.definitions.FileExtensions.items.maxLength
 }
 Function String.IsValid {
     Param
@@ -590,7 +592,7 @@ Function Read-WinGet-InstallerManifest {
     do {
         if (!$FileExtensions) { $FileExtensions = '' }
         $script:FileExtensions = PromptInstallerManifestValue $FileExtensions 'FileExtensions' "[Optional] Enter any File Extensions the application could support. For example: html, htm, url (Max $($Patterns.MaxItemsFileExtensions))"
-    } while (($script:FileExtensions -split ",").Count -gt $Patterns.MaxItemsFileExtensions)
+    } while (($script:FileExtensions -split ",").Count -gt $Patterns.MaxItemsFileExtensions -or !([string]::IsNullOrEmpty($($script:FileExtensions -split "," | TrimString | Where-Object { -not (String.IsValid $_ -MaxLength $Patterns.FileExtensionMaxLength -MatchPattern $Patterns.FileExtension) }))))
 
     do {
         if (!$Protocols) { $Protocols = '' }
@@ -610,7 +612,7 @@ Function Read-WinGet-InstallerManifest {
     do {
         if (!$InstallModes) { $InstallModes = '' }
         $script:InstallModes = PromptInstallerManifestValue $InstallModes 'InstallModes' "[Optional] List of supported installer modes. Options: $($Patterns.ValidInstallModes -join ", ")"
-    } while (($script:InstallModes -split ",").Count -gt $Patterns.MaxItemsInstallModes -or !([string]::IsNullOrEmpty($($script:InstallModes -split "," | TrimString | Where-Object {$_ -notin $Patterns.ValidInstallModes} | Select-Object -First 1))))
+    } while (($script:InstallModes -split ",").Count -gt $Patterns.MaxItemsInstallModes -or !([string]::IsNullOrEmpty($($script:InstallModes -split "," | TrimString | Where-Object { $_ -notin $Patterns.ValidInstallModes } | Select-Object -First 1))))
 }
 
 Function Read-WinGet-LocaleManifest {
