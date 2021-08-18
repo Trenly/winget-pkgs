@@ -336,7 +336,7 @@ Function Read-WinGet-InstallerValues {
             }
         }
 
-    } while ($_returnValue.StatusCode -ne 200)
+    } while ($_returnValue.StatusCode -ne [ReturnValue]::Success().StatusCode)
 
     $_menu = @{
         entries       = @("[Y] Yes"; "*[N] No"; "[M] Manually Enter SHA256")
@@ -1543,6 +1543,7 @@ Switch ($Option) {
 }
 
 Enum ErrorLevel {
+    Undefined = -1
     Info = 0
     Warning = 1
     Error = 2
@@ -1565,7 +1566,7 @@ Class ReturnValue {
         $this.StatusCode = $statusCode
         $this.Title = "-"
         $this.Message = "-"
-        $this.Severity = 0
+        $this.Severity = -1
     }
 
     ReturnValue(
@@ -1590,7 +1591,7 @@ Class ReturnValue {
 
     [string] ErrorString() {
         if ($this.StatusCode -eq 200) {
-            return ""
+            return $null
         }
         else {
             return "[$($this.Severity)] $($this.Title) - $($this.Message)`n"
