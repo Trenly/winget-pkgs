@@ -299,11 +299,44 @@ Function Read-WinGet-InstallerValues {
     )
     Foreach ($InstallerValue in $InstallerValues) { Clear-Variable -Name $InstallerValue -Force -ErrorAction SilentlyContinue }
 
-    while (!(String.IsValid $InstallerUrl -MinLength 1 -MaxLength $Patterns.InstallerUrlMaxLength -MatchPattern $Patterns.InstallerUrl)) {
-        Write-Host
+    do {
+        Write-Host -Foregroundcolor 'Red' $_returnValue.ErrorString()
         Write-Host -ForegroundColor 'Green' -Object '[Required] Enter the download url to the installer.'
-        $InstallerUrl = Read-Host -Prompt 'Url' | TrimString
-    }
+        $InstallerUrl = Read-Host -Prompt 'Url' | TrimString  
+        $_returnValue = [ReturnValue]::new()
+
+        if (String.IsValid $InstallerUrl -MinLength 1 -MaxLength $Patterns.InstallerUrlMaxLength -MatchPattern $Patterns.InstallerUrl) {
+            if ((TestUrlValidity $InstallerUrl) -ne 200) {
+                $_returnValue.StatusCode = 502
+                $_returnValue.Title = "Invalid URL Response"
+                $_returnValue.Message = "The URL did not return a successful response from the server"
+                $_returnValue.Severity = "Error"
+            } else {
+                $_returnValue = [ReturnValue]::Success()
+            }
+        }
+        else {
+            if (!(String.IsValid $InstallerUrl -MinLength 1 -MaxLength $Patterns.InstallerUrlMaxLength)) {
+                $_returnValue.StatusCode = 400
+                $_returnValue.Title = "Invalid Length"
+                $_returnValue.Message = "Url Length must be between 1 and $($Patterns.InstallerUrlMaxLength) characters"
+                $_returnValue.Severity = "Error"
+            }
+            elseif (!(String.IsValid $InstallerUrl -MatchPattern $Patterns.InstallerUrl)) {
+                $_returnValue.StatusCode = 400
+                $_returnValue.Title = "Invalid Pattern"
+                $_returnValue.Message = "Url must be of the pattern - $($Patterns.InstallerUrl)"
+                $_returnValue.Severity = "Error"
+            }
+            else {
+                $_returnValue.StatusCode = 500
+                $_returnValue.Title = "Internal Error"
+                $_returnValue.Message = "The URL was not able to be saved successfully"
+                $_returnValue.Severity = "Error"
+            }
+        }
+
+    } while ($_returnValue.StatusCode -ne 200)
 
     $_menu = @{
         entries       = @("[Y] Yes"; "*[N] No"; "[M] Manually Enter SHA256")
@@ -1458,7 +1491,8 @@ Function Read-PreviousWinGet-Manifest-Yaml {
         }
     }
 }
-        
+
+$_returnValue = [ReturnValue]::new(200)
 Show-OptionMenu
 Read-WinGet-MandatoryInfo
 Read-PreviousWinGet-Manifest-Yaml
@@ -1505,5 +1539,61 @@ Switch ($Option) {
         Write-WinGet-LocaleManifest-Yaml
         if (Get-Command "winget.exe" -ErrorAction SilentlyContinue) { winget validate $AppFolder }
         Submit-Manifest
+    }
+}
+
+Enum ErrorLevel {
+    Info = 0
+    Warning = 1
+    Error = 2
+    Critical = 3
+}
+
+Class ReturnValue {
+    [int] $StatusCode
+    [string] $Title
+    [string] $Message
+    [ErrorLevel] $Severity
+
+    ReturnValue() {
+        
+    }
+
+    ReturnValue(
+        [int]$statusCode
+    ) {
+        $this.StatusCode = $statusCode
+        $this.Title = "-"
+        $this.Message = "-"
+        $this.Severity = 0
+    }
+
+    ReturnValue(
+        [int] $statusCode,
+        [string] $title,
+        [string] $message,
+        [ErrorLevel] $severity    
+    ) {
+        $this.StatusCode = $statusCode
+        $this.Title = $title
+        $this.Message = $message
+        $this.Severity = $severity
+    }
+
+    [ReturnValue] static Success() {
+        return [ReturnValue]::new(200, "OK", "The command completed successfully", "Info")
+    }
+
+    [string] ToString() {
+        return "[$($this.Severity)] ($($this.StatusCode)) $($this.Title) - $($this.Message)"
+    }
+
+    [string] ErrorString() {
+        if ($this.StatusCode -eq 200) {
+            return ""
+        }
+        else {
+            return "[$($this.Severity)] $($this.Title) - $($this.Message)`n"
+        }
     }
 }
