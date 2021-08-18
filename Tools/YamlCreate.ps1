@@ -257,18 +257,51 @@ Function Show-OptionMenu {
 }
 
 Function Read-WinGet-MandatoryInfo {
-    while (!(String.IsValid $PackageIdentifier -MinLength 4 -MaxLength $Patterns.IdentifierMaxLength -MatchPattern $Patterns.PackageIdentifier)) {
-        Write-Host "`n"
+    Write-Host
+
+    do {
+        Write-Host -ForegroundColor 'Red' $_returnValue.ErrorString()
         Write-Host -ForegroundColor 'Green' -Object '[Required] Enter the Package Identifier, in the following format <Publisher shortname.Application shortname>. For example: Microsoft.Excel'
         $script:PackageIdentifier = Read-Host -Prompt 'PackageIdentifier' | TrimString
         $PackageIdentifierFolder = $PackageIdentifier.Replace('.', '\')
-    }
+
+        if (String.IsValid $PackageIdentifier -MinLength 4 -MaxLength $Patterns.IdentifierMaxLength -MatchPattern $Patterns.PackageIdentifier) {
+            $_returnValue = [ReturnValue]::Success()
+        }
+        else {
+            if (!(String.IsValid $PackageIdentifier -MinLength 4 -MaxLength $Patterns.IdentifierMaxLength)) {
+                $_returnValue = [ReturnValue]::new(400, "Invalid Length", "Package Identifier length must be between 4 and $($Patterns.IdentifierMaxLength) characters", 2)
+            }
+            elseif (!(String.IsValid $PackageIdentifier -MatchPattern $Patterns.PackageIdentifier)) {
+                $_returnValue = [ReturnValue]::new(400, "Invalid Pattern", "Package Identifier must be of the pattern - $($Patterns.PackageIdentifier)", 2)
+            }
+            else {
+                $_returnValue = [ReturnValue]::new(500, "Internal Error", "The Package Identifier was not able to be saved successfully", 2)
+            }
+        }
+    } until ($_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
     
-    while (!(String.IsValid $PackageVersion -MinLength 1 -MaxLength $Patterns.VersionMaxLength -MatchPattern $Patterns.PackageVersion)) {
-        Write-Host
+    #while (!(String.IsValid $PackageVersion -MinLength 1 -MaxLength $Patterns.VersionMaxLength -MatchPattern $Patterns.PackageVersion)) 
+    do {
+        Write-Host -ForegroundColor 'Red' $_returnValue.ErrorString()
         Write-Host -ForegroundColor 'Green' -Object '[Required] Enter the version. for example: 1.33.7'
         $script:PackageVersion = Read-Host -Prompt 'Version' | TrimString
-    }
+
+        if (String.IsValid $PackageVersion -MinLength 1 -MaxLength $Patterns.VersionMaxLength -MatchPattern $Patterns.PackageVersion) {
+            $_returnValue = [ReturnValue]::Success()
+        }
+        else {
+            if (!(String.IsValid $PackageVersion -MinLength 1 -MaxLength $Patterns.VersionMaxLength)) {
+                $_returnValue = [ReturnValue]::new(400, "Invalid Length", "Package Identifier length must be between 1 and $($Patterns.VersionMaxLength) characters", 2)                
+            }
+            elseif (!(String.IsValid $PackageVersion -MatchPattern $Patterns.PackageVersion)) {
+                $_returnValue = [ReturnValue]::new(400, "Invalid Pattern", "Package Version must be of the pattern - $($Patterns.PackageVersion)", 2)
+            }
+            else {
+                $_returnValue = [ReturnValue]::new(500, "Internal Error", "The Package Version was not able to be saved successfully", 2)
+            }
+        }
+    } until ($_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
     
     if (Test-Path -Path "$PSScriptRoot\..\manifests") {
         $ManifestsFolder = (Resolve-Path "$PSScriptRoot\..\manifests").Path
@@ -303,40 +336,26 @@ Function Read-WinGet-InstallerValues {
         Write-Host -Foregroundcolor 'Red' $_returnValue.ErrorString()
         Write-Host -ForegroundColor 'Green' -Object '[Required] Enter the download url to the installer.'
         $InstallerUrl = Read-Host -Prompt 'Url' | TrimString  
-        $_returnValue = [ReturnValue]::new()
-
         if (String.IsValid $InstallerUrl -MinLength 1 -MaxLength $Patterns.InstallerUrlMaxLength -MatchPattern $Patterns.InstallerUrl) {
             if ((TestUrlValidity $InstallerUrl) -ne 200) {
-                $_returnValue.StatusCode = 502
-                $_returnValue.Title = "Invalid URL Response"
-                $_returnValue.Message = "The URL did not return a successful response from the server"
-                $_returnValue.Severity = "Error"
-            } else {
+                $_returnValue = [ReturnValue]::new(502, "Invalid URL Response", "The URL did not return a successful response from the server", 2)
+            }
+            else {
                 $_returnValue = [ReturnValue]::Success()
             }
         }
         else {
             if (!(String.IsValid $InstallerUrl -MinLength 1 -MaxLength $Patterns.InstallerUrlMaxLength)) {
-                $_returnValue.StatusCode = 400
-                $_returnValue.Title = "Invalid Length"
-                $_returnValue.Message = "Url Length must be between 1 and $($Patterns.InstallerUrlMaxLength) characters"
-                $_returnValue.Severity = "Error"
+                $_returnValue = [ReturnValue]::new(400, "Invalid Length", "Url Length must be between 1 and $($Patterns.InstallerUrlMaxLength) characters", 2)
             }
             elseif (!(String.IsValid $InstallerUrl -MatchPattern $Patterns.InstallerUrl)) {
-                $_returnValue.StatusCode = 400
-                $_returnValue.Title = "Invalid Pattern"
-                $_returnValue.Message = "Url must be of the pattern - $($Patterns.InstallerUrl)"
-                $_returnValue.Severity = "Error"
+                $_returnValue = [ReturnValue]::new(400, "Invalid Pattern", "Url must be of the pattern - $($Patterns.InstallerUrl)", 2)
             }
             else {
-                $_returnValue.StatusCode = 500
-                $_returnValue.Title = "Internal Error"
-                $_returnValue.Message = "The URL was not able to be saved successfully"
-                $_returnValue.Severity = "Error"
+                $_returnValue = [ReturnValue]::new(500, "Internal Error", "The URL was not able to be saved successfully", 2)
             }
         }
-
-    } while ($_returnValue.StatusCode -ne [ReturnValue]::Success().StatusCode)
+    } until ($_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
 
     $_menu = @{
         entries       = @("[Y] Yes"; "*[N] No"; "[M] Manually Enter SHA256")
@@ -377,26 +396,44 @@ Function Read-WinGet-InstallerValues {
     }
 
     else {
-        while ($InstallerSha256 -notmatch $Patterns.InstallerSha256) {
-            Write-Host
-            Write-Host
+        Write-Host
+        do {
+            Write-Host -ForegroundColor 'Red' $_returnValue.ErrorString() 
             Write-Host -ForegroundColor 'Green' -Object '[Required] Enter the installer SHA256 Hash'
             $InstallerSha256 = Read-Host -Prompt 'InstallerSha256' | TrimString
             $InstallerSHA256 = $InstallerSha256.toUpper()
-        }
+            if ($InstallerSha256 -match $Patterns.InstallerSha256) {
+                $_returnValue = [ReturnValue]::Success()
+            }
+            else {
+                $_returnValue = [ReturnValue]::new(400, "Invalid Pattern", "Installer Sha256 must be of the pattern $($Patterns.InstallerSha256)", 2)
+            }
+        } until ($_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
     }
 
-    while ($architecture -notin @($Patterns.ValidArchitectures)) {
-        Write-Host
+    do {
+        Write-Host -ForegroundColor 'Red' $_returnValue.ErrorString() 
         Write-Host -ForegroundColor 'Green' -Object '[Required] Enter the architecture. Options:' , @($Patterns.ValidArchitectures -join ', ')
         $architecture = Read-Host -Prompt 'Architecture' | TrimString
-    }
+        if ($architecture -in @($Patterns.ValidArchitectures)) {
+            $_returnValue = [ReturnValue]::Success()
+        }
+        else {
+            $_returnValue = [ReturnValue]::new(400, "Invalid Architecture", "Architecture must be a value in the enum - $(@($Patterns.ValidArchitectures -join ', '))", 2)
+        }
+    } until ($_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
 
-    while ($InstallerType -notin @($Patterns.ValidInstallerTypes)) {
-        Write-Host
+    do {
+        Write-Host -ForegroundColor 'Red' $_returnValue.ErrorString() 
         Write-Host -ForegroundColor 'Green' -Object '[Required] Enter the InstallerType. Options:' , @($Patterns.ValidInstallerTypes -join ', ' )
         $InstallerType = Read-Host -Prompt 'InstallerType' | TrimString
-    }
+        if ($InstallerType -in @($Patterns.ValidInstallerTypes)) {
+            $_returnValue = [ReturnValue]::Success()
+        }
+        else {
+            $_returnValue = [ReturnValue]::new(400, "Invalid Installer Type", "Installer Type must be a value in the enum - $(@($Patterns.ValidInstallerTypes -join ', '))", 2)
+        }
+    } until ($_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
 
     if ($InstallerType -ieq 'exe') {
         do {
