@@ -112,8 +112,6 @@ $Patterns = @{
     ValidInstallModes         = $InstallerSchema.definitions.InstallModes.items.enum
     FileExtension             = $InstallerSchema.definitions.FileExtensions.items.pattern
     FileExtensionMaxLength    = $InstallerSchema.definitions.FileExtensions.items.maxLength
-    PatternErrorString        = 'The value entered does not match the pattern requirements defined in the manifest schema'
-    GenericErrorString        = 'Value was not able to be saved successfully'
 }
 
 Function String.Validate {
@@ -193,7 +191,8 @@ Function KeypressMenu {
         [string] $DefaultString
     )
 
-    Write-Host -ForegroundColor 'Yellow' "`n$Prompt"
+    Write-Host "`n"
+    Write-Host -ForegroundColor 'Yellow' "$Prompt"
     if ($PSBoundParameters.ContainsKey('HelpText') -and (![string]::IsNullOrWhiteSpace($HelpText))) {
         if ($PSBoundParameters.ContainsKey('HelpTextColor') -and (![string]::IsNullOrWhiteSpace($HelpTextColor))) {
             Write-Host -ForegroundColor $HelpTextColor $HelpText 
