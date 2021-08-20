@@ -796,23 +796,24 @@ Function Read-WinGet-InstallerManifest {
 }
 
 Function Read-WinGet-LocaleManifest {
-    do {
-        Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString() 
-        Write-Host -ForegroundColor 'Green' -Object '[Required] Enter the Package Locale. For example: en-US, en-CA https://docs.microsoft.com/openspecs/office_standards/ms-oe376/6c085406-a698-4e12-9d4d-c3b0ee3dbc4a'
-        $script:PackageLocale = Read-Host -Prompt 'PackageLocale' | TrimString
-        if (String.Validate $script:PackageLocale -MaxLength $Patterns.PackageLocaleMaxLength -MatchPattern $Patterns.PackageLocale -NotNull) {
-            $script:_returnValue = [ReturnValue]::Success()
-        } else {
-            if (String.Validate $script:PackageLocale -MaxLength $Patterns.PackageLocaleMaxLength -NotNull) {
-                $script:_returnValue = [ReturnValue]::LengthError(1, $Patterns.PackageLocaleMaxLength)
-            } elseif (String.Validate $script:PackageLocale -MatchPattern $Patterns.PackageLocale ) {
-                $script:_returnValue = [ReturnValue]::PatternError()
+    if (String.Validate -not $script:PackageLocale -MaxLength $Patterns.PackageLocaleMaxLength -NotNull) {
+        do {
+            Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString() 
+            Write-Host -ForegroundColor 'Green' -Object '[Required] Enter the Package Locale. For example: en-US, en-CA https://docs.microsoft.com/openspecs/office_standards/ms-oe376/6c085406-a698-4e12-9d4d-c3b0ee3dbc4a'
+            $script:PackageLocale = Read-Host -Prompt 'PackageLocale' | TrimString
+            if (String.Validate $script:PackageLocale -MaxLength $Patterns.PackageLocaleMaxLength -MatchPattern $Patterns.PackageLocale -NotNull) {
+                $script:_returnValue = [ReturnValue]::Success()
             } else {
-                $script:_returnValue = [ReturnValue]::GenericError()
+                if (String.Validate $script:PackageLocale -MaxLength $Patterns.PackageLocaleMaxLength -NotNull) {
+                    $script:_returnValue = [ReturnValue]::LengthError(1, $Patterns.PackageLocaleMaxLength)
+                } elseif (String.Validate $script:PackageLocale -MatchPattern $Patterns.PackageLocale ) {
+                    $script:_returnValue = [ReturnValue]::PatternError()
+                } else {
+                    $script:_returnValue = [ReturnValue]::GenericError()
+                }
             }
-        }
-    }  until ($script:_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
-    
+        }  until ($script:_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
+    }
     do {
         Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString() 
         if (String.Validate $script:Publisher -IsNull) {
@@ -836,7 +837,7 @@ Function Read-WinGet-LocaleManifest {
 
     do {
         Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString()
-        if (String.Validate $script:Publisher -IsNull) {
+        if (String.Validate $script:PackageName -IsNull) {
             Write-Host -ForegroundColor 'Green' -Object '[Required] Enter the full application name. For example: Microsoft Teams'
         } else {
             Write-Host -ForegroundColor 'Yellow' -Object '[Optional] Enter the full application name. For example: Microsoft Teams'
