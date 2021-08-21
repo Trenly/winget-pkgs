@@ -529,7 +529,7 @@ Function Read-WinGet-InstallerValues {
 
         $_menu = @{
             entries       = @('*[F] Find Automatically [Note: This will install the package to find Family Name and then removes it.]'; '[M] Manually Enter PackageFamilyName')
-            Prompt        = '[Recommended] Enter the installer PackageFamilyName'
+            Prompt        = 'Discover the package family name?'
             DefaultString = 'M'
         }
     
@@ -547,7 +547,9 @@ Function Read-WinGet-InstallerValues {
             if (String.Validate $PackageFamilyName -IsNull) {
                 $script:_returnValue = [ReturnValue]::new(500, 'Could not find PackageFamilyName', 'Value should be entered manually', 1)
             }
-        }        
+        } else {
+            Write-Host $null
+        }
         
         do {
             if (($ChoicePfn -ne '0') -or ($script:_returnValue.StatusCode -ne [ReturnValue]::Success().StatusCode)) {
@@ -620,7 +622,7 @@ Function Read-WinGet-InstallerValues {
     }
 
     $_menu = @{
-        entries       = @('*[I] install'; '[U] uninstallPrevious')
+        entries       = @('*[I] Install'; '[U] Uninstall Previous')
         Prompt        = '[Optional] Enter the Upgrade Behavior'
         DefaultString = 'I'
     }
@@ -805,9 +807,9 @@ Function Read-WinGet-LocaleManifest {
             if (String.Validate $script:PackageLocale -MaxLength $Patterns.PackageLocaleMaxLength -MatchPattern $Patterns.PackageLocale -NotNull) {
                 $script:_returnValue = [ReturnValue]::Success()
             } else {
-                if (String.Validate $script:PackageLocale -MaxLength $Patterns.PackageLocaleMaxLength -NotNull) {
+                if (String.Validate $script:PackageLocale -not -MaxLength $Patterns.PackageLocaleMaxLength -NotNull) {
                     $script:_returnValue = [ReturnValue]::LengthError(1, $Patterns.PackageLocaleMaxLength)
-                } elseif (String.Validate $script:PackageLocale -MatchPattern $Patterns.PackageLocale ) {
+                } elseif (String.Validate $script:PackageLocale -not -MatchPattern $Patterns.PackageLocale ) {
                     $script:_returnValue = [ReturnValue]::PatternError()
                 } else {
                     $script:_returnValue = [ReturnValue]::GenericError()
@@ -1043,8 +1045,8 @@ Function Read-WinGet-LocaleManifest {
         $script:Tags = [string]$script:Tags
         Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString()
         Write-Host -ForegroundColor 'Yellow' -Object '[Optional] Enter any tags that would be useful to discover this tool.'
-        Write-Host -ForegroundColor 'Blue' -Object 'For example: zip, c++ (Max', ($Patterns.TagsMaxItems), 'items)'
-        if (String.Validate -not $script:Tags -IsNull) { "Old Variable: $script:Tags" }
+        Write-Host -ForegroundColor 'Blue' -Object 'Example: zip, c++, photos, OBS (Max', ($Patterns.TagsMaxItems), 'items)'
+        if (String.Validate -not $script:Tags -IsNull) { Write-Host -ForegroundColor 'DarkGray' "Old Variable: $script:Tags" }
         $NewTags = Read-Host -Prompt 'Tags' | TrimString
         if (String.Validate -not $NewTags -IsNull) { $script:Tags = $NewTags }
 
