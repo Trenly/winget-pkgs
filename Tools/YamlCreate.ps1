@@ -796,10 +796,11 @@ Function Read-WinGet-InstallerManifest {
 }
 
 Function Read-WinGet-LocaleManifest {
-    if (String.Validate -not $script:PackageLocale -MaxLength $Patterns.PackageLocaleMaxLength -NotNull) {
+    if (String.Validate -not $script:PackageLocale -MaxLength $Patterns.PackageLocaleMaxLength -MatchPattern $Patterns.PackageLocale -NotNull) {
         do {
             Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString() 
-            Write-Host -ForegroundColor 'Green' -Object '[Required] Enter the Package Locale. For example: en-US, en-CA https://docs.microsoft.com/openspecs/office_standards/ms-oe376/6c085406-a698-4e12-9d4d-c3b0ee3dbc4a'
+            Write-Host -ForegroundColor 'Green' -Object '[Required] Enter the Package Locale. For example: en-US, en-CA'
+            Write-Host -ForegroundColor 'Blue' 'Reference Link: https://docs.microsoft.com/openspecs/office_standards/ms-oe376/6c085406-a698-4e12-9d4d-c3b0ee3dbc4a'
             $script:PackageLocale = Read-Host -Prompt 'PackageLocale' | TrimString
             if (String.Validate $script:PackageLocale -MaxLength $Patterns.PackageLocaleMaxLength -MatchPattern $Patterns.PackageLocale -NotNull) {
                 $script:_returnValue = [ReturnValue]::Success()
@@ -814,6 +815,7 @@ Function Read-WinGet-LocaleManifest {
             }
         }  until ($script:_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
     }
+
     do {
         Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString() 
         if (String.Validate $script:Publisher -IsNull) {
@@ -869,233 +871,222 @@ Function Read-WinGet-LocaleManifest {
         } until ($script:_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
     }
 
-    if ([string]::IsNullOrWhiteSpace($script:PublisherUrl)) {
-        do {
-            Write-Host
-            Write-Host -ForegroundColor 'Yellow' -Object '[Optional] Enter the Publisher Url.'
-            $script:PublisherUrl = Read-Host -Prompt 'Publisher Url' | TrimString
-        } while (-not [string]::IsNullOrWhiteSpace($script:PublisherUrl) -and (!(String.Validate $script:PublisherUrl -MatchPattern $Patterns.GenericUrl -MaxLength $Patterns.GenericUrlMaxLength)))
-    } else {
-        do {
-            Write-Host
-            Write-Host -ForegroundColor 'Yellow' -Object '[Optional] Enter the Publisher Url.'
-            Write-Host -ForegroundColor 'DarkGray' "Old Variable: $script:PublisherUrl"
-            $NewPublisherUrl = Read-Host -Prompt 'Publisher Url' | TrimString
-    
-            if (-not [string]::IsNullOrWhiteSpace($NewNewPublisherUrl)) {
-                $script:PublisherUrl = $NewPublisherUrl
-            }
-        } while (-not [string]::IsNullOrWhiteSpace($script:PublisherUrl) -and (!(String.Validate $script:PublisherUrl -MatchPattern $Patterns.GenericUrl -MaxLength $Patterns.GenericUrlMaxLength )))
-    }
+    do {
+        Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString()
+        Write-Host -ForegroundColor 'Yellow' -Object '[Optional] Enter the Publisher Url.'
+        if (String.Validate -not $script:PublisherUrl -IsNull) { Write-Host -ForegroundColor 'DarkGray' "Old Variable: $script:PublisherUrl" }
+        $NewPublisherUrl = Read-Host -Prompt 'Publisher Url' | TrimString
+        if (String.Validate -not $NewPublisherUrl -IsNull) { $script:PublisherUrl = $NewPublisherUrl }
 
-    if ([string]::IsNullOrWhiteSpace($script:PublisherSupportUrl)) {
-        do {
-            Write-Host
-            Write-Host -ForegroundColor 'Yellow' -Object '[Optional] Enter the Publisher Support Url.'
-            $script:PublisherSupportUrl = Read-Host -Prompt 'Publisher Support Url' | TrimString
-        } while (-not [string]::IsNullOrWhiteSpace($script:PublisherSupportUrl) -and (!(String.Validate $script:PublisherSupportUrl -MatchPattern $Patterns.GenericUrl -MaxLength $Patterns.GenericUrlMaxLength)))
-    } else {
-        do {
-            Write-Host
-            Write-Host -ForegroundColor 'Yellow' -Object '[Optional] Enter the Publisher Support Url.'
-            Write-Host -ForegroundColor 'DarkGray' "Old Variable: $script:PublisherSupportUrl"
-            $NewPublisherSupportUrl = Read-Host -Prompt 'Publisher Support Url' | TrimString
-    
-            if (-not [string]::IsNullOrWhiteSpace($NewPublisherSupportUrl)) {
-                $script:PublisherSupportUrl = $NewPublisherSupportUrl
+        if (String.Validate $script:PublisherUrl -MaxLength $Patterns.GenericUrlMaxLength -MatchPattern $Patterns.GenericUrl -AllowNull) {
+            $script:_returnValue = [ReturnValue]::Success()
+        } else {
+            if (String.Validate -not $script:PublisherUrl -MaxLength $Patterns.GenericUrlMaxLength -AllowNull) {
+                $script:_returnValue = [ReturnValue]::LengthError(1, $Patterns.GenericUrlMaxLength)
+            } elseif (String.Validate -not $script:PublisherUrl -MatchPattern $Patterns.GenericUrl) {
+                $script:_returnValue = [ReturnValue]::PatternError()
+            } else {
+                $script:_returnValue = [ReturnValue]::GenericError()
             }
-        } while (-not [string]::IsNullOrWhiteSpace($script:PublisherSupportUrl) -and (!(String.Validate $script:PublisherSupportUrl -MatchPattern $Patterns.GenericUrl -MaxLength $Patterns.GenericUrlMaxLength)))
-    }
-
-    if ([string]::IsNullOrWhiteSpace($script:PrivacyUrl)) {
-        do {
-            Write-Host
-            Write-Host -ForegroundColor 'Yellow' -Object '[Optional] Enter the Publisher Privacy Url.'
-            $script:PrivacyUrl = Read-Host -Prompt 'Privacy Url' | TrimString
-        } while (-not [string]::IsNullOrWhiteSpace($script:PrivacyUrl) -and (!(String.Validate $script:PrivacyUrl -MatchPattern $Patterns.GenericUrl -MaxLength $Patterns.GenericUrlMaxLength)))
-    } else {
-        do {
-            Write-Host
-            Write-Host -ForegroundColor 'Yellow' -Object '[Optional] Enter the Publisher Privacy Url.'
-            Write-Host -ForegroundColor 'DarkGray' "Old Variable: $script:PrivacyUrl"
-            $NewPrivacyUrl = Read-Host -Prompt 'Privacy Url' | TrimString
-    
-            if (-not [string]::IsNullOrWhiteSpace($NewPrivacyUrl)) {
-                $script:PrivacyUrl = $NewPrivacyUrl
-            }
-        } while (-not [string]::IsNullOrWhiteSpace($script:PrivacyUrl) -and (!(String.Validate $script:PrivacyUrl -MatchPattern $Patterns.GenericUrl -MaxLength $Patterns.GenericUrlMaxLength)))
-    }
-
-    if ([string]::IsNullOrWhiteSpace($script:Author)) {
-        do {
-            Write-Host
-            Write-Host -ForegroundColor 'Yellow' -Object '[Optional] Enter the application Author.'
-            $script:Author = Read-Host -Prompt 'Author' | TrimString
-        } while (-not [string]::IsNullOrWhiteSpace($script:Author) -and (!(String.Validate $script:Author -MinLength $Patterns.AuthorMinLength -MaxLength $Patterns.AuthorMaxLength)))
-    } else {
-        do {
-            Write-Host
-            Write-Host -ForegroundColor 'Yellow' -Object '[Optional] Enter the application Author.'
-            Write-Host -ForegroundColor 'DarkGray' "Old Variable: $script:Author"
-            $NewAuthor = Read-Host -Prompt 'Author' | TrimString
-    
-            if (-not [string]::IsNullOrWhiteSpace($NewAuthor)) {
-                $script:Author = $NewAuthor
-            }
-        } while (-not [string]::IsNullOrWhiteSpace($script:Author) -and (!(String.Validate $script:Author -MinLength $Patterns.AuthorMinLength -MaxLength $Patterns.AuthorMaxLength)))
-    }
-
-    if ([string]::IsNullOrWhiteSpace($script:PackageUrl)) {
-        do {
-            Write-Host
-            Write-Host -ForegroundColor 'Yellow' -Object '[Optional] Enter the Url to the homepage of the application.'
-            $script:PackageUrl = Read-Host -Prompt 'Homepage' | TrimString
-        } while (-not [string]::IsNullOrWhiteSpace($script:PackageUrl) -and (!(String.Validate $script:PackageUrl -MatchPattern $Patterns.GenericUrl -MaxLength $Patterns.GenericUrlMaxLength)))
-    } else {
-        do {
-            Write-Host
-            Write-Host -ForegroundColor 'Yellow' -Object '[Optional] Enter the Url to the homepage of the application.'
-            Write-Host -ForegroundColor 'DarkGray' "Old Variable: $script:PackageUrl"
-            $NewPackageUrl = Read-Host -Prompt 'Homepage' | TrimString
-    
-            if (-not [string]::IsNullOrWhiteSpace($NewPackageUrl)) {
-                $script:PackageUrl = $NewPackageUrl
-            }
-        } while (-not [string]::IsNullOrWhiteSpace($script:PackageUrl) -and (!(String.Validate $script:PackageUrl -MatchPattern $Patterns.GenericUrl -MaxLength $Patterns.GenericUrlMaxLength)))
-    }
-
-    if ([string]::IsNullOrWhiteSpace($script:License)) {
-        while (!(String.Validate $script:License -MinLength 1 -MaxLength $Patterns.LicenseMaxLength)) {
-            Write-Host
-            Write-Host -ForegroundColor 'Green' -Object '[Required] Enter the application License. For example: MIT, GPL, Freeware, Proprietary'
-            $script:License = Read-Host -Prompt 'License' | TrimString
         }
-    } else {
-        do {
-            Write-Host
+    } until ($script:_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
+
+    do {
+        Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString()
+        Write-Host -ForegroundColor 'Yellow' -Object '[Optional] Enter the Publisher Support Url.'
+        if (String.Validate -not $script:PublisherSupportUrl -IsNull) { Write-Host -ForegroundColor 'DarkGray' "Old Variable: $script:PublisherSupportUrl" }
+        $NewPublisherSupportUrl = Read-Host -Prompt 'Publisher Support Url' | TrimString
+        if (String.Validate -not $NewPublisherSupportUrl -IsNull) { $script:PublisherSupportUrl = $NewPublisherSupportUrl }
+
+        if (String.Validate $script:PublisherSupportUrl -MaxLength $Patterns.GenericUrlMaxLength -MatchPattern $Patterns.GenericUrl -AllowNull) {
+            $script:_returnValue = [ReturnValue]::Success()
+        } else {
+            if (String.Validate -not $script:PublisherSupportUrl -MaxLength $Patterns.GenericUrlMaxLength -AllowNull) {
+                $script:_returnValue = [ReturnValue]::LengthError(1, $Patterns.GenericUrlMaxLength)
+            } elseif (String.Validate -not $script:PublisherSupportUrl -MatchPattern $Patterns.GenericUrl) {
+                $script:_returnValue = [ReturnValue]::PatternError()
+            } else {
+                $script:_returnValue = [ReturnValue]::GenericError()
+            }
+        }
+    } until ($script:_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
+
+    do {
+        Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString()
+        Write-Host -ForegroundColor 'Yellow' -Object '[Optional] Enter the Publisher Privacy Url.'
+        if (String.Validate -not $script:PrivacyUrl -IsNull) { Write-Host -ForegroundColor 'DarkGray' "Old Variable: $script:PrivacyUrl" }
+        $NewPrivacyUrl = Read-Host -Prompt 'Publisher Privacy Url' | TrimString
+        if (String.Validate -not $NewPrivacyUrl -IsNull) { $script:PrivacyUrl = $NewPrivacyUrl }
+
+        if (String.Validate $script:PrivacyUrl -MaxLength $Patterns.GenericUrlMaxLength -MatchPattern $Patterns.GenericUrl -AllowNull) {
+            $script:_returnValue = [ReturnValue]::Success()
+        } else {
+            if (String.Validate -not $script:PrivacyUrl -MaxLength $Patterns.GenericUrlMaxLength -AllowNull) {
+                $script:_returnValue = [ReturnValue]::LengthError(1, $Patterns.GenericUrlMaxLength)
+            } elseif (String.Validate -not $script:PrivacyUrl -MatchPattern $Patterns.GenericUrl) {
+                $script:_returnValue = [ReturnValue]::PatternError()
+            } else {
+                $script:_returnValue = [ReturnValue]::GenericError()
+            }
+        }
+    } until ($script:_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
+
+    do {
+        Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString()
+        Write-Host -ForegroundColor 'Yellow' -Object '[Optional] Enter the application Author.'
+        if (String.Validate -not $script:Author -IsNull) { Write-Host -ForegroundColor 'DarkGray' "Old Variable: $script:Author" }
+        $NewAuthor = Read-Host -Prompt 'Author' | TrimString
+        if (String.Validate -not $NewAuthor -IsNull) { $script:Author = $NewAuthor }
+
+        if (String.Validate $script:Author -MinLength $Patterns.AuthorMinLength -MaxLength $Patterns.AuthorMaxLength -AllowNull) {
+            $script:_returnValue = [ReturnValue]::Success()
+        } else {
+            $script:_returnValue = [ReturnValue]::LengthError($Patterns.AuthorMinLength, $Patterns.AuthorMaxLength)
+        }
+    } until ($script:_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
+
+    do {
+        Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString()
+        Write-Host -ForegroundColor 'Yellow' -Object '[Optional] Enter the Url to the homepage of the application.'
+        if (String.Validate -not $script:PackageUrl -IsNull) { Write-Host -ForegroundColor 'DarkGray' "Old Variable: $script:PackageUrl" }
+        $NewPackageUrl = Read-Host -Prompt 'Homepage' | TrimString
+        if (String.Validate -not $NewPackageUrl -IsNull) { $script:PackageUrl = $NewPackageUrl }
+
+        if (String.Validate $script:PackageUrl -MaxLength $Patterns.GenericUrlMaxLength -MatchPattern $Patterns.GenericUrl -AllowNull) {
+            $script:_returnValue = [ReturnValue]::Success()
+        } else {
+            if (String.Validate -not $script:PackageUrl -MaxLength $Patterns.GenericUrlMaxLength -AllowNull) {
+                $script:_returnValue = [ReturnValue]::LengthError(1, $Patterns.GenericUrlMaxLength)
+            } elseif (String.Validate -not $script:PackageUrl -MatchPattern $Patterns.GenericUrl) {
+                $script:_returnValue = [ReturnValue]::PatternError()
+            } else {
+                $script:_returnValue = [ReturnValue]::GenericError()
+            }
+        }
+    } until ($script:_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
+
+    do {
+        Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString()
+        
+        if (String.Validate $script:Author -IsNull) {
+            Write-Host -ForegroundColor 'Green' -Object '[Required] Enter the application License. For example: MIT, GPL, Freeware, Proprietary'
+        } else { 
             Write-Host -ForegroundColor 'Yellow' -Object '[Optional] Enter the application License. For example: MIT, GPL, Freeware, Proprietary'
             Write-Host -ForegroundColor 'DarkGray' "Old Variable: $script:License"
-            $NewLicense = Read-Host -Prompt 'License' | TrimString
-    
-            if (-not [string]::IsNullOrWhiteSpace($NewLicense)) {
-                $script:License = $NewLicense
-            }
-        } while (!(String.Validate $script:License -MinLength $Patterns.LicenseMinLength -MaxLength $Patterns.LicenseMaxLength))
-    }
-
-    if ([string]::IsNullOrWhiteSpace($script:LicenseUrl)) {
-        do {
-            Write-Host
-            Write-Host -ForegroundColor 'Yellow' -Object '[Optional] Enter the application License URL.'
-            $script:LicenseUrl = Read-Host -Prompt 'License URL' | TrimString
-        } while (-not [string]::IsNullOrWhiteSpace($script:LicenseUrl) -and (!(String.Validate $script:LicenseUrl -MatchPattern $Patterns.GenericUrl -MaxLength $Patterns.GenericUrlMaxLength)))
-    } else {
-        do {
-            Write-Host
-            Write-Host -ForegroundColor 'Yellow' -Object '[Optional] Enter the application License URL.'
-            Write-Host -ForegroundColor 'DarkGray' "Old Variable: $script:LicenseUrl"
-            $NewLicenseUrl = Read-Host -Prompt 'License URL' | TrimString
-    
-            if (-not [string]::IsNullOrWhiteSpace($NewLicenseUrl)) {
-                $script:LicenseUrl = $NewLicenseUrl
-            }
-        } while (-not [string]::IsNullOrWhiteSpace($script:LicenseUrl) -and (!(String.Validate $script:LicenseUrl -MatchPattern $Patterns.GenericUrl -MaxLength $Patterns.GenericUrlMaxLength)))
-    }
-
-    if ([string]::IsNullOrWhiteSpace($script:Copyright)) {
-        do {
-            Write-Host
-            Write-Host -ForegroundColor 'Yellow' -Object '[Optional] Enter the application Copyright. For example: Copyright (c) Microsoft Corporation'
-            $script:Copyright = Read-Host -Prompt 'Copyright' | TrimString
-        } while (-not [string]::IsNullOrWhiteSpace($script:Copyright) -and (!(String.Validate $script:Copyright -MinLength $Patterns.CopyrightMinLength -MaxLength $Patterns.CopyrightMaxLength)))
-    } else {
-        do {
-            Write-Host
-            Write-Host -ForegroundColor 'Yellow' -Object '[Optional] Enter the application Copyright. For example: Copyright (c) Microsoft Corporation'
-            Write-Host -ForegroundColor 'DarkGray' "Old Variable: $Copyright"
-            $NewCopyright = Read-Host -Prompt 'Copyright' | TrimString
-    
-            if (-not [string]::IsNullOrWhiteSpace($NewCopyright)) {
-                $script:Copyright = $NewCopyright
-            }
-        } while (-not [string]::IsNullOrWhiteSpace($script:Copyright) -and (!(String.Validate $script:Copyright -MinLength $Patterns.CopyrightMinLength -MaxLength $Patterns.CopyrightMaxLength)))
-    }
-
-    if ([string]::IsNullOrWhiteSpace($script:CopyrightUrl)) {
-        do {
-            Write-Host
-            Write-Host -ForegroundColor 'Yellow' -Object '[Optional] Enter the application Copyright Url.'
-            $script:CopyrightUrl = Read-Host -Prompt 'CopyrightUrl' | TrimString
-        } while (-not [string]::IsNullOrWhiteSpace($script:CopyrightUrl) -and (!(String.Validate $script:CopyrightUrl -MatchPattern $Patterns.GenericUrl -MaxLength $Patterns.GenericUrlMaxLength)))
-    } else {
-        do {
-            Write-Host
-            Write-Host -ForegroundColor 'Yellow' -Object '[Optional] Enter the application Copyright Url.'
-            Write-Host -ForegroundColor 'DarkGray' "Old Variable: $script:CopyrightUrl"
-            $NewCopyrightUrl = Read-Host -Prompt 'CopyrightUrl' | TrimString
-    
-            if (-not [string]::IsNullOrWhiteSpace($NewCopyrightUrl)) {
-                $script:CopyrightUrl = $NewCopyrightUrl
-            }
-        } while (-not [string]::IsNullOrWhiteSpace($script:CopyrightUrl) -and (!(String.Validate $script:CopyrightUrl -MatchPattern $Patterns.GenericUrl -MaxLength $Patterns.GenericUrlMaxLength)))
-    }
-
-    if ([string]::IsNullOrWhiteSpace($script:Tags)) {
-        do {
-            Write-Host
-            Write-Host -ForegroundColor 'Yellow' -Object '[Optional] Enter any tags that would be useful to discover this tool. For example: zip, c++ (Max', ($Patterns.TagsMaxItems), 'items)'
-            $script:Tags = Read-Host -Prompt 'Tags' | TrimString
-        } while (($script:Tags -split ',').Count -gt $Patterns.TagsMaxItems)
-    } else {
-        do {
-            Write-Host
-            Write-Host -ForegroundColor 'Yellow' -Object '[Optional] Enter any tags that would be useful to discover this tool. For example: zip, c++ (Max', ($Patterns.TagsMaxItems), 'items)'
-            Write-Host -ForegroundColor 'DarkGray' "Old Variable: $($script:Tags -join ', ')"
-            $NewTags = Read-Host -Prompt 'Tags' | TrimString
-    
-            if (-not [string]::IsNullOrWhiteSpace($NewTags)) {
-                $script:Tags = $NewTags
-            }
-        } while (($script:Tags -split ',').Count -gt $Patterns.TagsMaxItems)
-    }
-
-    if ([string]::IsNullOrWhiteSpace($script:ShortDescription)) {
-        while (!(String.Validate $script:ShortDescription -MinLength 1 -MaxLength $Patterns.ShortDescriptionMaxLength)) {
-            Write-Host
-            Write-Host -ForegroundColor 'Green' -Object '[Required] Enter a short description of the application.'
-            $script:ShortDescription = Read-Host -Prompt 'Short Description' | TrimString
         }
-    } else {
-        do {
-            Write-Host
+        $NewLicense = Read-Host -Prompt 'License' | TrimString
+        if (String.Validate -not $NewLicense -IsNull) { $script:License = $NewLicense }
+
+        if (String.Validate $script:License -MinLength $Patterns.LicenseMinLength -MaxLength $Patterns.LicenseMaxLength -NotNull) {
+            $script:_returnValue = [ReturnValue]::Success()
+        } else {
+            $script:_returnValue = [ReturnValue]::LengthError($Patterns.LicenseMinLength, $Patterns.LicenseMaxLength)
+        }
+    } until ($script:_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
+
+    do {
+        Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString()
+        Write-Host -ForegroundColor 'Yellow' -Object '[Optional] Enter the application License URL.'
+        if (String.Validate -not $script:LicenseUrl -IsNull) { Write-Host -ForegroundColor 'DarkGray' "Old Variable: $script:LicenseUrl" }
+        $NewLicenseUrl = Read-Host -Prompt 'License URL' | TrimString
+        if (String.Validate -not $NewLicenseUrl -IsNull) { $script:LicenseUrl = $NewLicenseUrl }
+
+        if (String.Validate $script:LicenseUrl -MaxLength $Patterns.GenericUrlMaxLength -MatchPattern $Patterns.GenericUrl -AllowNull) {
+            $script:_returnValue = [ReturnValue]::Success()
+        } else {
+            if (String.Validate -not $script:LicenseUrl -MaxLength $Patterns.GenericUrlMaxLength -AllowNull) {
+                $script:_returnValue = [ReturnValue]::LengthError(1, $Patterns.GenericUrlMaxLength)
+            } elseif (String.Validate -not $script:LicenseUrl -MatchPattern $Patterns.GenericUrl) {
+                $script:_returnValue = [ReturnValue]::PatternError()
+            } else {
+                $script:_returnValue = [ReturnValue]::GenericError()
+            }
+        }
+    } until ($script:_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
+    
+    do {
+        Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString()
+        Write-Host -ForegroundColor 'Yellow' -Object '[Optional] Enter the application Copyright.'
+        Write-Host -ForegroundColor 'Blue' 'Example: Copyright (c) Microsoft Corporation'
+        if (String.Validate -not $script:Copyright -IsNull) { Write-Host -ForegroundColor 'DarkGray' "Old Variable: $script:Copyright" }
+        $NewCopyright = Read-Host -Prompt 'Copyright' | TrimString
+        if (String.Validate -not $NewCopyright -IsNull) { $script:Copyright = $NewCopyright }
+
+        if (String.Validate $script:Copyright -MinLength $Patterns.CopyrightMinLength -MaxLength $Patterns.CopyrightMaxLength -AllowNull) {
+            $script:_returnValue = [ReturnValue]::Success()
+        } else {
+            $script:_returnValue = [ReturnValue]::LengthError($Patterns.CopyrightMinLength, $Patterns.CopyrightMaxLength)
+        }
+    } until ($script:_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
+
+    do {
+        Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString()
+        Write-Host -ForegroundColor 'Yellow' -Object '[Optional] Enter the application Copyright Url.'
+        if (String.Validate -not $script:CopyrightUrl -IsNull) { Write-Host -ForegroundColor 'DarkGray' "Old Variable: $script:CopyrightUrl" }
+        $NewCopyrightUrl = Read-Host -Prompt 'CopyrightUrl' | TrimString
+        if (String.Validate -not $NewCopyrightUrl -IsNull) { $script:CopyrightUrl = $NewCopyrightUrl }
+
+        if (String.Validate $script:CopyrightUrl -MaxLength $Patterns.GenericUrlMaxLength -MatchPattern $Patterns.GenericUrl -AllowNull) {
+            $script:_returnValue = [ReturnValue]::Success()
+        } else {
+            if (String.Validate -not $script:CopyrightUrl -MaxLength $Patterns.GenericUrlMaxLength -AllowNull) {
+                $script:_returnValue = [ReturnValue]::LengthError(1, $Patterns.GenericUrlMaxLength)
+            } elseif (String.Validate -not $script:CopyrightUrl -MatchPattern $Patterns.GenericUrl) {
+                $script:_returnValue = [ReturnValue]::PatternError()
+            } else {
+                $script:_returnValue = [ReturnValue]::GenericError()
+            }
+        }
+    } until ($script:_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
+
+    do {
+        $script:Tags = [string]$script:Tags
+        Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString()
+        Write-Host -ForegroundColor 'Yellow' -Object '[Optional] Enter any tags that would be useful to discover this tool.'
+        Write-Host -ForegroundColor 'Blue' -Object 'For example: zip, c++ (Max', ($Patterns.TagsMaxItems), 'items)'
+        if (String.Validate -not $script:Tags -IsNull) { "Old Variable: $script:Tags" }
+        $NewTags = Read-Host -Prompt 'Tags' | TrimString
+        if (String.Validate -not $NewTags -IsNull) { $script:Tags = $NewTags }
+
+        if (($script:Tags -split ',').Count -le $Patterns.TagsMaxItems) {
+            $script:_returnValue = [ReturnValue]::Success()
+        } else {
+            $script:_returnValue = [ReturnValue]::MaxItemsError($Patterns.TagsMaxItems)
+        }        
+    } until ($script:_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
+
+
+    do {
+        Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString()
+        if (String.Validate $script:ShortDescription -IsNull) {
+            Write-Host -ForegroundColor 'Green' -Object '[Required] Enter a short description of the application.'
+        } else { 
             Write-Host -ForegroundColor 'Yellow' -Object '[Optional] Enter a short description of the application.'
             Write-Host -ForegroundColor 'DarkGray' "Old Variable: $script:ShortDescription"
-            $NewShortDescription = Read-Host -Prompt 'Short Description' | TrimString
-    
-            if (-not [string]::IsNullOrWhiteSpace($NewShortDescription)) {
-                $script:ShortDescription = $NewShortDescription
-            }
-        } while (!(String.Validate $script:ShortDescription -MinLength 1 -MaxLength $Patterns.ShortDescriptionMaxLength))
-    }
+        }
+        $NewShortDescription = Read-Host -Prompt 'Short Description' | TrimString
+        if (String.Validate -not $NewShortDescription -IsNull) { $script:ShortDescription = $NewShortDescription }
 
-    if ([string]::IsNullOrWhiteSpace($script:Description)) {
-        do {
-            Write-Host
-            Write-Host -ForegroundColor 'Yellow' -Object '[Optional] Enter a long description of the application.'
-            $script:Description = Read-Host -Prompt 'Long Description' | TrimString
-        } while (-not [string]::IsNullOrWhiteSpace($script:Description) -and (!(String.Validate $script:Description -MinLength $Patterns.DescriptionMinLength -MaxLength $Patterns.DescriptionMaxLength)))
-    } else {
-        do {
-            Write-Host
-            Write-Host -ForegroundColor 'Yellow' -Object '[Optional] Enter a long description of the application.'
-            Write-Host -ForegroundColor 'DarkGray' "Old Variable: $script:Description"
-            $NewDescription = Read-Host -Prompt 'Description' | TrimString
-    
-            if (-not [string]::IsNullOrWhiteSpace($NewDescription)) {
-                $script:Description = $NewDescription
-            }
-        } while (-not [string]::IsNullOrWhiteSpace($script:Description) -and (!(String.Validate $script:Description -MinLength $Patterns.DescriptionMinLength -MaxLength $Patterns.DescriptionMaxLength)))
-    }
+        if (String.Validate $script:ShortDescription -MaxLength $Patterns.ShortDescriptionMaxLength -NotNull) {
+            $script:_returnValue = [ReturnValue]::Success()
+        } else {
+            $script:_returnValue = [ReturnValue]::LengthError(1, $Patterns.ShortDescriptionMaxLength)
+        }
+    } until ($script:_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
+
+    do {
+        Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString()
+        Write-Host -ForegroundColor 'Yellow' -Object '[Optional] Enter a long description of the application.'
+        if (String.Validate -not $script:Description -IsNull) { Write-Host -ForegroundColor 'DarkGray' "Old Variable: $script:Description" }
+        $NewDescription = Read-Host -Prompt 'Description' | TrimString
+        if (String.Validate -not $NewDescription -IsNull) { $script:Description = $NewDescription }
+
+        if (String.Validate $script:Description -MinLength $Patterns.DescriptionMinLength -MaxLength $Patterns.DescriptionMaxLength -AllowNull) {
+            $script:_returnValue = [ReturnValue]::Success()
+        } else {
+            $script:_returnValue = [ReturnValue]::LengthError($Patterns.DescriptionMinLength, $Patterns.DescriptionMaxLength)
+        }
+    } until ($script:_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
 }
 
 Function Test-Manifest {
