@@ -417,7 +417,7 @@ Function Read-WinGet-InstallerValues {
         Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString() 
         Write-Host -ForegroundColor 'Green' -Object '[Required] Enter the architecture. Options:' , @($Patterns.ValidArchitectures -join ', ')
         $architecture = Read-Host -Prompt 'Architecture' | TrimString
-        if ($architecture -in @($Patterns.ValidArchitectures)) {
+        if ($architecture -Cin @($Patterns.ValidArchitectures)) {
             $script:_returnValue = [ReturnValue]::Success()
         } else {
             $script:_returnValue = [ReturnValue]::new(400, 'Invalid Architecture', "Value must exist in the enum - $(@($Patterns.ValidArchitectures -join ', '))", 2)
@@ -428,7 +428,7 @@ Function Read-WinGet-InstallerValues {
         Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString() 
         Write-Host -ForegroundColor 'Green' -Object '[Required] Enter the InstallerType. Options:' , @($Patterns.ValidInstallerTypes -join ', ' )
         $InstallerType = Read-Host -Prompt 'InstallerType' | TrimString
-        if ($InstallerType -in @($Patterns.ValidInstallerTypes)) {
+        if ($InstallerType -Cin @($Patterns.ValidInstallerTypes)) {
             $script:_returnValue = [ReturnValue]::Success()
         } else {
             $script:_returnValue = [ReturnValue]::new(400, 'Invalid Installer Type', "Value must exist in the enum - $(@($Patterns.ValidInstallerTypes -join ', '))", 2)
@@ -784,13 +784,13 @@ Function Read-WinGet-InstallerManifest {
         if (!$InstallModes) { $InstallModes = '' }
         $script:InstallModes = PromptInstallerManifestValue $InstallModes 'InstallModes' "[Optional] List of supported installer modes. Options: $($Patterns.ValidInstallModes -join ', ')"
 
-        if ($null -ne $script:InstallModes -or (($script:InstallModes -split ',').Count -le $Patterns.MaxItemsInstallModes -and $($script:InstallModes.Split(',').Trim() | Where-Object { $_ -notin $Patterns.ValidInstallModes }).Count -eq 0)) {
+        if ( (String.Validate $script:InstallModes -IsNull) -or (($script:InstallModes -split ',').Count -le $Patterns.MaxItemsInstallModes -and $($script:InstallModes.Split(',').Trim() | Where-Object { $_ -CNotIn $Patterns.ValidInstallModes }).Count -eq 0)) {
             $script:_returnValue = [ReturnValue]::Success()
         } else {
             if (($script:FileExtensions -split ',').Count -gt $Patterns.MaxItemsInstallModes ) {
                 $script:_returnValue = [ReturnValue]::MaxItemsError($Patterns.MaxItemsInstallModes)
             } else {
-                $script:_returnValue = [ReturnValue]::new(400, 'Invalid Entries', "Some entries do not match the requirements defined in the manifest schema - $($script:InstallModes.Split(',').Trim() | Where-Object { $_ -notin $Patterns.ValidInstallModes })", 2)
+                $script:_returnValue = [ReturnValue]::new(400, 'Invalid Entries', "Some entries do not match the requirements defined in the manifest schema - $($script:InstallModes.Split(',').Trim() | Where-Object { $_ -CNotIn $Patterns.ValidInstallModes })", 2)
             }
         }
 
