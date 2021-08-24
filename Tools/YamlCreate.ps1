@@ -736,6 +736,7 @@ Function Read-WinGet-InstallerManifest {
     Write-Host
     do {
         if (!$FileExtensions) { $FileExtensions = '' }
+        else { $FileExtensions = $FileExtensions | UniqueItems }
         $script:FileExtensions = PromptInstallerManifestValue $FileExtensions 'FileExtensions' "[Optional] Enter any File Extensions the application could support. For example: html, htm, url (Max $($Patterns.MaxItemsFileExtensions))" | UniqueItems
 
         if (($script:FileExtensions -split ',').Count -le $Patterns.MaxItemsFileExtensions -and $($script:FileExtensions.Split(',').Trim() | Where-Object { String.Validate -not $_ -MaxLength $Patterns.FileExtensionMaxLength -MatchPattern $Patterns.FileExtension -AllowNull }).Count -eq 0) {
@@ -752,6 +753,7 @@ Function Read-WinGet-InstallerManifest {
 
     do {
         if (!$Protocols) { $Protocols = '' }
+        else { $Protocols = $Protocols | UniqueItems }
         $script:Protocols = PromptInstallerManifestValue $Protocols 'Protocols' "[Optional] Enter any Protocols the application provides a handler for. For example: http, https (Max $($Patterns.MaxItemsProtocols))" | UniqueItems
         if (($script:Protocols -split ',').Count -le $Patterns.MaxItemsProtocols) {
             $script:_returnValue = [ReturnValue]::Success()
@@ -761,7 +763,8 @@ Function Read-WinGet-InstallerManifest {
     } until ($script:_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
 
     do {
-        if (!$Commands) { $Commands = '' }
+        if (!$Commands) { $Commands = '' }        
+        else { $Commands = $Commands | UniqueItems }
         $script:Commands = PromptInstallerManifestValue $Commands 'Commands' "[Optional] Enter any Commands or aliases to run the application. For example: msedge (Max $($Patterns.MaxItemsCommands))" | UniqueItems
         if (($script:Commands -split ',').Count -le $Patterns.MaxItemsCommands) {
             $script:_returnValue = [ReturnValue]::Success()
@@ -782,12 +785,14 @@ Function Read-WinGet-InstallerManifest {
 
     do {
         if (!$InstallModes) { $InstallModes = '' }
+        $InstallModes = $InstallModes | UniqueItems
         $script:InstallModes = PromptInstallerManifestValue $InstallModes 'InstallModes' "[Optional] List of supported installer modes. Options: $($Patterns.ValidInstallModes -join ', ')"
+        $script:InstallModes = $script:InstallModes | UniqueItems
 
         if ( (String.Validate $script:InstallModes -IsNull) -or (($script:InstallModes -split ',').Count -le $Patterns.MaxItemsInstallModes -and $($script:InstallModes.Split(',').Trim() | Where-Object { $_ -CNotIn $Patterns.ValidInstallModes }).Count -eq 0)) {
             $script:_returnValue = [ReturnValue]::Success()
         } else {
-            if (($script:FileExtensions -split ',').Count -gt $Patterns.MaxItemsInstallModes ) {
+            if (($script:InstallModes -split ',').Count -gt $Patterns.MaxItemsInstallModes ) {
                 $script:_returnValue = [ReturnValue]::MaxItemsError($Patterns.MaxItemsInstallModes)
             } else {
                 $script:_returnValue = [ReturnValue]::new(400, 'Invalid Entries', "Some entries do not match the requirements defined in the manifest schema - $($script:InstallModes.Split(',').Trim() | Where-Object { $_ -CNotIn $Patterns.ValidInstallModes })", 2)
@@ -970,7 +975,7 @@ Function Read-WinGet-LocaleManifest {
     do {
         Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString()
         
-        if (String.Validate $script:Author -IsNull) {
+        if (String.Validate $script:License -IsNull) {
             Write-Host -ForegroundColor 'Green' -Object '[Required] Enter the application License. For example: MIT, GPL, Freeware, Proprietary'
         } else { 
             Write-Host -ForegroundColor 'Yellow' -Object '[Optional] Enter the application License. For example: MIT, GPL, Freeware, Proprietary'
@@ -981,6 +986,8 @@ Function Read-WinGet-LocaleManifest {
 
         if (String.Validate $script:License -MinLength $Patterns.LicenseMinLength -MaxLength $Patterns.LicenseMaxLength -NotNull) {
             $script:_returnValue = [ReturnValue]::Success()
+        } elseif (String.Validate $script:License -IsNull) {
+            $script:_returnValue = [ReturnValue]::new(400, 'Required Field', 'The value entered cannot be null or empty', 2)
         } else {
             $script:_returnValue = [ReturnValue]::LengthError($Patterns.LicenseMinLength, $Patterns.LicenseMaxLength)
         }
@@ -1046,8 +1053,11 @@ Function Read-WinGet-LocaleManifest {
         Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString()
         Write-Host -ForegroundColor 'Yellow' -Object '[Optional] Enter any tags that would be useful to discover this tool.'
         Write-Host -ForegroundColor 'Blue' -Object 'Example: zip, c++, photos, OBS (Max', ($Patterns.TagsMaxItems), 'items)'
-        if (String.Validate -not $script:Tags -IsNull) { Write-Host -ForegroundColor 'DarkGray' "Old Variable: $script:Tags" }
-        $NewTags = Read-Host -Prompt 'Tags' | TrimString
+        if (String.Validate -not $script:Tags -IsNull) {
+            $script:Tags = $script:Tags | UniqueItems
+            Write-Host -ForegroundColor 'DarkGray' "Old Variable: $script:Tags" 
+        }
+        $NewTags = Read-Host -Prompt 'Tags' | TrimString | UniqueItems
         if (String.Validate -not $NewTags -IsNull) { $script:Tags = $NewTags }
 
         if (($script:Tags -split ',').Count -le $Patterns.TagsMaxItems) {
@@ -1219,7 +1229,7 @@ Function Enter-PR-Parameters {
         'Y' {
             Write-Host
             Write-Host "Enter issue number. For example`: 21983, 43509"
-            $ResolvedIssues = Read-Host -Prompt 'Resolved Issues'
+            $ResolvedIssues = Read-Host -Prompt 'Resolved Issues' | UniqueItems
             $PrBodyContentReply += @('')
             Foreach ($i in ($ResolvedIssues.Split(',').Trim())) {
 
