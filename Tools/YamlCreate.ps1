@@ -669,7 +669,7 @@ Function Read-WinGet-InstallerValues {
 
     If ($ProductCode) { AddYamlParameter $_Installer 'ProductCode' $ProductCode }
     AddYamlParameter $_Installer 'UpgradeBehavior' $UpgradeBehavior
-    $_Installer = SortYamlKeys $_Installer $InstallerEntryProperties
+    $_Installer = SortYamlKeys $_Installer $InstallerEntryProperties -NoComments
 
     $script:Installers += $_Installer
 
@@ -721,12 +721,17 @@ Function SortYamlKeys {
         [Parameter(Mandatory = $true, Position = 0)]
         [PSCustomObject] $InputObject,
         [Parameter(Mandatory = $true, Position = 1)]
-        [PSCustomObject] $SortOrder
+        [PSCustomObject] $SortOrder,
+        [switch] $NoComments
     )
     $_Temp = [ordered] @{}
     $SortOrder.GetEnumerator() | ForEach-Object {
         if ($InputObject.Contains($_)) {
             $_Temp.Add($_, $InputObject[$_])
+        } else {
+            if (!$NoComments) {
+                $_Temp.Add($_, "$([char]0x2370)")
+            }
         }
     }
     return $_Temp
@@ -1403,10 +1408,9 @@ Function Write-WinGet-VersionManifest-Yaml {
     New-Item -ItemType 'Directory' -Force -Path $AppFolder | Out-Null
     $VersionManifestPath = $AppFolder + "\$PackageIdentifier" + '.yaml'
     
-    #TO-DO: Write keys with no values as comments
-    
     $ScriptHeader + " using YAML parsing`n# yaml-language-server: `$schema=https://aka.ms/winget-manifest.version.1.0.0.schema.json`n" > $VersionManifestPath
     ConvertTo-Yaml $VersionManifest >> $VersionManifestPath
+    $(Get-Content $VersionManifestPath -Encoding UTF8) -replace "(.*)$([char]0x2370)", "# `$1" | Out-File -FilePath $VersionManifestPath -Force
     $MyRawString = Get-Content -Raw $VersionManifestPath | TrimString
     [System.IO.File]::WriteAllLines($VersionManifestPath, $MyRawString, $Utf8NoBomEncoding)
     
@@ -1455,10 +1459,9 @@ Function Write-WinGet-InstallerManifest-Yaml {
     New-Item -ItemType 'Directory' -Force -Path $AppFolder | Out-Null
     $InstallerManifestPath = $AppFolder + "\$PackageIdentifier" + '.installer' + '.yaml'
     
-    #TO-DO: Write keys with no values as comments
-    
     $ScriptHeader + " using YAML parsing`n# yaml-language-server: `$schema=https://aka.ms/winget-manifest.installer.1.0.0.schema.json`n" > $InstallerManifestPath
     ConvertTo-Yaml $InstallerManifest >> $InstallerManifestPath
+    $(Get-Content $InstallerManifestPath -Encoding UTF8) -replace "(.*)$([char]0x2370)", "# `$1" | Out-File -FilePath $InstallerManifestPath -Force
     $MyRawString = Get-Content -Raw $InstallerManifestPath | TrimString
     [System.IO.File]::WriteAllLines($InstallerManifestPath, $MyRawString, $Utf8NoBomEncoding)
 
@@ -1509,10 +1512,9 @@ Function Write-WinGet-LocaleManifest-Yaml {
     New-Item -ItemType 'Directory' -Force -Path $AppFolder | Out-Null
     $LocaleManifestPath = $AppFolder + "\$PackageIdentifier" + '.locale.' + "$PackageLocale" + '.yaml'
 
-    #TO-DO: Write keys with no values as comments
-
     $ScriptHeader + " using YAML parsing`n$yamlServer`n" > $LocaleManifestPath
     ConvertTo-Yaml $LocaleManifest >> $LocaleManifestPath
+    $(Get-Content $LocaleManifestPath -Encoding UTF8) -replace "(.*)$([char]0x2370)", "# `$1" | Out-File -FilePath $LocaleManifestPath -Force
     $MyRawString = Get-Content -Raw $LocaleManifestPath | TrimString
     [System.IO.File]::WriteAllLines($LocaleManifestPath, $MyRawString, $Utf8NoBomEncoding)
 
@@ -1528,6 +1530,7 @@ Function Write-WinGet-LocaleManifest-Yaml {
             
                 $ScriptHeader + " using YAML parsing`n$yamlServer`n" > ($AppFolder + '\' + $DifLocale.Name)
                 ConvertTo-Yaml $OldLocaleManifest >> ($AppFolder + '\' + $DifLocale.Name)
+                $(Get-Content $($AppFolder + '\' + $DifLocale.Name) -Encoding UTF8) -replace "(.*)$([char]0x2370)", "# `$1" | Out-File -FilePath $($AppFolder + '\' + $DifLocale.Name) -Force
                 $MyRawString = Get-Content -Raw $($AppFolder + '\' + $DifLocale.Name) | TrimString
                 [System.IO.File]::WriteAllLines($($AppFolder + '\' + $DifLocale.Name), $MyRawString, $Utf8NoBomEncoding)
             }
