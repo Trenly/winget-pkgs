@@ -559,6 +559,7 @@ Function Read-WinGet-InstallerValues {
             }
 
             if (String.Validate $PackageFamilyName -MaxLength $Patterns.FamilyNameMaxLength -MatchPattern $Patterns.FamilyName -AllowNull) {
+                if (String.Validate $PackageFamilyName -IsNull) {$PackageFamilyName = "$([char]0x2370)"}
                 $script:_returnValue = [ReturnValue]::Success()
             } else {
                 if (String.Validate -not $PackageFamilyName -MaxLength $Patterns.FamilyNameMaxLength) {
@@ -663,7 +664,7 @@ Function Read-WinGet-InstallerValues {
         foreach ($_Item in $_Switches.GetEnumerator()) {
             If ($_Item.Value) { AddYamlParameter $_InstallerSwitches $_Item.Name $_Item.Value }
         }
-        $_InstallerSwitches = SortYamlKeys $_InstallerSwitches $InstallerSwitchProperties
+        $_InstallerSwitches = SortYamlKeys $_InstallerSwitches $InstallerSwitchProperties -NoComments
         $_Installer['InstallerSwitches'] = $_InstallerSwitches
     }
 
@@ -724,12 +725,27 @@ Function SortYamlKeys {
         [PSCustomObject] $SortOrder,
         [switch] $NoComments
     )
+
+    $_ExcludedKeys = @(
+        "InstallerSwitches"
+        "Capabilities"
+        "RestrictedCapabilities"
+        "InstallerSuccessCodes"
+        "ProductCode"
+        "PackageFamilyName"
+        "InstallerLocale"
+        "InstallerType"
+        "Scope"
+        "UpgradeBehavior"
+        "Dependencies"
+    )
+
     $_Temp = [ordered] @{}
     $SortOrder.GetEnumerator() | ForEach-Object {
         if ($InputObject.Contains($_)) {
             $_Temp.Add($_, $InputObject[$_])
         } else {
-            if (!$NoComments) {
+            if (!$NoComments -and $_ -notin $_ExcludedKeys) {
                 $_Temp.Add($_, "$([char]0x2370)")
             }
         }
@@ -1451,7 +1467,7 @@ Function Write-WinGet-InstallerManifest-Yaml {
     AddYamlParameter $InstallerManifest 'ManifestType' 'installer'
     AddYamlParameter $InstallerManifest 'ManifestVersion' $ManifestVersion
     If ($InstallerManifest['Dependencies']) {
-        $InstallerManifest['Dependencies'] = SortYamlKeys $InstallerManifest['Dependencies'] $InstallerDependencyProperties
+        $InstallerManifest['Dependencies'] = SortYamlKeys $InstallerManifest['Dependencies'] $InstallerDependencyProperties -NoComments
     }
 
     $InstallerManifest = SortYamlKeys $InstallerManifest $InstallerProperties
