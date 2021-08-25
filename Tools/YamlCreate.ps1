@@ -1,3 +1,4 @@
+#
 #Requires -Version 5
 $PSVersion = (Get-Host).Version.Major
 $ScriptHeader = '# Created with YamlCreate.ps1 v2.0.0'
