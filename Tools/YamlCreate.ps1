@@ -1588,6 +1588,7 @@ Function Read-PreviousWinGet-Manifest-Yaml {
     } else {
         if ($Option -ne 'New') { Throw "Error: Version $LastVersion does not contain the required manifests" }
         $script:OldManifestType = 'None'
+        return
     }
 
     if ($OldManifests) {
