@@ -559,7 +559,7 @@ Function Read-WinGet-InstallerValues {
             }
 
             if (String.Validate $PackageFamilyName -MaxLength $Patterns.FamilyNameMaxLength -MatchPattern $Patterns.FamilyName -AllowNull) {
-                if (String.Validate $PackageFamilyName -IsNull) {$PackageFamilyName = "$([char]0x2370)"}
+                if (String.Validate $PackageFamilyName -IsNull) { $PackageFamilyName = "$([char]0x2370)" }
                 $script:_returnValue = [ReturnValue]::Success()
             } else {
                 if (String.Validate -not $PackageFamilyName -MaxLength $Patterns.FamilyNameMaxLength) {
@@ -727,17 +727,17 @@ Function SortYamlKeys {
     )
 
     $_ExcludedKeys = @(
-        "InstallerSwitches"
-        "Capabilities"
-        "RestrictedCapabilities"
-        "InstallerSuccessCodes"
-        "ProductCode"
-        "PackageFamilyName"
-        "InstallerLocale"
-        "InstallerType"
-        "Scope"
-        "UpgradeBehavior"
-        "Dependencies"
+        'InstallerSwitches'
+        'Capabilities'
+        'RestrictedCapabilities'
+        'InstallerSuccessCodes'
+        'ProductCode'
+        'PackageFamilyName'
+        'InstallerLocale'
+        'InstallerType'
+        'Scope'
+        'UpgradeBehavior'
+        'Dependencies'
     )
 
     $_Temp = [ordered] @{}
@@ -1470,7 +1470,7 @@ Function Write-WinGet-InstallerManifest-Yaml {
         $InstallerManifest['Dependencies'] = SortYamlKeys $InstallerManifest['Dependencies'] $InstallerDependencyProperties -NoComments
     }
 
-    $InstallerManifest = SortYamlKeys $InstallerManifest $InstallerProperties
+    $InstallerManifest = SortYamlKeys $InstallerManifest $InstallerProperties -NoComments
    
     New-Item -ItemType 'Directory' -Force -Path $AppFolder | Out-Null
     $InstallerManifestPath = $AppFolder + "\$PackageIdentifier" + '.installer' + '.yaml'
