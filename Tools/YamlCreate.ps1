@@ -866,7 +866,7 @@ Function Read-WinGet-LocaleManifest {
         }
     } until ($script:_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
 
-    if ($Option -ne 'NewLocale') {
+    if ($script:Option -ne 'NewLocale') {
         do {
             Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString()
             Write-Host -ForegroundColor 'Yellow' -Object '[Optional] Enter the Moniker (friendly name/alias). For example: vscode'
@@ -1552,7 +1552,7 @@ Function Write-WinGet-LocaleManifest-Yaml {
 
 Function Read-PreviousWinGet-Manifest-Yaml {
     
-    if (($Option -eq 'NewLocale') -or ($Option -eq 'EditMetadata')) {
+    if (($script:Option -eq 'NewLocale') -or ($script:Option -eq 'EditMetadata') -or ($script:Option -eq 'QuickUpdateVerison')) {
         if (Test-Path -Path "$AppFolder\..\$PackageVersion") {
             $script:OldManifests = Get-ChildItem -Path "$AppFolder\..\$PackageVersion"
             $LastVersion = $PackageVersion
@@ -1582,9 +1582,7 @@ Function Read-PreviousWinGet-Manifest-Yaml {
             $script:ExistingVersions = Split-Path (Split-Path (Get-ChildItem -Path "$AppFolder\..\" -Recurse -Depth 1 -File -Filter '*.yaml').FullName ) -Leaf | Sort-Object $ToNatural | Select-Object -Unique
             Write-Host -ForegroundColor 'DarkYellow' -Object "Found Existing Version: $LastVersion"
             $script:OldManifests = Get-ChildItem -Path "$AppFolder\..\$LastVersion"
-        } catch {
-            Out-Null
-        }
+        } catch { Out-Null }
     }
 
     if ($OldManifests.Name -eq "$PackageIdentifier.installer.yaml" -and $OldManifests.Name -eq "$PackageIdentifier.locale.en-US.yaml" -and $OldManifests.Name -eq "$PackageIdentifier.yaml") {
@@ -1593,11 +1591,11 @@ Function Read-PreviousWinGet-Manifest-Yaml {
         $script:OldLocaleManifest = ConvertFrom-Yaml -Yaml ($(Get-Content -Path $(Resolve-Path "$AppFolder\..\$LastVersion\$PackageIdentifier.locale.en-US.yaml") -Encoding UTF8) -join "`n") -Ordered
         $script:OldVersionManifest = ConvertFrom-Yaml -Yaml ($(Get-Content -Path $(Resolve-Path "$AppFolder\..\$LastVersion\$PackageIdentifier.yaml") -Encoding UTF8) -join "`n") -Ordered
     } elseif ($OldManifests.Name -eq "$PackageIdentifier.yaml") {
-        if ($Option -eq 'NewLocale') { Throw 'Error: MultiManifest Required' }
+        if ($script:Option -eq 'NewLocale') { Throw 'Error: MultiManifest Required' }
         $script:OldManifestType = 'Singleton'
         $script:OldVersionManifest = ConvertFrom-Yaml -Yaml ($(Get-Content -Path $(Resolve-Path "$AppFolder\..\$LastVersion\$PackageIdentifier.yaml") -Encoding UTF8) -join "`n") -Ordered
     } else {
-        if ($Option -ne 'New') { Throw "Error: Version $LastVersion does not contain the required manifests" }
+        if ($script:Option -ne 'New') { throw "Error: Version $LastVersion does not contain the required manifests" }
         $script:OldManifestType = 'None'
         return
     }
@@ -1634,7 +1632,7 @@ Show-OptionMenu
 Read-WinGet-MandatoryInfo
 Read-PreviousWinGet-Manifest-Yaml
 
-Switch ($script:Option) {
+switch ($script:Option) {
     'QuickUpdateVerison' {
         Read-WinGet-InstallerValues
         New-Variable -Name 'PackageLocale' -Value 'en-US' -Scope 'Script' -Force
