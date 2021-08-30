@@ -159,7 +159,6 @@ Function String.Validate {
     }
 }
 
-
 Function Write-Colors {
     Param
     (
@@ -243,12 +242,14 @@ Function TestUrlValidity {
 
     return $HTTP_Status
 }
+
 Function Show-OptionMenu {
     Clear-Host
     Write-Host -ForegroundColor 'Cyan' 'Select Mode'
-    Write-Colors "`n[", '1', "] New Manifest or Package Version`n" 'DarkCyan', 'White', 'DarkCyan'
-    Write-Colors "`n[", '2', "] Update Package Metadata`n" 'DarkCyan', 'White', 'DarkCyan'
-    Write-Colors "`n[", '3', "] New Locale`n" 'DarkCyan', 'White', 'DarkCyan'
+    Write-Colors "`n[", '1', "] Update Package Version`n" 'DarkCyan', 'White', 'DarkCyan'
+    Write-Colors "`n[", '2', "] New Package`n" 'DarkCyan', 'White', 'DarkCyan'
+    Write-Colors "`n[", '3', "] Update Package Metadata`n" 'DarkCyan', 'White', 'DarkCyan'
+    Write-Colors "`n[", '4', "] New Locale`n" 'DarkCyan', 'White', 'DarkCyan'
     Write-Colors "`n[", 'q', ']', " Any key to quit`n" 'DarkCyan', 'White', 'DarkCyan', 'Red'
     Write-Colors "`nSelection: " 'White'
 
@@ -256,9 +257,11 @@ Function Show-OptionMenu {
         [ConsoleKey]::D1      = '1';
         [ConsoleKey]::D2      = '2';
         [ConsoleKey]::D3      = '3';
+        [ConsoleKey]::D4      = '4';
         [ConsoleKey]::NumPad1 = '1';
         [ConsoleKey]::NumPad2 = '2';
         [ConsoleKey]::NumPad3 = '3';
+        [ConsoleKey]::NumPad4 = '4';
     }
 
     do {
@@ -266,9 +269,10 @@ Function Show-OptionMenu {
     } until ($keyInfo.Key)
 
     switch ($Keys[$keyInfo.Key]) {
-        '1' { $script:Option = 'New' }
-        '2' { $script:Option = 'EditMetadata' }
-        '3' { $script:Option = 'NewLocale' }
+        '1' { $script:Option = 'Update' }
+        '2' { $script:Option = 'New' }
+        '3' { $script:Option = 'EditMetadata' }
+        '4' { $script:Option = 'NewLocale' }
         default { Write-Host; exit }
     }
 }
@@ -1272,6 +1276,7 @@ Function Enter-PR-Parameters {
     gh pr create --body-file PrBodyFile -f
     Remove-Item PrBodyFile  
 }
+
 Function Submit-Manifest {
     if (Get-Command 'git.exe' -ErrorAction SilentlyContinue) {
         $_menu = @{
@@ -1384,6 +1389,7 @@ Function GetMultiManifestParameter {
     $_vals = $($script:OldInstallerManifest[$Parameter] + $script:OldLocaleManifest[$Parameter] + $script:OldVersionManifest[$Parameter] | Where-Object { $_ })
     return ($_vals -join ', ')
 }
+
 Function Write-WinGet-VersionManifest-Yaml {
     [PSCustomObject]$VersionManifest = [ordered]@{}
 
@@ -1413,6 +1419,7 @@ Function Write-WinGet-VersionManifest-Yaml {
     Write-Host 
     Write-Host "Yaml file created: $VersionManifestPath"
 }
+
 Function Write-WinGet-InstallerManifest-Yaml {
 
     if ($script:OldManifestType -eq 'MultiManifest') {
@@ -1538,7 +1545,6 @@ Function Write-WinGet-LocaleManifest-Yaml {
     Write-Host "Yaml file created: $LocaleManifestPath"
 }
 
-
 Function Read-PreviousWinGet-Manifest-Yaml {
     
     if (($Option -eq 'NewLocale') -or ($Option -eq 'EditMetadata')) {
@@ -1624,7 +1630,16 @@ Read-WinGet-MandatoryInfo
 Read-PreviousWinGet-Manifest-Yaml
 
 Switch ($Option) {
-    
+    'Update' {
+        Read-WinGet-InstallerValues
+        Read-WinGet-InstallerManifest
+        Write-WinGet-LocaleManifest-Yaml
+        Write-WinGet-InstallerManifest-Yaml
+        Write-WinGet-VersionManifest-Yaml
+        Test-Manifest
+        Submit-Manifest
+    }
+
     'New' {
         Read-WinGet-InstallerValues
         Read-WinGet-InstallerManifest
