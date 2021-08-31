@@ -1552,7 +1552,7 @@ Function Write-WinGet-LocaleManifest-Yaml {
 
 Function Read-PreviousWinGet-Manifest-Yaml {
     
-    if (($script:Option -eq 'NewLocale') -or ($script:Option -eq 'EditMetadata') -or ($script:Option -eq 'QuickUpdateVerison')) {
+    if (($script:Option -eq 'NewLocale') -or ($script:Option -eq 'EditMetadata')) {
         if (Test-Path -Path "$AppFolder\..\$PackageVersion") {
             $script:OldManifests = Get-ChildItem -Path "$AppFolder\..\$PackageVersion"
             $LastVersion = $PackageVersion
