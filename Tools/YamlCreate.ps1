@@ -1573,6 +1573,7 @@ Function Read-PreviousWinGet-Manifest-Yaml {
 
     if (-not (Test-Path -Path "$AppFolder\..")) {
         $script:OldManifestType = 'None'
+        if ($script:Option -eq 'QuickUpdateVerison') { Write-Host -ForegroundColor Red "This option requires manifest of previous version of the package. If you want to create a new package, please select Option 1."; exit }
         return
     }
     
