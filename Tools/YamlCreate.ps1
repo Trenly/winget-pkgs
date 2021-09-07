@@ -534,7 +534,7 @@ Function Read-WinGet-InstallerValues {
         $_menu = @{
             entries       = @('*[F] Find Automatically [Note: This will install the package to find Family Name and then removes it.]'; '[M] Manually Enter PackageFamilyName')
             Prompt        = 'Discover the package family name?'
-            DefaultString = 'M'
+            DefaultString = 'F'
         }
     
         switch ( KeypressMenu -Prompt $_menu['Prompt'] -Entries $_menu['Entries'] -DefaultString $_menu['DefaultString']) {
