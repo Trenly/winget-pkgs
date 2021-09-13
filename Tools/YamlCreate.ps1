@@ -159,7 +159,6 @@ Function String.Validate {
     }
 }
 
-
 Function Write-Colors {
     Param
     (
@@ -243,12 +242,14 @@ Function TestUrlValidity {
 
     return $HTTP_Status
 }
+
 Function Show-OptionMenu {
     Clear-Host
     Write-Host -ForegroundColor 'Cyan' 'Select Mode'
     Write-Colors "`n[", '1', "] New Manifest or Package Version`n" 'DarkCyan', 'White', 'DarkCyan'
-    Write-Colors "`n[", '2', "] Update Package Metadata`n" 'DarkCyan', 'White', 'DarkCyan'
-    Write-Colors "`n[", '3', "] New Locale`n" 'DarkCyan', 'White', 'DarkCyan'
+    Write-Colors "`n[", '2', "] Quick Update Package Version ", "(Note: Must be used only when previous version`'s metadata is complete.)`n" 'DarkCyan', 'White', 'DarkCyan', 'Green'
+    Write-Colors "`n[", '3', "] Update Package Metadata`n" 'DarkCyan', 'White', 'DarkCyan'
+    Write-Colors "`n[", '4', "] New Locale`n" 'DarkCyan', 'White', 'DarkCyan'
     Write-Colors "`n[", 'q', ']', " Any key to quit`n" 'DarkCyan', 'White', 'DarkCyan', 'Red'
     Write-Colors "`nSelection: " 'White'
 
@@ -256,9 +257,11 @@ Function Show-OptionMenu {
         [ConsoleKey]::D1      = '1';
         [ConsoleKey]::D2      = '2';
         [ConsoleKey]::D3      = '3';
+        [ConsoleKey]::D4      = '4';
         [ConsoleKey]::NumPad1 = '1';
         [ConsoleKey]::NumPad2 = '2';
         [ConsoleKey]::NumPad3 = '3';
+        [ConsoleKey]::NumPad4 = '4';
     }
 
     do {
@@ -267,8 +270,9 @@ Function Show-OptionMenu {
 
     switch ($Keys[$keyInfo.Key]) {
         '1' { $script:Option = 'New' }
-        '2' { $script:Option = 'EditMetadata' }
-        '3' { $script:Option = 'NewLocale' }
+        '2' { $script:Option = 'QuickUpdateVerison' }
+        '3' { $script:Option = 'EditMetadata' }
+        '4' { $script:Option = 'NewLocale' }
         default { Write-Host; exit }
     }
 }
@@ -391,7 +395,24 @@ Function Read-WinGet-InstallerValues {
             exit 1
         } finally {
             Write-Host "Time taken: $((Get-Date).Subtract($start_time).Seconds) second(s)" -ForegroundColor Green
+            $architecture
             $InstallerSha256 = (Get-FileHash -Path $script:dest -Algorithm SHA256).Hash
+            if ($script:dest.EndsWith('msix','CurrentCultureIgnoreCase') -or $script:dest.EndsWith('msixbundle','CurrentCultureIgnoreCase'))
+            {
+                $InstallerType = 'msix'
+            }
+            elseif ($script:dest.EndsWith('msi','CurrentCultureIgnoreCase'))
+            {
+                $InstallerType = 'msi'
+            }
+            elseif ($script:dest.EndsWith('appx','CurrentCultureIgnoreCase') -or $script:dest.EndsWith('appxbundle','CurrentCultureIgnoreCase'))
+            {
+                $InstallerType = 'appx'
+            }
+            elseif ($script:dest.EndsWith('zip','CurrentCultureIgnoreCase'))
+            {
+                $InstallerType = 'zip'
+            }
             $FileInformation = Get-AppLockerFileInformation -Path $script:dest | Select-Object Publisher | Select-String -Pattern '{[A-Z0-9]{8}-([A-Z0-9]{4}-){3}[A-Z0-9]{12}}'
             $MSIProductCode = $FileInformation.Matches
             if ($script:SaveOption -eq '1' -and -not($script:dest.EndsWith('appx', 'CurrentCultureIgnoreCase') -or $script:dest.EndsWith('msix', 'CurrentCultureIgnoreCase') -or $script:dest.EndsWith('appxbundle', 'CurrentCultureIgnoreCase') -or $script:dest.EndsWith('msixbundle', 'CurrentCultureIgnoreCase'))) { Remove-Item -Path $script:dest }
@@ -530,7 +551,7 @@ Function Read-WinGet-InstallerValues {
         $_menu = @{
             entries       = @('*[F] Find Automatically [Note: This will install the package to find Family Name and then removes it.]'; '[M] Manually Enter PackageFamilyName')
             Prompt        = 'Discover the package family name?'
-            DefaultString = 'M'
+            DefaultString = 'F'
         }
     
         switch ( KeypressMenu -Prompt $_menu['Prompt'] -Entries $_menu['Entries'] -DefaultString $_menu['DefaultString']) {
@@ -862,7 +883,7 @@ Function Read-WinGet-LocaleManifest {
         }
     } until ($script:_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
 
-    if ($Option -ne 'NewLocale') {
+    if ($script:Option -ne 'NewLocale') {
         do {
             Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString()
             Write-Host -ForegroundColor 'Yellow' -Object '[Optional] Enter the Moniker (friendly name/alias). For example: vscode'
@@ -1272,6 +1293,7 @@ Function Enter-PR-Parameters {
     gh pr create --body-file PrBodyFile -f
     Remove-Item PrBodyFile  
 }
+
 Function Submit-Manifest {
     if (Get-Command 'git.exe' -ErrorAction SilentlyContinue) {
         $_menu = @{
@@ -1289,7 +1311,12 @@ Function Submit-Manifest {
 
     Write-Host
     if ($PromptSubmit -eq '0') {
-        switch ($Option) {
+        switch ($script:Option) {
+            'QuickUpdateVerison' {
+                if ($script:LastVersion -lt $script:PackageVersion ) { $CommitType = 'New version' }
+                elseif ($script:PackageVersion -in $script:ExistingVersions) { $CommitType = 'Update' }
+                elseif ($script:LastVersion -gt $script:PackageVersion ) { $CommitType = 'Add version' }
+             }
             'New' {
                 if ( $script:OldManifestType -eq 'None' ) { $CommitType = 'New package' }
                 elseif ($script:LastVersion -lt $script:PackageVersion ) { $CommitType = 'New version' }
@@ -1384,6 +1411,7 @@ Function GetMultiManifestParameter {
     $_vals = $($script:OldInstallerManifest[$Parameter] + $script:OldLocaleManifest[$Parameter] + $script:OldVersionManifest[$Parameter] | Where-Object { $_ })
     return ($_vals -join ', ')
 }
+
 Function Write-WinGet-VersionManifest-Yaml {
     [PSCustomObject]$VersionManifest = [ordered]@{}
 
@@ -1413,6 +1441,7 @@ Function Write-WinGet-VersionManifest-Yaml {
     Write-Host 
     Write-Host "Yaml file created: $VersionManifestPath"
 }
+
 Function Write-WinGet-InstallerManifest-Yaml {
 
     if ($script:OldManifestType -eq 'MultiManifest') {
@@ -1538,10 +1567,9 @@ Function Write-WinGet-LocaleManifest-Yaml {
     Write-Host "Yaml file created: $LocaleManifestPath"
 }
 
-
 Function Read-PreviousWinGet-Manifest-Yaml {
     
-    if (($Option -eq 'NewLocale') -or ($Option -eq 'EditMetadata')) {
+    if (($script:Option -eq 'NewLocale') -or ($script:Option -eq 'EditMetadata')) {
         if (Test-Path -Path "$AppFolder\..\$PackageVersion") {
             $script:OldManifests = Get-ChildItem -Path "$AppFolder\..\$PackageVersion"
             $LastVersion = $PackageVersion
@@ -1562,6 +1590,7 @@ Function Read-PreviousWinGet-Manifest-Yaml {
 
     if (-not (Test-Path -Path "$AppFolder\..")) {
         $script:OldManifestType = 'None'
+        if ($script:Option -eq 'QuickUpdateVerison') { Write-Host -ForegroundColor Red "This option requires manifest of previous version of the package. If you want to create a new package, please select Option 1."; exit }
         return
     }
     
@@ -1571,9 +1600,7 @@ Function Read-PreviousWinGet-Manifest-Yaml {
             $script:ExistingVersions = Split-Path (Split-Path (Get-ChildItem -Path "$AppFolder\..\" -Recurse -Depth 1 -File -Filter '*.yaml').FullName ) -Leaf | Sort-Object $ToNatural | Select-Object -Unique
             Write-Host -ForegroundColor 'DarkYellow' -Object "Found Existing Version: $LastVersion"
             $script:OldManifests = Get-ChildItem -Path "$AppFolder\..\$LastVersion"
-        } catch {
-            Out-Null
-        }
+        } catch { Out-Null }
     }
 
     if ($OldManifests.Name -eq "$PackageIdentifier.installer.yaml" -and $OldManifests.Name -eq "$PackageIdentifier.locale.en-US.yaml" -and $OldManifests.Name -eq "$PackageIdentifier.yaml") {
@@ -1582,11 +1609,11 @@ Function Read-PreviousWinGet-Manifest-Yaml {
         $script:OldLocaleManifest = ConvertFrom-Yaml -Yaml ($(Get-Content -Path $(Resolve-Path "$AppFolder\..\$LastVersion\$PackageIdentifier.locale.en-US.yaml") -Encoding UTF8) -join "`n") -Ordered
         $script:OldVersionManifest = ConvertFrom-Yaml -Yaml ($(Get-Content -Path $(Resolve-Path "$AppFolder\..\$LastVersion\$PackageIdentifier.yaml") -Encoding UTF8) -join "`n") -Ordered
     } elseif ($OldManifests.Name -eq "$PackageIdentifier.yaml") {
-        if ($Option -eq 'NewLocale') { Throw 'Error: MultiManifest Required' }
+        if ($script:Option -eq 'NewLocale') { Throw 'Error: MultiManifest Required' }
         $script:OldManifestType = 'Singleton'
         $script:OldVersionManifest = ConvertFrom-Yaml -Yaml ($(Get-Content -Path $(Resolve-Path "$AppFolder\..\$LastVersion\$PackageIdentifier.yaml") -Encoding UTF8) -join "`n") -Ordered
     } else {
-        if ($Option -ne 'New') { Throw "Error: Version $LastVersion does not contain the required manifests" }
+        if ($script:Option -ne 'New') { throw "Error: Version $LastVersion does not contain the required manifests" }
         $script:OldManifestType = 'None'
         return
     }
@@ -1623,8 +1650,17 @@ Show-OptionMenu
 Read-WinGet-MandatoryInfo
 Read-PreviousWinGet-Manifest-Yaml
 
-Switch ($Option) {
-    
+switch ($script:Option) {
+    'QuickUpdateVerison' {
+        Read-WinGet-InstallerValues
+        New-Variable -Name 'PackageLocale' -Value 'en-US' -Scope 'Script' -Force
+        Write-WinGet-LocaleManifest-Yaml
+        Write-WinGet-InstallerManifest-Yaml
+        Write-WinGet-VersionManifest-Yaml
+        Test-Manifest
+        Submit-Manifest
+    }
+
     'New' {
         Read-WinGet-InstallerValues
         Read-WinGet-InstallerManifest
