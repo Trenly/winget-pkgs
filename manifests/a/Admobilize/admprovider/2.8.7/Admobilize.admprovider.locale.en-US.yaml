@@ -1,5 +1,6 @@
-# Automatically updated by the winget bot at 2021/Sep/08
+# Created using wingetcreate 0.2.0.29
 # yaml-language-server: $schema=https://aka.ms/winget-manifest.defaultLocale.1.0.0.schema.json
+
 PackageIdentifier: Admobilize.admprovider
 PackageVersion: 2.8.7
 PackageLocale: en-US
@@ -14,3 +15,4 @@ Tags:
 - data
 ManifestType: defaultLocale
 ManifestVersion: 1.0.0
+

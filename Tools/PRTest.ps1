@@ -6,9 +6,6 @@ Param(
   [Parameter(HelpMessage = "Open the Pull Request's review page in the default browser")]
   [Switch] $Review = $false
 )
-
-$PullRequest = $PullRequest.TrimStart('#')
-
 $ErrorActionPreference = "Stop"
 
 $repositoryRoot = "https://github.com/microsoft/winget-pkgs/"

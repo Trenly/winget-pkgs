@@ -1,4 +1,5 @@
-# yaml-language-server: $schema=https://aka.ms/winget-manifest.defaultlocale.1.0.0.schema.json
+# Created using wingetcreate
+
 PackageIdentifier: Docker.DockerDesktop
 PackageVersion: 3.4.0
 PackageLocale: en-US
@@ -19,4 +20,3 @@ Tags:
 - Virtualization
 ManifestType: defaultLocale
 ManifestVersion: 1.0.0
-
