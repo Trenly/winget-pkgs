@@ -396,6 +396,22 @@ Function Read-WinGet-InstallerValues {
         } finally {
             Write-Host "Time taken: $((Get-Date).Subtract($start_time).Seconds) second(s)" -ForegroundColor Green
             $InstallerSha256 = (Get-FileHash -Path $script:dest -Algorithm SHA256).Hash
+            if ($script:dest.EndsWith('msix','CurrentCultureIgnoreCase') -or $script:dest.EndsWith('msixbundle','CurrentCultureIgnoreCase'))
+            {
+                $InstallerType = 'msix'
+            }
+            elseif ($script:dest.EndsWith('msi','CurrentCultureIgnoreCase'))
+            {
+                $InstallerType = 'msi'
+            }
+            elseif ($script:dest.EndsWith('appx','CurrentCultureIgnoreCase') -or $script:dest.EndsWith('appxbundle','CurrentCultureIgnoreCase'))
+            {
+                $InstallerType = 'appx'
+            }
+            elseif ($script:dest.EndsWith('zip','CurrentCultureIgnoreCase'))
+            {
+                $InstallerType = 'zip'
+            }
             $FileInformation = Get-AppLockerFileInformation -Path $script:dest | Select-Object Publisher | Select-String -Pattern '{[A-Z0-9]{8}-([A-Z0-9]{4}-){3}[A-Z0-9]{12}}'
             $MSIProductCode = $FileInformation.Matches
             if ($script:SaveOption -eq '1' -and -not($script:dest.EndsWith('appx', 'CurrentCultureIgnoreCase') -or $script:dest.EndsWith('msix', 'CurrentCultureIgnoreCase') -or $script:dest.EndsWith('appxbundle', 'CurrentCultureIgnoreCase') -or $script:dest.EndsWith('msixbundle', 'CurrentCultureIgnoreCase'))) { Remove-Item -Path $script:dest }
