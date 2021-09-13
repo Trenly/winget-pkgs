@@ -395,26 +395,21 @@ Function Read-WinGet-InstallerValues {
             exit 1
         } finally {
             Write-Host "Time taken: $((Get-Date).Subtract($start_time).Seconds) second(s)" -ForegroundColor Green
-            $architecture
             $InstallerSha256 = (Get-FileHash -Path $script:dest -Algorithm SHA256).Hash
-            if ($script:dest.EndsWith('msix','CurrentCultureIgnoreCase') -or $script:dest.EndsWith('msixbundle','CurrentCultureIgnoreCase'))
-            {
-                $InstallerType = 'msix'
-            }
-            elseif ($script:dest.EndsWith('msi','CurrentCultureIgnoreCase'))
-            {
-                $InstallerType = 'msi'
-            }
-            elseif ($script:dest.EndsWith('appx','CurrentCultureIgnoreCase') -or $script:dest.EndsWith('appxbundle','CurrentCultureIgnoreCase'))
-            {
-                $InstallerType = 'appx'
-            }
-            elseif ($script:dest.EndsWith('zip','CurrentCultureIgnoreCase'))
-            {
-                $InstallerType = 'zip'
-            }
-            $FileInformation = Get-AppLockerFileInformation -Path $script:dest | Select-Object Publisher | Select-String -Pattern '{[A-Z0-9]{8}-([A-Z0-9]{4}-){3}[A-Z0-9]{12}}'
-            $MSIProductCode = $FileInformation.Matches
+            
+            # See https://github.com/microsoft/winget-create/blob/main/src/WingetCreateCore/Common/PackageParser.cs#L427-L457
+            if ($InstallerUrl.Contains('x64') -or $InstallerUrl.Contains('win64') -or $InstallerUrl.Contains('_64')) {$architecture = 'x64'}
+            elseif ($InstallerUrl.Contains('x86') -or $InstallerUrl.Contains('win32') -or $InstallerUrl.Contains('ia32') -or $InstallerUrl.Contains('_86')) {$architecture = 'x86'}            
+            elseif ($InstallerUrl.Contains('arm64') -or $InstallerUrl.Contains('aarch64')) { $architecture = 'arm64' }
+            elseif ($InstallerUrl.Contains('arm') -and -not ($InstallerUrl.Contains('arm64') -or $InstallerUrl.Contains('aarch64'))) { $architecture = 'arm' }
+            
+            if ($script:dest.EndsWith('msix','CurrentCultureIgnoreCase') -or $script:dest.EndsWith('msixbundle','CurrentCultureIgnoreCase')) { $InstallerType = 'msix'}
+            elseif ($script:dest.EndsWith('msi','CurrentCultureIgnoreCase')) { $InstallerType = 'msi' }
+            elseif ($script:dest.EndsWith('appx','CurrentCultureIgnoreCase') -or $script:dest.EndsWith('appxbundle','CurrentCultureIgnoreCase')) { $InstallerType = 'appx' }
+            elseif ($script:dest.EndsWith('zip','CurrentCultureIgnoreCase')) { $InstallerType = 'zip' }
+            
+            $MSIProductCode = $(Get-AppLockerFileInformation -Path $script:dest | Select-Object Publisher | Select-String -Pattern '{[A-Z0-9]{8}-([A-Z0-9]{4}-){3}[A-Z0-9]{12}}').Matches
+            
             if ($script:SaveOption -eq '1' -and -not($script:dest.EndsWith('appx', 'CurrentCultureIgnoreCase') -or $script:dest.EndsWith('msix', 'CurrentCultureIgnoreCase') -or $script:dest.EndsWith('appxbundle', 'CurrentCultureIgnoreCase') -or $script:dest.EndsWith('msixbundle', 'CurrentCultureIgnoreCase'))) { Remove-Item -Path $script:dest }
         }
     }
