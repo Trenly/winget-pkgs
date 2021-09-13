@@ -398,11 +398,15 @@ Function Read-WinGet-InstallerValues {
             $InstallerSha256 = (Get-FileHash -Path $script:dest -Algorithm SHA256).Hash
             
             # See https://github.com/microsoft/winget-create/blob/main/src/WingetCreateCore/Common/PackageParser.cs#L427-L457
-            if ($InstallerUrl.Contains('x64') -or $InstallerUrl.Contains('win64') -or $InstallerUrl.Contains('_64')) {$architecture = 'x64'}
-            elseif ($InstallerUrl.Contains('x86') -or $InstallerUrl.Contains('win32') -or $InstallerUrl.Contains('ia32') -or $InstallerUrl.Contains('_86')) {$architecture = 'x86'}            
-            elseif ($InstallerUrl.Contains('arm64') -or $InstallerUrl.Contains('aarch64')) { $architecture = 'arm64' }
-            elseif ($InstallerUrl.Contains('arm') -and -not ($InstallerUrl.Contains('arm64') -or $InstallerUrl.Contains('aarch64'))) { $architecture = 'arm' }
-            
+            $checkFor64 = ($InstallerUrl.Contains('x64') -or $InstallerUrl.Contains('win64') -or $InstallerUrl.Contains('_64'))
+            $checkFor32 = ($InstallerUrl.Contains('x86') -or $InstallerUrl.Contains('win32') -or $InstallerUrl.Contains('ia32') -or $InstallerUrl.Contains('_86'))
+            $checkForArm64 = ($InstallerUrl.Contains('arm64') -or $InstallerUrl.Contains('aarch64'))
+            $checkForArm = ($InstallerUrl.Contains('arm') -and -not ($InstallerUrl.Contains('arm64') -or $InstallerUrl.Contains('aarch64')))
+            if ($checkFor64 -and -not $checkFor32 -and -not $checkForArm64 -and -not $checkForArm) {$architecture = 'x64'}
+            elseif ($checkFor32 -and -not $checkFor64 -and -not $checkForArm64 -and -not $checkForArm) {$architecture = 'x86'}            
+            elseif ($checkForArm64 -and -not $checkFor64 -and -not $checkFor32 -and -not $checkForArm) { $architecture = 'arm64' }
+            elseif ($checkForArm -and -not $checkFor64 -and -not $checkFor32 -and -not $checkForArm64) { $architecture = 'arm' }
+
             if ($script:dest.EndsWith('msix','CurrentCultureIgnoreCase') -or $script:dest.EndsWith('msixbundle','CurrentCultureIgnoreCase')) { $InstallerType = 'msix'}
             elseif ($script:dest.EndsWith('msi','CurrentCultureIgnoreCase')) { $InstallerType = 'msi' }
             elseif ($script:dest.EndsWith('appx','CurrentCultureIgnoreCase') -or $script:dest.EndsWith('appxbundle','CurrentCultureIgnoreCase')) { $InstallerType = 'appx' }
