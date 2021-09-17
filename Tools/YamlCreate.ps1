@@ -393,19 +393,19 @@ Function Read-WinGet-InstallerValues {
             
             $InstallerSha256 = (Get-FileHash -Path $script:dest -Algorithm SHA256).Hash
             
-            if ($script:dest.EndsWith('msix','CurrentCultureIgnoreCase') -or $script:dest.EndsWith('msixbundle','CurrentCultureIgnoreCase')) { $InstallerType = 'msix' }
+            if ($script:dest -match "\.msix(bundle){0,1}$") { $InstallerType = 'msix' }
             elseif ($script:dest.EndsWith('msi','CurrentCultureIgnoreCase')) { $InstallerType = 'msi' }
-            elseif ($script:dest.EndsWith('appx','CurrentCultureIgnoreCase') -or $script:dest.EndsWith('appxbundle','CurrentCultureIgnoreCase')) { $InstallerType = 'appx' }
+            elseif ($script:dest -match "\.appx(bundle){0,1}$") { $InstallerType = 'appx' }
             elseif ($script:dest.EndsWith('zip','CurrentCultureIgnoreCase')) { $InstallerType = 'zip' }
 
-            if ($InstallerUrl -match [regex]('\bx64\b') -or $InstallerUrl -match [regex]('\bwin64\b') -or $InstallerUrl -match [regex]('\b64\b')) {$architecture = 'x64'}
-            elseif ($InstallerUrl -match [regex]('\bx86\b') -or $InstallerUrl -match ('\bwin32\b') -or $InstallerUrl -match [regex]('\bia32\b') -or $InstallerUrl -match [regex]('\b86\b')) {$architecture = 'x86'}
-            elseif ($InstallerUrl -match [regex]('\barm64\b') -or $InstallerUrl -match [regex]('\baarch64\b')) { $architecture = 'arm64' }
+            if ($InstallerUrl -match "\b(x|win){0,1}64\b") {$architecture = 'x64'}
+            elseif ($InstallerUrl -match "\b((win|ia)32)|(x{0,1}86)\b") {$architecture = 'x86'}
+            elseif ($InstallerUrl -match "\b(arm|aarch)64\b") { $architecture = 'arm64' }
             elseif ($InstallerUrl -match [regex]('\barm\b')) { $architecture = 'arm' }
 
             $MSIProductCode = $(Get-AppLockerFileInformation -Path $script:dest | Select-Object Publisher | Select-String -Pattern '{[A-Z0-9]{8}-([A-Z0-9]{4}-){3}[A-Z0-9]{12}}').Matches
             
-            if ($script:SaveOption -eq '1' -and -not($script:dest.EndsWith('appx', 'CurrentCultureIgnoreCase') -or $script:dest.EndsWith('msix', 'CurrentCultureIgnoreCase') -or $script:dest.EndsWith('appxbundle', 'CurrentCultureIgnoreCase') -or $script:dest.EndsWith('msixbundle', 'CurrentCultureIgnoreCase'))) { Remove-Item -Path $script:dest }
+            if ($script:SaveOption -eq '1' -and -not($script:dest -match "\.(msix|appx)(bundle){0,1}$") { Remove-Item -Path $script:dest }
         }
     }
     else {
@@ -423,7 +423,7 @@ Function Read-WinGet-InstallerValues {
         } until ($script:_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
     }
 
-    if (-not $architecture -Cin @($Patterns.ValidArchitectures)) {
+    if ($architecture -CNotIn @($Patterns.ValidArchitectures)) {
         do {
             Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString() 
             Write-Host -ForegroundColor 'Green' -Object '[Required] Enter the architecture. Options:' , @($Patterns.ValidArchitectures -join ', ')
@@ -436,7 +436,7 @@ Function Read-WinGet-InstallerValues {
         } until ($script:_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
     }
 
-    if (-not $InstallerType -Cin @($Patterns.ValidInstallerTypes)) {
+    if ($InstallerType -CNotIn @($Patterns.ValidInstallerTypes)) {
         do {
             Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString() 
             Write-Host -ForegroundColor 'Green' -Object '[Required] Enter the InstallerType. Options:' , @($Patterns.ValidInstallerTypes -join ', ' )
@@ -1322,13 +1322,8 @@ Function Submit-Manifest {
 
     Write-Host
     if ($PromptSubmit -eq '0') {
-        switch ($Option) {
-            'QuickUpdateVerison' {
-                if ($script:LastVersion -lt $script:PackageVersion ) { $CommitType = 'New version' }
-                elseif ($script:PackageVersion -in $script:ExistingVersions) { $CommitType = 'Update' }
-                elseif ($script:LastVersion -gt $script:PackageVersion ) { $CommitType = 'Add version' }
-             }
-            'New' {
+        switch -regex ($Option) {
+            'New|QuickUpdateVerison' {
                 if ( $script:OldManifestType -eq 'None' ) { $CommitType = 'New package' }
                 elseif ($script:LastVersion -lt $script:PackageVersion ) { $CommitType = 'New version' }
                 elseif ($script:PackageVersion -in $script:ExistingVersions) { $CommitType = 'Update' }
@@ -1597,7 +1592,6 @@ Function Read-PreviousWinGet-Manifest-Yaml {
     }
 
     if (-not (Test-Path -Path "$AppFolder\..")) {
-        if ($script:Option -eq 'QuickUpdateVerison') { Write-Host -ForegroundColor Red "This option requires manifest of previous version of the package. If you want to create a new package, please select Option 1."; exit }
         $script:OldManifestType = 'None'
         return
     }
