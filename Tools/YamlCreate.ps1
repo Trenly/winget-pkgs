@@ -405,7 +405,7 @@ Function Read-WinGet-InstallerValues {
 
             $MSIProductCode = $(Get-AppLockerFileInformation -Path $script:dest | Select-Object Publisher | Select-String -Pattern '{[A-Z0-9]{8}-([A-Z0-9]{4}-){3}[A-Z0-9]{12}}').Matches
             
-            if ($script:SaveOption -eq '1' -and -not($script:dest -match "\.(msix|appx)(bundle){0,1}$") { Remove-Item -Path $script:dest }
+            if ($script:SaveOption -eq '1' -and -not($script:dest -match "\.(msix|appx)(bundle){0,1}$")) { Remove-Item -Path $script:dest }
         }
     }
     else {
@@ -1592,6 +1592,7 @@ Function Read-PreviousWinGet-Manifest-Yaml {
     }
 
     if (-not (Test-Path -Path "$AppFolder\..")) {
+        if ($script:Option -eq 'QuickUpdateVerison') { Write-Host -ForegroundColor Red "This option requires manifest of previous version of the package. If you want to create a new package, please select Option 1."; exit }
         $script:OldManifestType = 'None'
         return
     }
