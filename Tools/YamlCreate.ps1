@@ -423,27 +423,31 @@ Function Read-WinGet-InstallerValues {
         } until ($script:_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
     }
 
-    do {
-        Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString() 
-        Write-Host -ForegroundColor 'Green' -Object '[Required] Enter the architecture. Options:' , @($Patterns.ValidArchitectures -join ', ')
-        $architecture = Read-Host -Prompt 'Architecture' | TrimString
-        if ($architecture -Cin @($Patterns.ValidArchitectures)) {
-            $script:_returnValue = [ReturnValue]::Success()
-        } else {
-            $script:_returnValue = [ReturnValue]::new(400, 'Invalid Architecture', "Value must exist in the enum - $(@($Patterns.ValidArchitectures -join ', '))", 2)
-        }
-    } until ($script:_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
+    if (-not $architecture -Cin @($Patterns.ValidArchitectures)) {
+        do {
+            Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString() 
+            Write-Host -ForegroundColor 'Green' -Object '[Required] Enter the architecture. Options:' , @($Patterns.ValidArchitectures -join ', ')
+            $architecture = Read-Host -Prompt 'Architecture' | TrimString
+            if ($architecture -Cin @($Patterns.ValidArchitectures)) {
+                $script:_returnValue = [ReturnValue]::Success()
+            } else {
+                $script:_returnValue = [ReturnValue]::new(400, 'Invalid Architecture', "Value must exist in the enum - $(@($Patterns.ValidArchitectures -join ', '))", 2)
+            }
+        } until ($script:_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
+    }
 
-    do {
-        Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString() 
-        Write-Host -ForegroundColor 'Green' -Object '[Required] Enter the InstallerType. Options:' , @($Patterns.ValidInstallerTypes -join ', ' )
-        $InstallerType = Read-Host -Prompt 'InstallerType' | TrimString
-        if ($InstallerType -Cin @($Patterns.ValidInstallerTypes)) {
-            $script:_returnValue = [ReturnValue]::Success()
-        } else {
-            $script:_returnValue = [ReturnValue]::new(400, 'Invalid Installer Type', "Value must exist in the enum - $(@($Patterns.ValidInstallerTypes -join ', '))", 2)
-        }
-    } until ($script:_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
+    if (-not $InstallerType -Cin @($Patterns.ValidInstallerTypes)) {
+        do {
+            Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString() 
+            Write-Host -ForegroundColor 'Green' -Object '[Required] Enter the InstallerType. Options:' , @($Patterns.ValidInstallerTypes -join ', ' )
+            $InstallerType = Read-Host -Prompt 'InstallerType' | TrimString
+            if ($InstallerType -Cin @($Patterns.ValidInstallerTypes)) {
+                $script:_returnValue = [ReturnValue]::Success()
+            } else {
+                $script:_returnValue = [ReturnValue]::new(400, 'Invalid Installer Type', "Value must exist in the enum - $(@($Patterns.ValidInstallerTypes -join ', '))", 2)
+            }
+        } until ($script:_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
+    }
 
     if ($InstallerType -ieq 'exe') {
         do {
