@@ -394,9 +394,9 @@ Function Read-WinGet-InstallerValues {
             $InstallerSha256 = (Get-FileHash -Path $script:dest -Algorithm SHA256).Hash
             
             if ($script:dest -match "\.msix(bundle){0,1}$") { $InstallerType = 'msix' }
-            elseif ($script:dest.EndsWith('msi','CurrentCultureIgnoreCase')) { $InstallerType = 'msi' }
+            elseif ($script:dest -match "\.msi$") { $InstallerType = 'msi' }
             elseif ($script:dest -match "\.appx(bundle){0,1}$") { $InstallerType = 'appx' }
-            elseif ($script:dest.EndsWith('zip','CurrentCultureIgnoreCase')) { $InstallerType = 'zip' }
+            elseif ($script:dest -match "\.zip$") { $InstallerType = 'zip' }
 
             if ($InstallerUrl -match "\b(x|win){0,1}64\b") {$architecture = 'x64'}
             elseif ($InstallerUrl -match "\b((win|ia)32)|(x{0,1}86)\b") {$architecture = 'x86'}
