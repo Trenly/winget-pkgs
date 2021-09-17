@@ -1667,8 +1667,6 @@ Switch ($script:Option) {
         Write-WinGet-LocaleManifest-Yaml
         Write-WinGet-InstallerManifest-Yaml
         Write-WinGet-VersionManifest-Yaml
-        Test-Manifest
-        Submit-Manifest
     }
 
     'New' {
@@ -1679,8 +1677,6 @@ Switch ($script:Option) {
         Write-WinGet-InstallerManifest-Yaml
         Write-WinGet-VersionManifest-Yaml
         Write-WinGet-LocaleManifest-Yaml
-        Test-Manifest
-        Submit-Manifest
     }
 
     'EditMetadata' {
@@ -1690,17 +1686,16 @@ Switch ($script:Option) {
         Write-WinGet-InstallerManifest-Yaml
         Write-WinGet-VersionManifest-Yaml
         Write-WinGet-LocaleManifest-Yaml
-        Test-Manifest
-        Submit-Manifest
     }
 
     'NewLocale' {
         Read-WinGet-LocaleManifest
         Write-WinGet-LocaleManifest-Yaml
         if (Get-Command 'winget.exe' -ErrorAction SilentlyContinue) { winget validate $AppFolder }
-        Submit-Manifest
     }
 }
+Test-Manifest
+Submit-Manifest
 
 Enum ErrorLevel {
     Undefined = -1
