@@ -1657,6 +1657,16 @@ Read-WinGet-MandatoryInfo
 Read-PreviousWinGet-Manifest-Yaml
 
 Switch ($script:Option) {
+    'QuickUpdateVerison' {
+        Read-WinGet-InstallerValues
+        New-Variable -Name 'PackageLocale' -Value 'en-US' -Scope 'Script' -Force
+        Write-WinGet-LocaleManifest-Yaml
+        Write-WinGet-InstallerManifest-Yaml
+        Write-WinGet-VersionManifest-Yaml
+        Test-Manifest
+        Submit-Manifest
+    }
+
     'New' {
         Read-WinGet-InstallerValues
         Read-WinGet-InstallerManifest
@@ -1670,18 +1680,6 @@ Switch ($script:Option) {
     }
 
     'EditMetadata' {
-        Read-WinGet-InstallerManifest
-        New-Variable -Name 'PackageLocale' -Value 'en-US' -Scope 'Script' -Force
-        Read-WinGet-LocaleManifest
-        Write-WinGet-InstallerManifest-Yaml
-        Write-WinGet-VersionManifest-Yaml
-        Write-WinGet-LocaleManifest-Yaml
-        Test-Manifest
-        Submit-Manifest
-    }
-
-    'Update' {
-        Read-WinGet-InstallerValues
         Read-WinGet-InstallerManifest
         New-Variable -Name 'PackageLocale' -Value 'en-US' -Scope 'Script' -Force
         Read-WinGet-LocaleManifest
