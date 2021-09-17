@@ -1,5 +1,4 @@
 #Requires -Version 5
-$PSVersion = (Get-Host).Version.Major
 $ScriptHeader = '# Created with YamlCreate.ps1 v2.0.0'
 $ManifestVersion = '1.0.0'
 $PSDefaultParameterValues = @{ '*:Encoding' = 'UTF8' }
@@ -398,14 +397,17 @@ Function Read-WinGet-InstallerValues {
             elseif ($script:dest.EndsWith('msi','CurrentCultureIgnoreCase')) { $InstallerType = 'msi' }
             elseif ($script:dest.EndsWith('appx','CurrentCultureIgnoreCase') -or $script:dest.EndsWith('appxbundle','CurrentCultureIgnoreCase')) { $InstallerType = 'appx' }
             elseif ($script:dest.EndsWith('zip','CurrentCultureIgnoreCase')) { $InstallerType = 'zip' }
-            
-            $FileInformation = Get-AppLockerFileInformation -Path $script:dest | Select-Object Publisher | Select-String -Pattern '{[A-Z0-9]{8}-([A-Z0-9]{4}-){3}[A-Z0-9]{12}}'
-            $MSIProductCode = $FileInformation.Matches
+
+            if ($InstallerUrl -match [regex]('\bx64\b') -or $InstallerUrl -match [regex]('\bwin64\b') -or $InstallerUrl -match [regex]('\b64\b')) {$architecture = 'x64'}
+            elseif ($InstallerUrl -match [regex]('\bx86\b') -or $InstallerUrl -match ('\bwin32\b') -or $InstallerUrl -match [regex]('\bia32\b') -or $InstallerUrl -match [regex]('\b86\b')) {$architecture = 'x86'}
+            elseif ($InstallerUrl -match [regex]('\barm64\b') -or $InstallerUrl -match [regex]('\baarch64\b')) { $architecture = 'arm64' }
+            elseif ($InstallerUrl -match [regex]('\barm\b')) { $architecture = 'arm' }
+
+            $MSIProductCode = $(Get-AppLockerFileInformation -Path $script:dest | Select-Object Publisher | Select-String -Pattern '{[A-Z0-9]{8}-([A-Z0-9]{4}-){3}[A-Z0-9]{12}}').Matches
             
             if ($script:SaveOption -eq '1' -and -not($script:dest.EndsWith('appx', 'CurrentCultureIgnoreCase') -or $script:dest.EndsWith('msix', 'CurrentCultureIgnoreCase') -or $script:dest.EndsWith('appxbundle', 'CurrentCultureIgnoreCase') -or $script:dest.EndsWith('msixbundle', 'CurrentCultureIgnoreCase'))) { Remove-Item -Path $script:dest }
         }
     }
-
     else {
         Write-Host
         do {
@@ -681,7 +683,7 @@ Function Read-WinGet-InstallerValues {
     $script:Installers += $_Installer
 
     $_menu = @{
-        entries       = @(
+        entries = @(
             '[Y] Yes'
             '*[N] No'
         )
