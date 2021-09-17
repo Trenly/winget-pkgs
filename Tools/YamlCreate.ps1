@@ -29,11 +29,7 @@ $ofs = ', '
     https://github.com/microsoft/winget-pkgs/blob/master/Tools/YamlCreate.ps1
 #>
 
-<#
-TO-DO:
-    - Handle writing null parameters as comments
-    - Ensure licensing for powershell-yaml is met
-#>
+# TO-DO: Ensure licensing for powershell-yaml is met
 
 if (-not(Get-Module -ListAvailable -Name powershell-yaml)) {
     try {
@@ -247,8 +243,9 @@ Function Show-OptionMenu {
     Clear-Host
     Write-Host -ForegroundColor 'Cyan' 'Select Mode'
     Write-Colors "`n[", '1', "] New Manifest or Package Version`n" 'DarkCyan', 'White', 'DarkCyan'
-    Write-Colors "`n[", '2', "] Update Package Metadata`n" 'DarkCyan', 'White', 'DarkCyan'
-    Write-Colors "`n[", '3', "] New Locale`n" 'DarkCyan', 'White', 'DarkCyan'
+    Write-Colors "`n[", '2', "] Quick Update Package Version ", "(Note: Must be used only when previous version`'s metadata is complete.)`n" 'DarkCyan', 'White', 'DarkCyan', 'Green'
+    Write-Colors "`n[", '3', "] Update Package Metadata`n" 'DarkCyan', 'White', 'DarkCyan'
+    Write-Colors "`n[", '4', "] New Locale`n" 'DarkCyan', 'White', 'DarkCyan'
     Write-Colors "`n[", 'q', ']', " Any key to quit`n" 'DarkCyan', 'White', 'DarkCyan', 'Red'
     Write-Colors "`nSelection: " 'White'
 
@@ -256,9 +253,11 @@ Function Show-OptionMenu {
         [ConsoleKey]::D1      = '1';
         [ConsoleKey]::D2      = '2';
         [ConsoleKey]::D3      = '3';
+        [ConsoleKey]::D4      = '4';
         [ConsoleKey]::NumPad1 = '1';
         [ConsoleKey]::NumPad2 = '2';
         [ConsoleKey]::NumPad3 = '3';
+        [ConsoleKey]::NumPad4 = '4';
     }
 
     do {
@@ -267,8 +266,9 @@ Function Show-OptionMenu {
 
     switch ($Keys[$keyInfo.Key]) {
         '1' { $script:Option = 'New' }
-        '2' { $script:Option = 'EditMetadata' }
-        '3' { $script:Option = 'NewLocale' }
+        '2' { $script:Option = 'QuickUpdateVerison' }
+        '3' { $script:Option = 'EditMetadata' }
+        '4' { $script:Option = 'NewLocale' }
         default { Write-Host; exit }
     }
 }
@@ -391,9 +391,17 @@ Function Read-WinGet-InstallerValues {
             exit 1
         } finally {
             Write-Host "Time taken: $((Get-Date).Subtract($start_time).Seconds) second(s)" -ForegroundColor Green
+            
             $InstallerSha256 = (Get-FileHash -Path $script:dest -Algorithm SHA256).Hash
+            
+            if ($script:dest.EndsWith('msix','CurrentCultureIgnoreCase') -or $script:dest.EndsWith('msixbundle','CurrentCultureIgnoreCase')) { $InstallerType = 'msix' }
+            elseif ($script:dest.EndsWith('msi','CurrentCultureIgnoreCase')) { $InstallerType = 'msi' }
+            elseif ($script:dest.EndsWith('appx','CurrentCultureIgnoreCase') -or $script:dest.EndsWith('appxbundle','CurrentCultureIgnoreCase')) { $InstallerType = 'appx' }
+            elseif ($script:dest.EndsWith('zip','CurrentCultureIgnoreCase')) { $InstallerType = 'zip' }
+            
             $FileInformation = Get-AppLockerFileInformation -Path $script:dest | Select-Object Publisher | Select-String -Pattern '{[A-Z0-9]{8}-([A-Z0-9]{4}-){3}[A-Z0-9]{12}}'
             $MSIProductCode = $FileInformation.Matches
+            
             if ($script:SaveOption -eq '1' -and -not($script:dest.EndsWith('appx', 'CurrentCultureIgnoreCase') -or $script:dest.EndsWith('msix', 'CurrentCultureIgnoreCase') -or $script:dest.EndsWith('appxbundle', 'CurrentCultureIgnoreCase') -or $script:dest.EndsWith('msixbundle', 'CurrentCultureIgnoreCase'))) { Remove-Item -Path $script:dest }
         }
     }
@@ -530,7 +538,7 @@ Function Read-WinGet-InstallerValues {
         $_menu = @{
             entries       = @('*[F] Find Automatically [Note: This will install the package to find Family Name and then removes it.]'; '[M] Manually Enter PackageFamilyName')
             Prompt        = 'Discover the package family name?'
-            DefaultString = 'M'
+            DefaultString = 'F'
         }
     
         switch ( KeypressMenu -Prompt $_menu['Prompt'] -Entries $_menu['Entries'] -DefaultString $_menu['DefaultString']) {
@@ -547,8 +555,6 @@ Function Read-WinGet-InstallerValues {
             if (String.Validate $PackageFamilyName -IsNull) {
                 $script:_returnValue = [ReturnValue]::new(500, 'Could not find PackageFamilyName', 'Value should be entered manually', 1)
             }
-        } else {
-            Write-Host $null
         }
         
         do {
@@ -1311,6 +1317,11 @@ Function Submit-Manifest {
     Write-Host
     if ($PromptSubmit -eq '0') {
         switch ($Option) {
+            'QuickUpdateVerison' {
+                if ($script:LastVersion -lt $script:PackageVersion ) { $CommitType = 'New version' }
+                elseif ($script:PackageVersion -in $script:ExistingVersions) { $CommitType = 'Update' }
+                elseif ($script:LastVersion -gt $script:PackageVersion ) { $CommitType = 'Add version' }
+             }
             'New' {
                 if ( $script:OldManifestType -eq 'None' ) { $CommitType = 'New package' }
                 elseif ($script:LastVersion -lt $script:PackageVersion ) { $CommitType = 'New version' }
@@ -1560,7 +1571,7 @@ Function Write-WinGet-LocaleManifest-Yaml {
 
 Function Read-PreviousWinGet-Manifest-Yaml {
     
-    if (($Option -eq 'NewLocale') -or ($Option -eq 'EditMetadata')) {
+    if (($script:Option -eq 'NewLocale') -or ($script:Option -eq 'EditMetadata')) {
         if (Test-Path -Path "$AppFolder\..\$PackageVersion") {
             $script:OldManifests = Get-ChildItem -Path "$AppFolder\..\$PackageVersion"
             $LastVersion = $PackageVersion
@@ -1580,6 +1591,7 @@ Function Read-PreviousWinGet-Manifest-Yaml {
     }
 
     if (-not (Test-Path -Path "$AppFolder\..")) {
+        if ($script:Option -eq 'QuickUpdateVerison') { Write-Host -ForegroundColor Red "This option requires manifest of previous version of the package. If you want to create a new package, please select Option 1."; exit }
         $script:OldManifestType = 'None'
         return
     }
@@ -1601,11 +1613,11 @@ Function Read-PreviousWinGet-Manifest-Yaml {
         $script:OldLocaleManifest = ConvertFrom-Yaml -Yaml ($(Get-Content -Path $(Resolve-Path "$AppFolder\..\$LastVersion\$PackageIdentifier.locale.en-US.yaml") -Encoding UTF8) -join "`n") -Ordered
         $script:OldVersionManifest = ConvertFrom-Yaml -Yaml ($(Get-Content -Path $(Resolve-Path "$AppFolder\..\$LastVersion\$PackageIdentifier.yaml") -Encoding UTF8) -join "`n") -Ordered
     } elseif ($OldManifests.Name -eq "$PackageIdentifier.yaml") {
-        if ($Option -eq 'NewLocale') { Throw 'Error: MultiManifest Required' }
+        if ($script:Option -eq 'NewLocale') { Throw 'Error: MultiManifest Required' }
         $script:OldManifestType = 'Singleton'
         $script:OldVersionManifest = ConvertFrom-Yaml -Yaml ($(Get-Content -Path $(Resolve-Path "$AppFolder\..\$LastVersion\$PackageIdentifier.yaml") -Encoding UTF8) -join "`n") -Ordered
     } else {
-        if ($Option -ne 'New') { Throw "Error: Version $LastVersion does not contain the required manifests" }
+        if ($script:Option -ne 'New') { Throw "Error: Version $LastVersion does not contain the required manifests" }
         $script:OldManifestType = 'None'
         return
     }
@@ -1642,8 +1654,7 @@ Show-OptionMenu
 Read-WinGet-MandatoryInfo
 Read-PreviousWinGet-Manifest-Yaml
 
-Switch ($Option) {
-    
+Switch ($script:Option) {
     'New' {
         Read-WinGet-InstallerValues
         Read-WinGet-InstallerManifest
