@@ -296,21 +296,7 @@ Function Request-Installer-Url {
     return $NewInstallerUrl
 }
 
-Function Read-WinGet-MandatoryInfo {
-    if ($script:Option -eq 'QuickUpdateVersion') {
-        $_menu = @{
-            entries       = @('[Y] Continue with Quick Update'; '*[N] Switch to Option 1')
-            Prompt        = 'Quick Updates only allow for changes to the existing Installer URLs, Sha256 Values, and Product Codes. Are you sure you want to continue?'
-            HelpText      = 'This mode should be used with caution. If you are not 100% certain this is correct, please use Option 1 to go through the full update experience'
-            HelpTextColor = 'Red'
-            DefaultString = 'N'
-        }
-        
-        if ($(KeypressMenu -Prompt $_menu['Prompt'] -Entries $_menu['Entries'] -DefaultString $_menu['DefaultString'] -HelpText $_menu['HelpText'] -HelpTextColor $_menu['HelpTextColor']) -ne 'Y') {
-            $script:Option = 'New'; Write-Host -ForegroundColor DarkYellow -Object "`n`nSwitched to Option 1" -NoNewline;
-        }
-    }
-    
+Function Read-WinGet-MandatoryInfo {   
     Write-Host
 
     do {
@@ -1768,6 +1754,23 @@ Function Read-PreviousWinGet-Manifest-Yaml {
 
 $script:_returnValue = [ReturnValue]::new(200)
 Show-OptionMenu
+
+if ($script:Option -eq 'QuickUpdateVersion'){
+    $_menu = @{
+        entries       = @('[Y] Continue with Quick Update'; '[N] Use Full Update Experience'; '*[Q] Exit Script')
+        Prompt        = 'Quick Updates only allow for changes to the existing Installer URLs, Sha256 Values, and Product Codes. Are you sure you want to continue?'
+        HelpText      = 'This mode should be used with caution. If you are not 100% certain this is correct, please use Option 1 to go through the full update experience'
+        HelpTextColor = 'Red'
+        DefaultString = 'Q'
+    }
+
+    switch ( KeypressMenu -Prompt $_menu['Prompt'] -Entries $_menu['Entries'] -DefaultString $_menu['DefaultString'] -HelpText $_menu['HelpText'] -HelpTextColor $_menu['HelpTextColor']) {
+        'Y' { Write-Host -ForegroundColor DarkYellow -Object "`n`nContinuing with Quick Update"}
+        'N' {$script:Option = 'New'; Write-Host -ForegroundColor DarkYellow -Object "`n`nSwitched to Full Update Experience"}
+        default { Write-Host;exit 1 }
+    }
+}
+
 Read-WinGet-MandatoryInfo
 Read-PreviousWinGet-Manifest-Yaml
 
