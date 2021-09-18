@@ -27,17 +27,19 @@ $ofs = ', '
 .LINK
     https://github.com/microsoft/winget-pkgs/blob/master/Tools/YamlCreate.ps1
 #>
-
 # TO-DO: Ensure licensing for powershell-yaml is met
 
+# Installs `powershell-yaml` as a dependency for parsing yaml content
 if (-not(Get-Module -ListAvailable -Name powershell-yaml)) {
     try {
+        Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force
         Install-Module -Name powershell-yaml -Force -Repository PSGallery -Scope CurrentUser
     } catch {
         Throw "Unmet dependency. 'powershell-yaml' unable to be installed successfully."
     }
 }
 
+# Fetch Schema data from github for entry validation, key ordering, and automatic commenting
 try {
     $ProgressPreference = 'SilentlyContinue'
     $LocaleSchema = @(Invoke-WebRequest 'https://raw.githubusercontent.com/microsoft/winget-cli/master/schemas/JSON/manifests/v1.0.0/manifest.locale.1.0.0.json' -UseBasicParsing | ConvertFrom-Json)
@@ -64,6 +66,7 @@ filter UniqueItems {
 
 $ToNatural = { [regex]::Replace($_, '\d+', { $args[0].Value.PadLeft(20) }) }
 
+# Various patterns used in validation to simplify the validation logic
 $Patterns = @{
     PackageIdentifier         = $VersionSchema.properties.PackageIdentifier.pattern
     IdentifierMaxLength       = $VersionSchema.properties.PackageIdentifier.maxLength
@@ -109,6 +112,8 @@ $Patterns = @{
     FileExtensionMaxLength    = $InstallerSchema.definitions.FileExtensions.items.maxLength
 }
 
+# This function validates whether a string matches Minimum Length, Maximum Length, and Regex pattern
+# The switches can be used to specify if null values are allowed regardless of validation
 Function String.Validate {
     Param
     (
@@ -154,7 +159,7 @@ Function String.Validate {
     }
 }
 
-
+# Takes an array of strings and an array of colors then writes one line of text composed of each string being its respective color
 Function Write-Colors {
     Param
     (
@@ -171,6 +176,8 @@ Function Write-Colors {
     }
 }
 
+# Custom menu prompt that listens for keypresses. Requires a prompt and array of entries at minimum. Entries preceeded with `*` are shown in green
+# Returns a console key value
 Function KeypressMenu {
     Param
     (
@@ -222,6 +229,7 @@ Function KeypressMenu {
     return $keyInfo.Key
 }
 
+# Checks a URL and returns the status code received from the URL
 Function TestUrlValidity {
     Param
     (
@@ -239,6 +247,8 @@ Function TestUrlValidity {
     return $HTTP_Status
 }
 
+# Prompts user to enter an Installer URL, Tests the URL to ensure it results in a response code of 200, validates it against the manifest schema
+# Returns the validated URL which was entered
 Function Request-Installer-Url {
     do {
         Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString()
@@ -263,7 +273,11 @@ Function Request-Installer-Url {
     return $NewInstallerUrl
 }
 
+# Prompts the user to enter installer values
+# Sets the $script:Installers value as an output
+# Returns void
 Function Read-WinGet-InstallerValues {
+    # Clear prompted variables to ensure data from previous installer entries is not used for new entries
     $InstallerValues = @(
         'Architecture'
         'InstallerType'
@@ -282,14 +296,15 @@ Function Read-WinGet-InstallerValues {
     )
     Foreach ($InstallerValue in $InstallerValues) { Clear-Variable -Name $InstallerValue -Force -ErrorAction SilentlyContinue }
 
+    # Request user enter Installer URL
     $InstallerUrl = Request-Installer-Url
 
+    # Get or request Installer Sha256
     $_menu = @{
         entries       = @('[Y] Yes'; '*[N] No'; '[M] Manually Enter SHA256')
         Prompt        = 'Do you want to save the files to the Temp folder?'
         DefaultString = 'N'
     }
-
     switch ( KeypressMenu -Prompt $_menu['Prompt'] -Entries $_menu['Entries'] -DefaultString $_menu['DefaultString']) {
         'Y' { $script:SaveOption = '0' }
         'N' { $script:SaveOption = '1' }
@@ -297,6 +312,8 @@ Function Read-WinGet-InstallerValues {
         default { $script:SaveOption = '1' }
     }
 
+    # If user did not select manual entry for Sha256, download file and calculate hash
+    # Also attempt to detect installer type and architecture
     if ($script:SaveOption -ne '2') {
         Write-Host
         $start_time = Get-Date
@@ -330,7 +347,9 @@ Function Read-WinGet-InstallerValues {
             
             if ($script:SaveOption -eq '1' -and -not($script:dest -match '\.(msix|appx)(bundle){0,1}$')) { Remove-Item -Path $script:dest }
         }
-    } else {
+    } 
+    # Manual Entry of Sha256 with validation
+    else {
         Write-Host
         do {
             Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString() 
@@ -345,6 +364,7 @@ Function Read-WinGet-InstallerValues {
         } until ($script:_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
     }
 
+    # Manual Entry of Architecture with validation
     if ($architecture -CNotIn @($Patterns.ValidArchitectures)) {
         do {
             Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString() 
@@ -358,6 +378,7 @@ Function Read-WinGet-InstallerValues {
         } until ($script:_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
     }
 
+    # Manual Entry of Installer Type with validation
     if ($InstallerType -CNotIn @($Patterns.ValidInstallerTypes)) {
         do {
             Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString() 
@@ -371,7 +392,9 @@ Function Read-WinGet-InstallerValues {
         } until ($script:_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
     }
 
+    # If Installer Type is `exe`, require the silent switches to be entered
     if ($InstallerType -ieq 'exe') {
+        # Required entry of `Silent` switches with validation
         do {
             Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString() 
             Write-Host -ForegroundColor 'Green' -Object '[Required] Enter the silent install switch. For example: /S, -verysilent, /qn, --silent, /exenoui'
@@ -382,9 +405,9 @@ Function Read-WinGet-InstallerValues {
             } else {
                 $script:_returnValue = [ReturnValue]::LengthError(1, $Patterns.SilentSwitchMaxLength)
             }
-
         } until ($script:_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
 
+        # Required entry of `SilentWithProgress` swtich with validation
         do {
             Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString() 
             Write-Host -ForegroundColor 'Green' -Object '[Required] Enter the silent with progress install switch. For example: /S, -silent, /qb, /exebasicui'
@@ -396,19 +419,10 @@ Function Read-WinGet-InstallerValues {
                 $script:_returnValue = [ReturnValue]::LengthError(1, $Patterns.ProgressSwitchMaxLength)
             }
         } until ($script:_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
-
-        do {
-            Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString() 
-            Write-Host -ForegroundColor 'Yellow' -Object '[Optional] Enter any custom switches for the installer. For example: /norestart, -norestart'
-            $Custom = Read-Host -Prompt 'Custom Switch' | TrimString
-
-            if (String.Validate $Custom -MaxLength $Patterns.CustomSwitchMaxLength -AllowNull) {
-                $script:_returnValue = [ReturnValue]::Success()
-            } else {
-                $script:_returnValue = [ReturnValue]::LengthError(1, $Patterns.CustomSwitchMaxLength)
-            }
-        } until ($script:_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
-    } else {
+    }
+    # If Installer Type is not `exe`, the silent switches are optional
+    else {
+        # Optional entry of `Silent` switch with validation
         do {
             Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString() 
             Write-Host -ForegroundColor 'Yellow' -Object '[Optional] Enter the silent install switch. For example: /S, /s, /VERYSILENT, /qn, --silent'
@@ -422,6 +436,7 @@ Function Read-WinGet-InstallerValues {
 
         } until ($script:_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
 
+        # Optional entry of `SilentWithProgress` switch with validation
         do {
             Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString() 
             Write-Host -ForegroundColor 'Yellow' -Object '[Optional] Enter the silent with progress install switch. For example: /S, /SILENT, /qb'
@@ -433,23 +448,27 @@ Function Read-WinGet-InstallerValues {
                 $script:_returnValue = [ReturnValue]::LengthError(1, $Patterns.ProgressSwitchMaxLength)
             }
         } until ($script:_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
-
-        do {
-            Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString() 
-            Write-Host -ForegroundColor 'Yellow' -Object '[Optional] Enter any custom switches for the installer. For example: /NORESTART, -norestart, /CURRENTUSER, /ALLUSERS'
-            $Custom = Read-Host -Prompt 'CustomSwitch' | TrimString
-
-            if (String.Validate $Custom -MaxLength $Patterns.CustomSwitchMaxLength -AllowNull) {
-                $script:_returnValue = [ReturnValue]::Success()
-            } else {
-                $script:_returnValue = [ReturnValue]::LengthError(1, $Patterns.CustomSwitchMaxLength)
-            }
-        } until ($script:_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
     }
 
+    # Optional entry of `Custom` switches with validation for all installer types
+    do {
+        Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString() 
+        Write-Host -ForegroundColor 'Yellow' -Object '[Optional] Enter any custom switches for the installer. For example: /norestart, -norestart'
+        $Custom = Read-Host -Prompt 'Custom Switch' | TrimString
+
+        if (String.Validate $Custom -MaxLength $Patterns.CustomSwitchMaxLength -AllowNull) {
+            $script:_returnValue = [ReturnValue]::Success()
+        } else {
+            $script:_returnValue = [ReturnValue]::LengthError(1, $Patterns.CustomSwitchMaxLength)
+        }
+    } until ($script:_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
+
+    # If the installer is `msix` or `appx`, prompt for or detect additional fields
     if ($InstallerType -ieq 'msix' -or $InstallerType -ieq 'appx') {
+        # Detect or prompt for Signature Sha256
         if (Get-Command 'winget.exe' -ErrorAction SilentlyContinue) { $SignatureSha256 = winget hash -m $script:dest | Select-String -Pattern 'SignatureSha256:' | ConvertFrom-String; if ($SignatureSha256.P2) { $SignatureSha256 = $SignatureSha256.P2.ToUpper() } }
         if (String.Validate $SignatureSha256 -IsNull) {
+            # Manual entry of Signature Sha256 with validation
             do {
                 Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString() 
                 Write-Host -ForegroundColor 'Yellow' -Object '[Recommended] Enter the installer SignatureSha256'
@@ -463,18 +482,20 @@ Function Read-WinGet-InstallerValues {
             } until ($script:_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
         }
 
+        # Prompt user to find package name automatically
         $_menu = @{
             entries       = @('*[F] Find Automatically [Note: This will install the package to find Family Name and then removes it.]'; '[M] Manually Enter PackageFamilyName')
             Prompt        = 'Discover the package family name?'
             DefaultString = 'F'
         }
-    
         switch ( KeypressMenu -Prompt $_menu['Prompt'] -Entries $_menu['Entries'] -DefaultString $_menu['DefaultString']) {
             'F' { $ChoicePfn = '0' }
             'M' { $ChoicePfn = '1' }
             default { $ChoicePfn = '0' }
         }
 
+        # If user selected to find automatically -
+        # Install package, get family name, uninstall package
         if ($ChoicePfn -eq '0') {
             Add-AppxPackage -Path $script:dest
             $InstalledPkg = Get-AppxPackage | Select-Object -Last 1 | Select-Object PackageFamilyName, PackageFullName
@@ -485,6 +506,8 @@ Function Read-WinGet-InstallerValues {
             }
         }
         
+        # Validate Package Family Name if found automatically
+        # Allow for manual entry if selected or if validation failed
         do {
             if (($ChoicePfn -ne '0') -or ($script:_returnValue.StatusCode -ne [ReturnValue]::Success().StatusCode)) {
                 Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString() 
@@ -509,6 +532,7 @@ Function Read-WinGet-InstallerValues {
         if ($script:SaveOption -eq '1') { Remove-Item -Path $script:dest }
     }
 
+    # Request installer locale with validation as optional; Default to `en-US` if no value is entered
     do {
         Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString() 
         Write-Host -ForegroundColor 'Yellow' -Object '[Optional] Enter the installer locale. For example: en-US, en-CA'
@@ -529,6 +553,7 @@ Function Read-WinGet-InstallerValues {
         }
     } until ($script:_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
 
+    # Request product code with validation
     do {
         Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString() 
         Write-Host -ForegroundColor 'Yellow' -Object '[Optional] Enter the application product code. Looks like {CF8E6E00-9C03-4440-81C0-21FACB921A6B}'
@@ -543,12 +568,12 @@ Function Read-WinGet-InstallerValues {
         }
     } until ($script:_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
 
+    # Request installer scope
     $_menu = @{
         entries       = @('[M] Machine'; '[U] User'; '*[N] No idea')
         Prompt        = '[Optional] Enter the Installer Scope'
         DefaultString = 'N'
     }
-
     switch ( KeypressMenu -Prompt $_menu['Prompt'] -Entries $_menu['Entries'] -DefaultString $_menu['DefaultString']) {
         'M' { $Scope = 'machine' }
         'U' { $Scope = 'user' }
@@ -556,23 +581,27 @@ Function Read-WinGet-InstallerValues {
         default { $Scope = '' }
     }
 
+    # Request upgrade behavior
     $_menu = @{
         entries       = @('*[I] Install'; '[U] Uninstall Previous')
         Prompt        = '[Optional] Enter the Upgrade Behavior'
         DefaultString = 'I'
     }
-
     switch ( KeypressMenu -Prompt $_menu['Prompt'] -Entries $_menu['Entries'] -DefaultString $_menu['DefaultString']) {
         'I' { $UpgradeBehavior = 'install' }
         'U' { $UpgradeBehavior = 'uninstallPrevious' }
         default { $UpgradeBehavior = 'install' }
     }
     
+    # If the installers array is empty, create it
     if (!$script:Installers) {
         $script:Installers = @()
     }
+
+    # Set up a new empty installer
     $_Installer = [ordered] @{}
 
+    # Add the single-line parameters to the installer entry
     $_InstallerSingletons = [ordered] @{
         'InstallerLocale'   = $InstallerLocale
         'Architecture'      = $Architecture
@@ -587,6 +616,7 @@ Function Read-WinGet-InstallerValues {
         If ($_Item.Value) { AddYamlParameter $_Installer $_Item.Name $_Item.Value }
     }
 
+    # Add the installer switches to the installer entry, if they exist
     If ($Silent -or $SilentWithProgress -or $Custom) {
         $_InstallerSwitches = [ordered]@{}
         $_Switches = [ordered] @{
@@ -594,7 +624,6 @@ Function Read-WinGet-InstallerValues {
             'Silent'             = $Silent
             'SilentWithProgress' = $SilentWithProgress
         }
-        
         foreach ($_Item in $_Switches.GetEnumerator()) {
             If ($_Item.Value) { AddYamlParameter $_InstallerSwitches $_Item.Name $_Item.Value }
         }
@@ -602,12 +631,15 @@ Function Read-WinGet-InstallerValues {
         $_Installer['InstallerSwitches'] = $_InstallerSwitches
     }
 
+    # Add the product code to the installer entry, if it exists
     If ($ProductCode) { AddYamlParameter $_Installer 'ProductCode' $ProductCode }
     AddYamlParameter $_Installer 'UpgradeBehavior' $UpgradeBehavior
-    $_Installer = SortYamlKeys $_Installer $InstallerEntryProperties -NoComments
 
+    # Add the completed installer to the installers array
+    $_Installer = SortYamlKeys $_Installer $InstallerEntryProperties -NoComments
     $script:Installers += $_Installer
 
+    # Prompt the user for additional intaller entries
     $_menu = @{
         entries       = @(
             '[Y] Yes'
@@ -616,21 +648,24 @@ Function Read-WinGet-InstallerValues {
         Prompt        = 'Do you want to create another installer?'
         DefaultString = 'N'
     }
-
     switch ( KeypressMenu -Prompt $_menu['Prompt'] -Entries $_menu['Entries'] -DefaultString $_menu['DefaultString']) {
         'Y' { $AnotherInstaller = '0' }
         'N' { $AnotherInstaller = '1' }
         default { $AnotherInstaller = '1' }
     }
 
+    # If there are additional entries, run this function again to fetch the values and add them to the installers array
     if ($AnotherInstaller -eq '0') {
         Write-Host; Read-WinGet-InstallerValues
     }
 }
 
-
+# Prompts user for Installer Values using the `Quick Update` Method
+# Sets the $script:Installers value as an output
+# Returns void
 Function Read-WinGet-InstallerValues-Minimal {
-
+    # We know old manifests exist if we got here without error
+    # Fetch the old installers based on the manifest type
     if ($script:OldInstallerManifest) { $_OldInstallers = $script:OldInstallerManifest['Installers'] } else {
         $_OldInstallers = $script:OldVersionManifest['Installers']
     }
@@ -638,8 +673,12 @@ Function Read-WinGet-InstallerValues-Minimal {
     $_iteration = 0
     $_NewInstallers = @()
     foreach ($_OldInstaller in $_OldInstallers) {
+        # Create the new installer as an exact copy of the old installer entry
+        # This is to ensure all previously entered and un-modified parameters are retained
         $_iteration += 1
         $_NewInstaller = $_OldInstaller
+
+        # Show the user which installer entry they should be entering information for
         Write-Host -ForegroundColor 'Green' "Installer Entry #$_iteration`:`n"
         if ($_OldInstaller.InstallerLocale) { Write-Host -ForegroundColor 'Yellow' "`tInstallerLocale: $($_OldInstaller.InstallerLocale)" }
         if ($_OldInstaller.Architecture) { Write-Host -ForegroundColor 'Yellow' "`tArchitecture: $($_OldInstaller.Architecture)" }
@@ -647,14 +686,16 @@ Function Read-WinGet-InstallerValues-Minimal {
         if ($_OldInstaller.Scope) { Write-Host -ForegroundColor 'Yellow' "`tScope: $($_OldInstaller.Scope)" }
         Write-Host
 
+        # Request user enter the new Installer URL
         $NewInstallerUrl = Request-Installer-Url
         $_NewInstaller['InstallerUrl'] = $NewInstallerUrl
+
+        # Get or request Installer Sha256
         $_menu = @{
             entries       = @('[Y] Yes'; '*[N] No'; '[M] Manually Enter SHA256')
             Prompt        = 'Do you want to save the files to the Temp folder?'
             DefaultString = 'N'
         }
-
         switch ( KeypressMenu -Prompt $_menu['Prompt'] -Entries $_menu['Entries'] -DefaultString $_menu['DefaultString']) {
             'Y' { $script:SaveOption = '0' }
             'N' { $script:SaveOption = '1' }
@@ -662,6 +703,7 @@ Function Read-WinGet-InstallerValues-Minimal {
             default { $script:SaveOption = '1' }
         }
 
+        # If user did not select manual entry for Sha256, download file and calculate hash
         if ($script:SaveOption -ne '2') {
             Write-Host
             $start_time = Get-Date
@@ -683,7 +725,9 @@ Function Read-WinGet-InstallerValues-Minimal {
                 $MSIProductCode = $(Get-AppLockerFileInformation -Path $script:dest | Select-Object Publisher | Select-String -Pattern '{[A-Z0-9]{8}-([A-Z0-9]{4}-){3}[A-Z0-9]{12}}').Matches
                 if ($script:SaveOption -eq '1' -and -not($script:dest -match '\.(msix|appx)(bundle){0,1}$')) { Remove-Item -Path $script:dest }
             }
-        } else {
+        } 
+        # Manual Entry of Sha256 with validation
+        else {
             Write-Host
             do {
                 Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString() 
@@ -697,9 +741,9 @@ Function Read-WinGet-InstallerValues-Minimal {
                 }
             } until ($script:_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
         }
-        
         $_NewInstaller['InstallerSha256'] = $NewInstallerSha256
 
+        # Get the product code of the new installer
         do {
             Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString() 
             Write-Host -ForegroundColor 'Yellow' -Object '[Optional] Enter the application product code. Looks like {CF8E6E00-9C03-4440-81C0-21FACB921A6B}'
@@ -713,19 +757,24 @@ Function Read-WinGet-InstallerValues-Minimal {
                 $script:_returnValue = [ReturnValue]::LengthError($Patterns.ProductCodeMinLength, $Patterns.ProductCodeMaxLength)
             }
         } until ($script:_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
+
+        # If the product code entered is empty; Ensure we remove it if it exists and don't add it if it doesn't exist
         if ((String.Validate $NewProductCode -IsNull) -and ($_NewInstaller.Keys -contains 'ProductCode')) { 
             $_NewInstaller.Remove('ProductCode')
         } elseif (String.Validate -Not $NewProductCode -IsNull ) {
             $_NewInstaller['ProductCode'] = $NewProductCode
         }
 
+        #Add the updated installer to the new installers array
         $_NewInstaller = SortYamlKeys $_NewInstaller $InstallerEntryProperties -NoComments
-
         $_NewInstallers += $_NewInstaller
     }
     $script:Installers = $_NewInstallers
 }
 
+# Requests the user enter an optional value with a prompt
+# If the value already exists, also print the existing value
+# Returns the new value if entered, Returns the existing value if no new value was entered
 Function PromptInstallerManifestValue {
     Param
     (
@@ -748,6 +797,9 @@ Function PromptInstallerManifestValue {
     }
 }
 
+# Sorts keys within an object based on a reference ordered dictionary
+# If a key does not exist, it sets the value to a special character to be removed / commented later
+# Returns the result as a new object
 Function SortYamlKeys {
     Param
     (
@@ -785,8 +837,11 @@ Function SortYamlKeys {
     return $_Temp
 }
 
+# Requests the user to input optional values for the Installer Manifest file
 Function Read-WinGet-InstallerManifest {
     Write-Host
+
+    # Request File Extensions and validate
     do {
         if (!$FileExtensions) { $FileExtensions = '' }
         else { $FileExtensions = $FileExtensions | UniqueItems }
@@ -801,9 +856,9 @@ Function Read-WinGet-InstallerManifest {
                 $script:_returnValue = [ReturnValue]::new(400, 'Invalid Entries', "Some entries do not match the requirements defined in the manifest schema - $($script:FileExtensions.Split(',').Trim() | Where-Object { String.Validate -not $_ -MaxLength $Patterns.FileExtensionMaxLength -MatchPattern $Patterns.FileExtension })", 2)
             }
         }
-
     } until ($script:_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
 
+    # Request Protocols and validate
     do {
         if (!$Protocols) { $Protocols = '' }
         else { $Protocols = $Protocols | UniqueItems }
@@ -815,6 +870,7 @@ Function Read-WinGet-InstallerManifest {
         }
     } until ($script:_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
 
+    # Request Commands and validate
     do {
         if (!$Commands) { $Commands = '' }        
         else { $Commands = $Commands | UniqueItems }
@@ -826,6 +882,7 @@ Function Read-WinGet-InstallerManifest {
         }
     }  until ($script:_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
 
+    # Request Installer Success Codes and validate
     do {
         if (!$InstallerSuccessCodes) { $InstallerSuccessCodes = '' }
         $script:InstallerSuccessCodes = PromptInstallerManifestValue $InstallerSuccessCodes 'InstallerSuccessCodes' "[Optional] List of additional non-zero installer success exit codes other than known default values by winget (Max $($Patterns.MaxItemsSuccessCodes))" | UniqueItems
@@ -836,12 +893,12 @@ Function Read-WinGet-InstallerManifest {
         }
     }  until ($script:_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
 
+    # Request Install Modes and validate
     do {
         if (!$InstallModes) { $InstallModes = '' }
         $InstallModes = $InstallModes | UniqueItems
         $script:InstallModes = PromptInstallerManifestValue $InstallModes 'InstallModes' "[Optional] List of supported installer modes. Options: $($Patterns.ValidInstallModes -join ', ')"
         $script:InstallModes = $script:InstallModes | UniqueItems
-
         if ( (String.Validate $script:InstallModes -IsNull) -or (($script:InstallModes -split ',').Count -le $Patterns.MaxItemsInstallModes -and $($script:InstallModes.Split(',').Trim() | Where-Object { $_ -CNotIn $Patterns.ValidInstallModes }).Count -eq 0)) {
             $script:_returnValue = [ReturnValue]::Success()
         } else {
@@ -851,11 +908,12 @@ Function Read-WinGet-InstallerManifest {
                 $script:_returnValue = [ReturnValue]::new(400, 'Invalid Entries', "Some entries do not match the requirements defined in the manifest schema - $($script:InstallModes.Split(',').Trim() | Where-Object { $_ -CNotIn $Patterns.ValidInstallModes })", 2)
             }
         }
-
     }  until ($script:_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
 }
 
+# Requests the user to input values for the Locale Manifest file
 Function Read-WinGet-LocaleManifest {
+    # Request Package Locale and Validate
     if (String.Validate -not $script:PackageLocale -MaxLength $Patterns.PackageLocaleMaxLength -MatchPattern $Patterns.PackageLocale -NotNull) {
         do {
             Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString() 
@@ -876,6 +934,7 @@ Function Read-WinGet-LocaleManifest {
         }  until ($script:_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
     }
 
+    # Request Publisher Name and Validate
     do {
         Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString() 
         if (String.Validate $script:Publisher -IsNull) {
@@ -885,11 +944,9 @@ Function Read-WinGet-LocaleManifest {
             Write-Host -ForegroundColor 'DarkGray' "Old Variable: $script:Publisher"
         }
         $NewPublisher = Read-Host -Prompt 'Publisher' | TrimString
-
         if (String.Validate $NewPublisher -NotNull) {
             $script:Publisher = $NewPublisher
         }
-
         if (String.Validate $script:Publisher -MaxLength $Patterns.PublisherMaxLength -NotNull) {
             $script:_returnValue = [ReturnValue]::Success()
         } else {
@@ -897,6 +954,7 @@ Function Read-WinGet-LocaleManifest {
         }
     } until ($script:_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
 
+    # Request Application Name and Validate
     do {
         Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString()
         if (String.Validate $script:PackageName -IsNull) {
@@ -915,6 +973,8 @@ Function Read-WinGet-LocaleManifest {
         }
     } until ($script:_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
 
+    # If the option is `NewLocale` then these moniker should already exist
+    # If the option is not `NewLocale`, Request Moniker and Validate
     if ($Option -ne 'NewLocale') {
         do {
             Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString()
@@ -931,13 +991,13 @@ Function Read-WinGet-LocaleManifest {
         } until ($script:_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
     }
 
+    #Request Publisher URL and Validate
     do {
         Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString()
         Write-Host -ForegroundColor 'Yellow' -Object '[Optional] Enter the Publisher Url.'
         if (String.Validate -not $script:PublisherUrl -IsNull) { Write-Host -ForegroundColor 'DarkGray' "Old Variable: $script:PublisherUrl" }
         $NewPublisherUrl = Read-Host -Prompt 'Publisher Url' | TrimString
         if (String.Validate -not $NewPublisherUrl -IsNull) { $script:PublisherUrl = $NewPublisherUrl }
-
         if (String.Validate $script:PublisherUrl -MaxLength $Patterns.GenericUrlMaxLength -MatchPattern $Patterns.GenericUrl -AllowNull) {
             $script:_returnValue = [ReturnValue]::Success()
         } else {
@@ -951,13 +1011,13 @@ Function Read-WinGet-LocaleManifest {
         }
     } until ($script:_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
 
+    # Request Publisher Support URL and Validate
     do {
         Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString()
         Write-Host -ForegroundColor 'Yellow' -Object '[Optional] Enter the Publisher Support Url.'
         if (String.Validate -not $script:PublisherSupportUrl -IsNull) { Write-Host -ForegroundColor 'DarkGray' "Old Variable: $script:PublisherSupportUrl" }
         $NewPublisherSupportUrl = Read-Host -Prompt 'Publisher Support Url' | TrimString
         if (String.Validate -not $NewPublisherSupportUrl -IsNull) { $script:PublisherSupportUrl = $NewPublisherSupportUrl }
-
         if (String.Validate $script:PublisherSupportUrl -MaxLength $Patterns.GenericUrlMaxLength -MatchPattern $Patterns.GenericUrl -AllowNull) {
             $script:_returnValue = [ReturnValue]::Success()
         } else {
@@ -971,6 +1031,7 @@ Function Read-WinGet-LocaleManifest {
         }
     } until ($script:_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
 
+    # Request Publisher Privacy URL and Validate
     do {
         Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString()
         Write-Host -ForegroundColor 'Yellow' -Object '[Optional] Enter the Publisher Privacy Url.'
@@ -991,6 +1052,7 @@ Function Read-WinGet-LocaleManifest {
         }
     } until ($script:_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
 
+    # Request Author and Validate
     do {
         Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString()
         Write-Host -ForegroundColor 'Yellow' -Object '[Optional] Enter the application Author.'
@@ -1005,13 +1067,13 @@ Function Read-WinGet-LocaleManifest {
         }
     } until ($script:_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
 
+    # Request Package URL and Validate
     do {
         Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString()
         Write-Host -ForegroundColor 'Yellow' -Object '[Optional] Enter the Url to the homepage of the application.'
         if (String.Validate -not $script:PackageUrl -IsNull) { Write-Host -ForegroundColor 'DarkGray' "Old Variable: $script:PackageUrl" }
         $NewPackageUrl = Read-Host -Prompt 'Homepage' | TrimString
         if (String.Validate -not $NewPackageUrl -IsNull) { $script:PackageUrl = $NewPackageUrl }
-
         if (String.Validate $script:PackageUrl -MaxLength $Patterns.GenericUrlMaxLength -MatchPattern $Patterns.GenericUrl -AllowNull) {
             $script:_returnValue = [ReturnValue]::Success()
         } else {
@@ -1025,9 +1087,9 @@ Function Read-WinGet-LocaleManifest {
         }
     } until ($script:_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
 
+    # Request License and Validate
     do {
         Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString()
-        
         if (String.Validate $script:License -IsNull) {
             Write-Host -ForegroundColor 'Green' -Object '[Required] Enter the application License. For example: MIT, GPL, Freeware, Proprietary'
         } else { 
@@ -1036,7 +1098,6 @@ Function Read-WinGet-LocaleManifest {
         }
         $NewLicense = Read-Host -Prompt 'License' | TrimString
         if (String.Validate -not $NewLicense -IsNull) { $script:License = $NewLicense }
-
         if (String.Validate $script:License -MinLength $Patterns.LicenseMinLength -MaxLength $Patterns.LicenseMaxLength -NotNull) {
             $script:_returnValue = [ReturnValue]::Success()
         } elseif (String.Validate $script:License -IsNull) {
@@ -1046,6 +1107,7 @@ Function Read-WinGet-LocaleManifest {
         }
     } until ($script:_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
 
+    # Request License URL and Validate
     do {
         Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString()
         Write-Host -ForegroundColor 'Yellow' -Object '[Optional] Enter the application License URL.'
@@ -1066,6 +1128,7 @@ Function Read-WinGet-LocaleManifest {
         }
     } until ($script:_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
     
+    # Request Copyright and Validate
     do {
         Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString()
         Write-Host -ForegroundColor 'Yellow' -Object '[Optional] Enter the application Copyright.'
@@ -1073,7 +1136,6 @@ Function Read-WinGet-LocaleManifest {
         if (String.Validate -not $script:Copyright -IsNull) { Write-Host -ForegroundColor 'DarkGray' "Old Variable: $script:Copyright" }
         $NewCopyright = Read-Host -Prompt 'Copyright' | TrimString
         if (String.Validate -not $NewCopyright -IsNull) { $script:Copyright = $NewCopyright }
-
         if (String.Validate $script:Copyright -MinLength $Patterns.CopyrightMinLength -MaxLength $Patterns.CopyrightMaxLength -AllowNull) {
             $script:_returnValue = [ReturnValue]::Success()
         } else {
@@ -1081,13 +1143,13 @@ Function Read-WinGet-LocaleManifest {
         }
     } until ($script:_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
 
+    # Request Copyright URL and Validate
     do {
         Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString()
         Write-Host -ForegroundColor 'Yellow' -Object '[Optional] Enter the application Copyright Url.'
         if (String.Validate -not $script:CopyrightUrl -IsNull) { Write-Host -ForegroundColor 'DarkGray' "Old Variable: $script:CopyrightUrl" }
         $NewCopyrightUrl = Read-Host -Prompt 'CopyrightUrl' | TrimString
         if (String.Validate -not $NewCopyrightUrl -IsNull) { $script:CopyrightUrl = $NewCopyrightUrl }
-
         if (String.Validate $script:CopyrightUrl -MaxLength $Patterns.GenericUrlMaxLength -MatchPattern $Patterns.GenericUrl -AllowNull) {
             $script:_returnValue = [ReturnValue]::Success()
         } else {
@@ -1101,6 +1163,7 @@ Function Read-WinGet-LocaleManifest {
         }
     } until ($script:_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
 
+    # Request Tags and Validate
     do {
         $script:Tags = [string]$script:Tags
         Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString()
@@ -1112,7 +1175,6 @@ Function Read-WinGet-LocaleManifest {
         }
         $NewTags = Read-Host -Prompt 'Tags' | TrimString | UniqueItems
         if (String.Validate -not $NewTags -IsNull) { $script:Tags = $NewTags }
-
         if (($script:Tags -split ',').Count -le $Patterns.TagsMaxItems) {
             $script:_returnValue = [ReturnValue]::Success()
         } else {
@@ -1120,7 +1182,7 @@ Function Read-WinGet-LocaleManifest {
         }        
     } until ($script:_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
 
-
+    # Request Short Description and Validate
     do {
         Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString()
         if (String.Validate $script:ShortDescription -IsNull) {
@@ -1131,7 +1193,6 @@ Function Read-WinGet-LocaleManifest {
         }
         $NewShortDescription = Read-Host -Prompt 'Short Description' | TrimString
         if (String.Validate -not $NewShortDescription -IsNull) { $script:ShortDescription = $NewShortDescription }
-
         if (String.Validate $script:ShortDescription -MaxLength $Patterns.ShortDescriptionMaxLength -NotNull) {
             $script:_returnValue = [ReturnValue]::Success()
         } else {
@@ -1139,13 +1200,13 @@ Function Read-WinGet-LocaleManifest {
         }
     } until ($script:_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
 
+    # Request Long Description and Validate
     do {
         Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString()
         Write-Host -ForegroundColor 'Yellow' -Object '[Optional] Enter a long description of the application.'
         if (String.Validate -not $script:Description -IsNull) { Write-Host -ForegroundColor 'DarkGray' "Old Variable: $script:Description" }
         $NewDescription = Read-Host -Prompt 'Description' | TrimString
         if (String.Validate -not $NewDescription -IsNull) { $script:Description = $NewDescription }
-
         if (String.Validate $script:Description -MinLength $Patterns.DescriptionMinLength -MaxLength $Patterns.DescriptionMaxLength -AllowNull) {
             $script:_returnValue = [ReturnValue]::Success()
         } else {
@@ -1154,6 +1215,8 @@ Function Read-WinGet-LocaleManifest {
     } until ($script:_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
 }
 
+# Requests the user to answer the prompts found in the winget-pkgs pull request template
+# Uses this template and responses to create a PR
 Function Enter-PR-Parameters {
     $PrBodyContent = Get-Content $args[0]
     ForEach ($_line in ($PrBodyContent | Where-Object { $_ -like '-*[ ]*' })) {
@@ -1238,20 +1301,22 @@ Function Enter-PR-Parameters {
         }
     }
 
+    # Request user to enter if there were any issues resolved by the PR
     $_menu = @{
         entries       = @('[Y] Yes'; '*[N] No')
         Prompt        = 'Does this pull request resolve any issues?'
         DefaultString = 'N'
     }
-    
     switch ( KeypressMenu -Prompt $_menu['Prompt'] -Entries $_menu['Entries'] -DefaultString $_menu['DefaultString']) {
         'Y' {
+            # If there were issues resolved by the PR, request user to enter them
             Write-Host
             Write-Host "Enter issue number. For example`: 21983, 43509"
             $ResolvedIssues = Read-Host -Prompt 'Resolved Issues' | UniqueItems
             $PrBodyContentReply += @('')
+            
+            # Validate each of the issues entered by checking the URL to ensure it returns a 200 status code
             Foreach ($i in ($ResolvedIssues.Split(',').Trim())) {
-
                 if ($i.Contains('#')) {
                     $_UrlParameters = $i.Split('#')
                     switch ($_UrlParameters.Count) {
@@ -1287,11 +1352,13 @@ Function Enter-PR-Parameters {
         default { Write-Host }
     }
 
+    # Write the PR using a temporary file
     Set-Content -Path PrBodyFile -Value $PrBodyContentReply | Out-Null
     gh pr create --body-file PrBodyFile -f
     Remove-Item PrBodyFile  
 }
 
+# Takes a comma separated list of values, converts it to an array object, and adds the result to a specified object-key
 Function AddYamlListParameter {
     Param
     (
@@ -1314,6 +1381,7 @@ Function AddYamlListParameter {
     $Object[$Parameter] = $_Values
 }
 
+# Takes a single value and adds it to a specified object-key
 Function AddYamlParameter {
     Param
     (
@@ -1327,6 +1395,7 @@ Function AddYamlParameter {
     $Object[$Parameter] = $Value
 }
 
+# Fetch the value of a manifest value regardless of which manifest file it exists in
 Function GetMultiManifestParameter {
     Param(
         [Parameter(Mandatory = $true, Position = 1)]
@@ -1335,9 +1404,13 @@ Function GetMultiManifestParameter {
     $_vals = $($script:OldInstallerManifest[$Parameter] + $script:OldLocaleManifest[$Parameter] + $script:OldVersionManifest[$Parameter] | Where-Object { $_ })
     return ($_vals -join ', ')
 }
+
+# Take all the entered values and write the version manifest file
 Function Write-WinGet-VersionManifest-Yaml {
+    # Create new empty manifest
     [PSCustomObject]$VersionManifest = [ordered]@{}
 
+    # Write these values into the manifest
     $_Singletons = [ordered]@{
         'PackageIdentifier' = $PackageIdentifier
         'PackageVersion'    = $PackageVersion
@@ -1345,32 +1418,36 @@ Function Write-WinGet-VersionManifest-Yaml {
         'ManifestType'      = 'version'
         'ManifestVersion'   = $ManifestVersion
     }
-
     foreach ($_Item in $_Singletons.GetEnumerator()) {
         If ($_Item.Value) { AddYamlParameter $VersionManifest $_Item.Name $_Item.Value }
     }
     $VersionManifest = SortYamlKeys $VersionManifest $VersionProperties
-    
+
+    # Create the folder for the file if it doesn't exist
     New-Item -ItemType 'Directory' -Force -Path $AppFolder | Out-Null
     $VersionManifestPath = $AppFolder + "\$PackageIdentifier" + '.yaml'
     
+    # Write the manifest to the file
     $ScriptHeader + " using YAML parsing`n# yaml-language-server: `$schema=https://aka.ms/winget-manifest.version.1.0.0.schema.json`n" > $VersionManifestPath
     ConvertTo-Yaml $VersionManifest >> $VersionManifestPath
     $(Get-Content $VersionManifestPath -Encoding UTF8) -replace "(.*)$([char]0x2370)", "# `$1" | Out-File -FilePath $VersionManifestPath -Force
     $MyRawString = Get-Content -Raw $VersionManifestPath | TrimString
     [System.IO.File]::WriteAllLines($VersionManifestPath, $MyRawString, $Utf8NoBomEncoding)
     
+    # Tell user the file was created and the path to the file
     Write-Host 
     Write-Host "Yaml file created: $VersionManifestPath"
 }
-Function Write-WinGet-InstallerManifest-Yaml {
 
+# Take all the entered values and write the installer manifest file
+Function Write-WinGet-InstallerManifest-Yaml {
+    # If the old manifests exist, copy it so it can be updated in place, otherwise, create a new empty manifest
     if ($script:OldManifestType -eq 'MultiManifest') {
         $InstallerManifest = $script:OldInstallerManifest
     }
-
     if (!$InstallerManifest) { [PSCustomObject]$InstallerManifest = [ordered]@{} }
 
+    #Add the properties to the manifest
     AddYamlParameter $InstallerManifest 'PackageIdentifier' $PackageIdentifier
     AddYamlParameter $InstallerManifest 'PackageVersion' $PackageVersion
     $InstallerManifest['MinimumOSVersion'] = If ($MinimumOSVersion) { $MinimumOSVersion } Else { '10.0.0.0' }
@@ -1399,32 +1476,36 @@ Function Write-WinGet-InstallerManifest-Yaml {
     If ($InstallerManifest['Dependencies']) {
         $InstallerManifest['Dependencies'] = SortYamlKeys $InstallerManifest['Dependencies'] $InstallerDependencyProperties -NoComments
     }
-
     $InstallerManifest = SortYamlKeys $InstallerManifest $InstallerProperties -NoComments
    
+    # Create the folder for the file if it doesn't exist
     New-Item -ItemType 'Directory' -Force -Path $AppFolder | Out-Null
     $InstallerManifestPath = $AppFolder + "\$PackageIdentifier" + '.installer' + '.yaml'
     
+    # Write the manifest to the file
     $ScriptHeader + " using YAML parsing`n# yaml-language-server: `$schema=https://aka.ms/winget-manifest.installer.1.0.0.schema.json`n" > $InstallerManifestPath
     ConvertTo-Yaml $InstallerManifest >> $InstallerManifestPath
     $(Get-Content $InstallerManifestPath -Encoding UTF8) -replace "(.*)$([char]0x2370)", "# `$1" | Out-File -FilePath $InstallerManifestPath -Force
     $MyRawString = Get-Content -Raw $InstallerManifestPath | TrimString
     [System.IO.File]::WriteAllLines($InstallerManifestPath, $MyRawString, $Utf8NoBomEncoding)
 
+    # Tell user the file was created and the path to the file
     Write-Host 
     Write-Host "Yaml file created: $InstallerManifestPath"
 }
 
+# Take all the entered values and write the locale manifest file
 Function Write-WinGet-LocaleManifest-Yaml {
-    
+    # If the old manifests exist, copy it so it can be updated in place, otherwise, create a new empty manifest
     if ($script:OldManifestType -eq 'MultiManifest') {
         $LocaleManifest = $script:OldLocaleManifest
     }
-    
     if (!$LocaleManifest) { [PSCustomObject]$LocaleManifest = [ordered]@{} }
     
+    # Set the appropriate langage server depending on if it is a default locale file or generic locale file
     if ($PackageLocale -eq 'en-US') { $yamlServer = '# yaml-language-server: $schema=https://aka.ms/winget-manifest.defaultLocale.1.0.0.schema.json' }else { $yamlServer = '# yaml-language-server: $schema=https://aka.ms/winget-manifest.locale.1.0.0.schema.json' }
     
+    # Add the properties to the manifest
     $_Singletons = [ordered]@{
         'PackageIdentifier'   = $PackageIdentifier
         'PackageVersion'      = $PackageVersion
@@ -1443,7 +1524,6 @@ Function Write-WinGet-LocaleManifest-Yaml {
         'ShortDescription'    = $ShortDescription
         'Description'         = $Description
     }
-
     foreach ($_Item in $_Singletons.GetEnumerator()) {
         If ($_Item.Value) { AddYamlParameter $LocaleManifest $_Item.Name $_Item.Value }
     }
@@ -1455,15 +1535,18 @@ Function Write-WinGet-LocaleManifest-Yaml {
     AddYamlParameter $LocaleManifest 'ManifestVersion' $ManifestVersion
     $LocaleManifest = SortYamlKeys $LocaleManifest $LocaleProperties
 
+    # Create the folder for the file if it doesn't exist
     New-Item -ItemType 'Directory' -Force -Path $AppFolder | Out-Null
     $LocaleManifestPath = $AppFolder + "\$PackageIdentifier" + '.locale.' + "$PackageLocale" + '.yaml'
 
+    # Write the manifest to the file
     $ScriptHeader + " using YAML parsing`n$yamlServer`n" > $LocaleManifestPath
     ConvertTo-Yaml $LocaleManifest >> $LocaleManifestPath
     $(Get-Content $LocaleManifestPath -Encoding UTF8) -replace "(.*)$([char]0x2370)", "# `$1" | Out-File -FilePath $LocaleManifestPath -Force
     $MyRawString = Get-Content -Raw $LocaleManifestPath | TrimString
     [System.IO.File]::WriteAllLines($LocaleManifestPath, $MyRawString, $Utf8NoBomEncoding)
 
+    # Copy over all locale files from previous version that aren't en-US
     if ($OldManifests) {
         ForEach ($DifLocale in $OldManifests) {
             if ($DifLocale.Name -notin @("$PackageIdentifier.yaml", "$PackageIdentifier.installer.yaml", "$PackageIdentifier.locale.en-US.yaml")) {
@@ -1483,11 +1566,15 @@ Function Write-WinGet-LocaleManifest-Yaml {
         }
     }
 
+    # Tell user the file was created and the path to the file
     Write-Host 
     Write-Host "Yaml file created: $LocaleManifestPath"
 }
 
+# Initialize the return value to be a success
 $script:_returnValue = [ReturnValue]::new(200)
+
+# Request the user to choose an operation mode
 Clear-Host
 Write-Host -ForegroundColor 'Cyan' 'Select Mode'
 Write-Colors "`n[", '1', "] New Manifest or Package Version`n" 'DarkCyan', 'White', 'DarkCyan'
@@ -1497,6 +1584,7 @@ Write-Colors "`n[", '4', "] New Locale`n" 'DarkCyan', 'White', 'DarkCyan'
 Write-Colors "`n[", 'q', ']', " Any key to quit`n" 'DarkCyan', 'White', 'DarkCyan', 'Red'
 Write-Colors "`nSelection: " 'White'
 
+# Listen for keypress and set operation mode based on keypress
 $Keys = @{
     [ConsoleKey]::D1      = '1';
     [ConsoleKey]::D2      = '2';
@@ -1507,11 +1595,9 @@ $Keys = @{
     [ConsoleKey]::NumPad3 = '3';
     [ConsoleKey]::NumPad4 = '4';
 }
-
 do {
     $keyInfo = [Console]::ReadKey($false)
 } until ($keyInfo.Key)
-
 switch ($Keys[$keyInfo.Key]) {
     '1' { $script:Option = 'New' }
     '2' { $script:Option = 'QuickUpdateVersion' }
@@ -1520,7 +1606,8 @@ switch ($Keys[$keyInfo.Key]) {
     default { Write-Host; exit }
 }
 
-if ($script:Option -eq 'QuickUpdateVersion'){
+# Confirm the user undertands the implications of using the quick update mode
+if ($script:Option -eq 'QuickUpdateVersion') {
     $_menu = @{
         entries       = @('[Y] Continue with Quick Update'; '[N] Use Full Update Experience'; '*[Q] Exit Script')
         Prompt        = 'Quick Updates only allow for changes to the existing Installer URLs, Sha256 Values, and Product Codes. Are you sure you want to continue?'
@@ -1528,16 +1615,15 @@ if ($script:Option -eq 'QuickUpdateVersion'){
         HelpTextColor = 'Red'
         DefaultString = 'Q'
     }
-
     switch ( KeypressMenu -Prompt $_menu['Prompt'] -Entries $_menu['Entries'] -DefaultString $_menu['DefaultString'] -HelpText $_menu['HelpText'] -HelpTextColor $_menu['HelpTextColor']) {
-        'Y' { Write-Host -ForegroundColor DarkYellow -Object "`n`nContinuing with Quick Update"}
-        'N' {$script:Option = 'New'; Write-Host -ForegroundColor DarkYellow -Object "`n`nSwitched to Full Update Experience"}
-        default { Write-Host;exit 1 }
+        'Y' { Write-Host -ForegroundColor DarkYellow -Object "`n`nContinuing with Quick Update" }
+        'N' { $script:Option = 'New'; Write-Host -ForegroundColor DarkYellow -Object "`n`nSwitched to Full Update Experience" }
+        default { Write-Host; exit 1 }
     }
 }
-
 Write-Host
 
+# Request Package Identifier and Validate
 do {
     Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString()
     Write-Host -ForegroundColor 'Green' -Object '[Required] Enter the Package Identifier, in the following format <Publisher shortname.Application shortname>. For example: Microsoft.Excel'
@@ -1557,6 +1643,7 @@ do {
     }
 } until ($script:_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
 
+# Request Package Version and Validate
 do {
     Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString()
     Write-Host -ForegroundColor 'Green' -Object '[Required] Enter the version. for example: 1.33.7'
@@ -1575,18 +1662,24 @@ do {
     }
 } until ($script:_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
 
+# Set the root folder where new manifests should be created
 if (Test-Path -Path "$PSScriptRoot\..\manifests") {
     $ManifestsFolder = (Resolve-Path "$PSScriptRoot\..\manifests").Path
 } else {
     $ManifestsFolder = (Resolve-Path '.\').Path
 }
+
+# Set the folder for the specific package and version
 $script:AppFolder = Join-Path $ManifestsFolder -ChildPath $PackageIdentifier.ToLower().Chars(0) | Join-Path -ChildPath $PackageIdentifierFolder | Join-Path -ChildPath $PackageVersion
 
+# If the user selected `NewLocale` or `EditMetadata` the version *MUST* already exist in the folder structure
 if (($script:Option -eq 'NewLocale') -or ($script:Option -eq 'EditMetadata')) {
+    # Try getting the old manifests from the specified folder
     if (Test-Path -Path "$AppFolder\..\$PackageVersion") {
         $script:OldManifests = Get-ChildItem -Path "$AppFolder\..\$PackageVersion"
         $LastVersion = $PackageVersion
     }
+    # If the old manifests could not be found, request a new version
     while (-not ($OldManifests.Name -like "$PackageIdentifier*.yaml")) {
         Write-Host
         Write-Host -ForegroundColor 'Red' -Object 'Could not find required manifests, input a version containing required manifests or "exit" to cancel'
@@ -1595,18 +1688,22 @@ if (($script:Option -eq 'NewLocale') -or ($script:Option -eq 'EditMetadata')) {
         if (Test-Path -Path "$AppFolder\..\$PromptVersion") {
             $script:OldManifests = Get-ChildItem -Path "$AppFolder\..\$PromptVersion" 
         }
+        # If a new version is entered, we need to be sure to update the folder for writing manifests
         $LastVersion = $PromptVersion
         $script:AppFolder = (Split-Path $AppFolder) + "\$LastVersion"
         $script:PackageVersion = $LastVersion
     }
 }
 
+# If the user selected `QuickUpdateVersion`, the old manifests must exist
+# If the user selected `New`, the old manifest type is specified as none
 if (-not (Test-Path -Path "$AppFolder\..")) {
     if ($script:Option -eq 'QuickUpdateVersion') { Write-Host -ForegroundColor Red 'This option requires manifest of previous version of the package. If you want to create a new package, please select Option 1.'; exit }
     $script:OldManifestType = 'None'
     return
 }
 
+# Try getting the last version of the package and the old manifests to be updated
 if (!$LastVersion) {
     try {
         $script:LastVersion = Split-Path (Split-Path (Get-ChildItem -Path "$AppFolder\..\" -Recurse -Depth 1 -File -Filter '*.yaml').FullName ) -Leaf | Sort-Object $ToNatural | Select-Object -Last 1
@@ -1618,6 +1715,8 @@ if (!$LastVersion) {
     }
 }
 
+# If the old manifests exist, read their information into variables
+# Also ensure additional requirements are met for creating or updating files
 if ($OldManifests.Name -eq "$PackageIdentifier.installer.yaml" -and $OldManifests.Name -eq "$PackageIdentifier.locale.en-US.yaml" -and $OldManifests.Name -eq "$PackageIdentifier.yaml") {
     $script:OldManifestType = 'MultiManifest'
     $script:OldInstallerManifest = ConvertFrom-Yaml -Yaml ($(Get-Content -Path $(Resolve-Path "$AppFolder\..\$LastVersion\$PackageIdentifier.installer.yaml") -Encoding UTF8) -join "`n") -Ordered
@@ -1633,6 +1732,7 @@ if ($OldManifests.Name -eq "$PackageIdentifier.installer.yaml" -and $OldManifest
     return
 }
 
+# If the old manifests exist, read the manifest keys into their specific variables
 if ($OldManifests) {
     $_Parameters = @(
         'Publisher'; 'PublisherUrl'; 'PublisherSupportUrl'; 'PrivacyUrl'
@@ -1652,12 +1752,12 @@ if ($OldManifests) {
         'InstallModes'; 'InstallerSuccessCodes'
         'Capabilities'; 'RestrictedCapabilities'
     )
-
     Foreach ($param in $_Parameters) {
         New-Variable -Name $param -Value $(if ($script:OldManifestType -eq 'MultiManifest') { (GetMultiManifestParameter $param) } else { $script:OldVersionManifest[$param] }) -Scope Script -Force
     }
 }
 
+# Run the data entry and creation of manifests appropriate to the option the user selected
 Switch ($script:Option) {
     'QuickUpdateVersion' {
         Read-WinGet-InstallerValues-Minimal
@@ -1693,22 +1793,21 @@ Switch ($script:Option) {
     }
 }
 
+# If the user has winget installed, attempt to validate the manifests
 if (Get-Command 'winget.exe' -ErrorAction SilentlyContinue) { winget validate $AppFolder }
 
+# If the user has sandbox enabled, request to test the manifest in the sandbox
 if (Get-Command 'WindowsSandbox.exe' -ErrorAction SilentlyContinue) {
-
     $_menu = @{
         entries       = @('*[Y] Yes'; '[N] No')
         Prompt        = '[Recommended] Do you want to test your Manifest in Windows Sandbox?'
         DefaultString = 'Y'
     }
-    
     switch ( KeypressMenu -Prompt $_menu['Prompt'] -Entries $_menu['Entries'] -DefaultString $_menu['DefaultString']) {
         'Y' { $script:SandboxTest = '0' }
         'N' { $script:SandboxTest = '1' }
         default { $script:SandboxTest = '0' }
     }
-
     Write-Host
     if ($script:SandboxTest -eq '0') {
         if (Test-Path -Path "$PSScriptRoot\SandboxTest.ps1") {
@@ -1720,27 +1819,28 @@ if (Get-Command 'WindowsSandbox.exe' -ErrorAction SilentlyContinue) {
                 $SandboxScriptPath = Read-Host -Prompt 'SandboxTest.ps1' | TrimString
             }
         }
-
         & $SandboxScriptPath -Manifest $AppFolder
     }
 }
 
+# If the user has git installed, request to automatically submit the PR
 if (Get-Command 'git.exe' -ErrorAction SilentlyContinue) {
     $_menu = @{
         entries       = @('*[Y] Yes'; '[N] No')
         Prompt        = 'Do you want to submit your PR now?'
         DefaultString = 'Y'
     }
-    
     switch ( KeypressMenu -Prompt $_menu['Prompt'] -Entries $_menu['Entries'] -DefaultString $_menu['DefaultString']) {
         'Y' { $PromptSubmit = '0' }
         'N' { $PromptSubmit = '1' }
         default { $PromptSubmit = '0' }
     }
 }
-
 Write-Host
+
+# If the user agreed to automatically submit the PR
 if ($PromptSubmit -eq '0') {
+    # Determine what type of update should be used as the prefix for the PR
     switch -regex ($Option) {
         'New|QuickUpdateVersion' {
             if ( $script:OldManifestType -eq 'None' ) { $CommitType = 'New package' }
@@ -1752,6 +1852,7 @@ if ($PromptSubmit -eq '0') {
         'NewLocale' { $CommitType = 'Locale' }
     }
 
+    # Change the users git configuration to suppress some git messages
     $_previousConfig = git config --global --get core.safecrlf
     if ($_previousConfig) {
         git config --global --replace core.safecrlf false
@@ -1759,6 +1860,7 @@ if ($PromptSubmit -eq '0') {
         git config --global --add core.safecrlf false
     }
 
+    # Fetch the upstream branch, create a commit onto the detached head, and push it to a new branch
     git fetch upstream master --quiet
     git switch -d upstream/master       
     if ($LASTEXITCODE -eq '0') {
@@ -1768,8 +1870,9 @@ if ($PromptSubmit -eq '0') {
         git switch -c "$PackageIdentifier-$PackageVersion" --quiet
         git push --set-upstream origin "$PackageIdentifier-$PackageVersion" --quiet
 
+        # If the user has the cli too
         if (Get-Command 'gh.exe' -ErrorAction SilentlyContinue) {
-        
+            # Request the user to fill out the PR template
             if (Test-Path -Path "$PSScriptRoot\..\.github\PULL_REQUEST_TEMPLATE.md") {
                 Enter-PR-Parameters "$PSScriptRoot\..\.github\PULL_REQUEST_TEMPLATE.md"
             } else {
@@ -1782,6 +1885,8 @@ if ($PromptSubmit -eq '0') {
             }
         }
     }
+
+    # Restore the user's previous git settings to ensure we don't disrupt their normal flow
     if ($_previousConfig) {
         git config --global --replace core.safecrlf $_previousConfig
     } else {
@@ -1792,6 +1897,7 @@ if ($PromptSubmit -eq '0') {
     Exit
 }
 
+# Error levels for the ReturnValue class
 Enum ErrorLevel {
     Undefined = -1
     Info = 0
@@ -1800,16 +1906,21 @@ Enum ErrorLevel {
     Critical = 3
 }
 
+# Custom class for validation and error checking
+# `200` should be indicative of a success
+# `400` should be indicative of a bad request
+# `500` should be indicative of an internal error / other error
 Class ReturnValue {
     [int] $StatusCode
     [string] $Title
     [string] $Message
     [ErrorLevel] $Severity
 
+    # Default Constructor
     ReturnValue() {
-        
     }
 
+    # Overload 1; Creates a return value with only a status code and no descriptors
     ReturnValue(
         [int]$statusCode
     ) {
@@ -1819,6 +1930,7 @@ Class ReturnValue {
         $this.Severity = -1
     }
 
+    # Overload 2; Create a return value with all parameters defined
     ReturnValue(
         [int] $statusCode,
         [string] $title,
@@ -1831,31 +1943,38 @@ Class ReturnValue {
         $this.Severity = $severity
     }
 
+    # Static reference to a default success value
     [ReturnValue] static Success() {
         return [ReturnValue]::new(200, 'OK', 'The command completed successfully', 'Info')
     }
 
+    # Static reference to a default internal error value
     [ReturnValue] static GenericError() {
         return [ReturnValue]::new(500, 'Internal Error', 'Value was not able to be saved successfully', 2)
         
     }
 
+    # Static reference to a specific error relating to the pattern of user input
     [ReturnValue] static PatternError() {
         return [ReturnValue]::new(400, 'Invalid Pattern', 'The value entered does not match the pattern requirements defined in the manifest schema', 2)
     }
 
+    # Static reference to a specific error relating to the length of user input
     [ReturnValue] static LengthError([int]$MinLength, [int]$MaxLength) {
         return [ReturnValue]::new(400, 'Invalid Length', "Length must be between $MinLength and $MaxLength characters", 2)
     }
 
+    # Static reference to a specific error relating to the number of entries a user input
     [ReturnValue] static MaxItemsError([int]$MaxEntries) {
         return [ReturnValue]::new(400, 'Too many entries', "Number of entries must be less than or equal to $MaxEntries", 2)
     }
 
+    # Returns the ReturnValue as a nicely formatted string
     [string] ToString() {
         return "[$($this.Severity)] ($($this.StatusCode)) $($this.Title) - $($this.Message)"
     }
 
+    # Returns the ReturnValue as a nicely formatted string if the status code is not equal to 200
     [string] ErrorString() {
         if ($this.StatusCode -eq 200) {
             return $null
