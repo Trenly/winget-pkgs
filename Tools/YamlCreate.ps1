@@ -242,7 +242,7 @@ Function Show-OptionMenu {
     Clear-Host
     Write-Host -ForegroundColor 'Cyan' 'Select Mode'
     Write-Colors "`n[", '1', "] New Manifest or Package Version`n" 'DarkCyan', 'White', 'DarkCyan'
-    Write-Colors "`n[", '2', "] Quick Update Package Version ", "(Note: Must be used only when previous version`'s metadata is complete.)`n" 'DarkCyan', 'White', 'DarkCyan', 'Green'
+    Write-Colors "`n[", '2', '] Quick Update Package Version ', "(Note: Must be used only when previous version`'s metadata is complete.)`n" 'DarkCyan', 'White', 'DarkCyan', 'Green'
     Write-Colors "`n[", '3', "] Update Package Metadata`n" 'DarkCyan', 'White', 'DarkCyan'
     Write-Colors "`n[", '4', "] New Locale`n" 'DarkCyan', 'White', 'DarkCyan'
     Write-Colors "`n[", 'q', ']', " Any key to quit`n" 'DarkCyan', 'White', 'DarkCyan', 'Red'
@@ -270,6 +270,30 @@ Function Show-OptionMenu {
         '4' { $script:Option = 'NewLocale' }
         default { Write-Host; exit }
     }
+}
+
+Function Request-Installer-Url {
+    do {
+        Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString()
+        Write-Host -ForegroundColor 'Green' -Object '[Required] Enter the download url to the installer.'
+        $NewInstallerUrl = Read-Host -Prompt 'Url' | TrimString  
+        if (String.Validate $NewInstallerUrl -MaxLength $Patterns.InstallerUrlMaxLength -MatchPattern $Patterns.InstallerUrl -NotNull) {
+            if ((TestUrlValidity $NewInstallerUrl) -ne 200) {
+                $script:_returnValue = [ReturnValue]::new(502, 'Invalid URL Response', 'The URL did not return a successful response from the server', 2)
+            } else {
+                $script:_returnValue = [ReturnValue]::Success()
+            }
+        } else {
+            if (String.Validate -not $NewInstallerUrl -MaxLength $Patterns.InstallerUrlMaxLength -NotNull) {
+                $script:_returnValue = [ReturnValue]::LengthError(1, $Patterns.InstallerUrlMaxLength)
+            } elseif (String.Validate -not $NewInstallerUrl -MatchPattern $Patterns.InstallerUrl) {
+                $script:_returnValue = [ReturnValue]::PatternError()
+            } else {
+                $script:_returnValue = [ReturnValue]::GenericError()
+            }
+        }
+    } until ($script:_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
+    return $NewInstallerUrl
 }
 
 Function Read-WinGet-MandatoryInfo {
@@ -340,26 +364,7 @@ Function Read-WinGet-InstallerValues {
     )
     Foreach ($InstallerValue in $InstallerValues) { Clear-Variable -Name $InstallerValue -Force -ErrorAction SilentlyContinue }
 
-    do {
-        Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString()
-        Write-Host -ForegroundColor 'Green' -Object '[Required] Enter the download url to the installer.'
-        $InstallerUrl = Read-Host -Prompt 'Url' | TrimString  
-        if (String.Validate $InstallerUrl -MaxLength $Patterns.InstallerUrlMaxLength -MatchPattern $Patterns.InstallerUrl -NotNull) {
-            if ((TestUrlValidity $InstallerUrl) -ne 200) {
-                $script:_returnValue = [ReturnValue]::new(502, 'Invalid URL Response', 'The URL did not return a successful response from the server', 2)
-            } else {
-                $script:_returnValue = [ReturnValue]::Success()
-            }
-        } else {
-            if (String.Validate -not $InstallerUrl -MaxLength $Patterns.InstallerUrlMaxLength -NotNull) {
-                $script:_returnValue = [ReturnValue]::LengthError(1, $Patterns.InstallerUrlMaxLength)
-            } elseif (String.Validate -not $InstallerUrl -MatchPattern $Patterns.InstallerUrl) {
-                $script:_returnValue = [ReturnValue]::PatternError()
-            } else {
-                $script:_returnValue = [ReturnValue]::GenericError()
-            }
-        }
-    } until ($script:_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
+    $InstallerUrl = Request-Installer-Url
 
     $_menu = @{
         entries       = @('[Y] Yes'; '*[N] No'; '[M] Manually Enter SHA256')
@@ -393,22 +398,21 @@ Function Read-WinGet-InstallerValues {
             
             $InstallerSha256 = (Get-FileHash -Path $script:dest -Algorithm SHA256).Hash
             
-            if ($script:dest -match "\.msix(bundle){0,1}$") { $InstallerType = 'msix' }
-            elseif ($script:dest -match "\.msi$") { $InstallerType = 'msi' }
-            elseif ($script:dest -match "\.appx(bundle){0,1}$") { $InstallerType = 'appx' }
-            elseif ($script:dest -match "\.zip$") { $InstallerType = 'zip' }
+            if ($script:dest -match '\.msix(bundle){0,1}$') { $InstallerType = 'msix' }
+            elseif ($script:dest -match '\.msi$') { $InstallerType = 'msi' }
+            elseif ($script:dest -match '\.appx(bundle){0,1}$') { $InstallerType = 'appx' }
+            elseif ($script:dest -match '\.zip$') { $InstallerType = 'zip' }
 
-            if ($InstallerUrl -match "\b(x|win){0,1}64\b") {$architecture = 'x64'}
-            elseif ($InstallerUrl -match "\b((win|ia)32)|(x{0,1}86)\b") {$architecture = 'x86'}
-            elseif ($InstallerUrl -match "\b(arm|aarch)64\b") { $architecture = 'arm64' }
+            if ($InstallerUrl -match '\b(x|win){0,1}64\b') { $architecture = 'x64' }
+            elseif ($InstallerUrl -match '\b((win|ia)32)|(x{0,1}86)\b') { $architecture = 'x86' }
+            elseif ($InstallerUrl -match '\b(arm|aarch)64\b') { $architecture = 'arm64' }
             elseif ($InstallerUrl -match [regex]('\barm\b')) { $architecture = 'arm' }
 
             $MSIProductCode = $(Get-AppLockerFileInformation -Path $script:dest | Select-Object Publisher | Select-String -Pattern '{[A-Z0-9]{8}-([A-Z0-9]{4}-){3}[A-Z0-9]{12}}').Matches
             
-            if ($script:SaveOption -eq '1' -and -not($script:dest -match "\.(msix|appx)(bundle){0,1}$")) { Remove-Item -Path $script:dest }
+            if ($script:SaveOption -eq '1' -and -not($script:dest -match '\.(msix|appx)(bundle){0,1}$')) { Remove-Item -Path $script:dest }
         }
-    }
-    else {
+    } else {
         Write-Host
         do {
             Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString() 
@@ -687,7 +691,7 @@ Function Read-WinGet-InstallerValues {
     $script:Installers += $_Installer
 
     $_menu = @{
-        entries = @(
+        entries       = @(
             '[Y] Yes'
             '*[N] No'
         )
@@ -704,6 +708,118 @@ Function Read-WinGet-InstallerValues {
     if ($AnotherInstaller -eq '0') {
         Write-Host; Read-WinGet-InstallerValues
     }
+}
+
+
+Function Read-WinGet-InstallerValues-Minimal {
+
+    $_menu = @{
+        entries       = @('[Y] Continue with Quick Update'; '*[N] Exit script and start over')
+        Prompt        = 'Quick Updates only allow for changes to the existing Installer URLs, Sha256 Values, and Product Codes. Are you sure you want to continue?'
+        HelpText      = 'This mode should be used with caution. If you are not 100% certain this is correct, please use Option 1 to go through the full update experience'
+        HelpTextColor = 'Red'
+        DefaultString = 'N'
+    }
+
+    switch ( KeypressMenu -Prompt $_menu['Prompt'] -Entries $_menu['Entries'] -DefaultString $_menu['DefaultString'] -HelpText $_menu['HelpText'] -HelpTextColor $_menu['HelpTextColor']) {
+        'Y' { Write-Host }
+        default { Write-Host;exit 1 }
+    }
+
+
+    if ($script:OldInstallerManifest) { $_OldInstallers = $script:OldInstallerManifest['Installers'] } else {
+        $_OldInstallers = $script:OldVersionManifest['Installers']
+    }
+
+    $_iteration = 0
+    $_NewInstallers = @()
+    foreach ($_OldInstaller in $_OldInstallers) {
+        $_iteration += 1
+        $_NewInstaller = $_OldInstaller
+        Write-Host -ForegroundColor 'Green' "Installer Entry #$_iteration`:`n"
+        if ($_OldInstaller.InstallerLocale) { Write-Host -ForegroundColor 'Yellow' "`tInstallerLocale: $($_OldInstaller.InstallerLocale)" }
+        if ($_OldInstaller.Architecture) { Write-Host -ForegroundColor 'Yellow' "`tArchitecture: $($_OldInstaller.Architecture)" }
+        if ($_OldInstaller.InstallerType) { Write-Host -ForegroundColor 'Yellow' "`tInstallerType: $($_OldInstaller.InstallerType)" }
+        if ($_OldInstaller.Scope) { Write-Host -ForegroundColor 'Yellow' "`tScope: $($_OldInstaller.Scope)" }
+        Write-Host
+
+        $NewInstallerUrl = Request-Installer-Url
+        $_NewInstaller['InstallerUrl'] = $NewInstallerUrl
+        $_menu = @{
+            entries       = @('[Y] Yes'; '*[N] No'; '[M] Manually Enter SHA256')
+            Prompt        = 'Do you want to save the files to the Temp folder?'
+            DefaultString = 'N'
+        }
+
+        switch ( KeypressMenu -Prompt $_menu['Prompt'] -Entries $_menu['Entries'] -DefaultString $_menu['DefaultString']) {
+            'Y' { $script:SaveOption = '0' }
+            'N' { $script:SaveOption = '1' }
+            'M' { $script:SaveOption = '2' }
+            default { $script:SaveOption = '1' }
+        }
+
+        if ($script:SaveOption -ne '2') {
+            Write-Host
+            $start_time = Get-Date
+            Write-Host $NewLine
+            Write-Host 'Downloading URL. This will take a while...' -ForegroundColor Blue
+            $WebClient = New-Object System.Net.WebClient
+            $Filename = [System.IO.Path]::GetFileName($NewInstallerUrl)
+            $script:dest = "$env:TEMP\$FileName"
+
+            try {
+                $WebClient.DownloadFile($NewInstallerUrl, $script:dest)
+            } catch {
+                Write-Host 'Error downloading file. Please run the script again.' -ForegroundColor Red
+                exit 1
+            } finally {
+                Write-Host "Time taken: $((Get-Date).Subtract($start_time).Seconds) second(s)" -ForegroundColor Green
+            
+                $NewInstallerSha256 = (Get-FileHash -Path $script:dest -Algorithm SHA256).Hash
+                $MSIProductCode = $(Get-AppLockerFileInformation -Path $script:dest | Select-Object Publisher | Select-String -Pattern '{[A-Z0-9]{8}-([A-Z0-9]{4}-){3}[A-Z0-9]{12}}').Matches
+                if ($script:SaveOption -eq '1' -and -not($script:dest -match '\.(msix|appx)(bundle){0,1}$')) { Remove-Item -Path $script:dest }
+            }
+        } else {
+            Write-Host
+            do {
+                Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString() 
+                Write-Host -ForegroundColor 'Green' -Object '[Required] Enter the installer SHA256 Hash'
+                $NewInstallerSha256 = Read-Host -Prompt 'InstallerSha256' | TrimString
+                $NewInstallerSha256 = $NewInstallerSha256.toUpper()
+                if ($NewInstallerSha256 -match $Patterns.InstallerSha256) {
+                    $script:_returnValue = [ReturnValue]::Success()
+                } else {
+                    $script:_returnValue = [ReturnValue]::PatternError()
+                }
+            } until ($script:_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
+        }
+        
+        $_NewInstaller['InstallerSha256'] = $NewInstallerSha256
+
+        do {
+            Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString() 
+            Write-Host -ForegroundColor 'Yellow' -Object '[Optional] Enter the application product code. Looks like {CF8E6E00-9C03-4440-81C0-21FACB921A6B}'
+            Write-Host -ForegroundColor 'White' -Object "ProductCode found from installer: $MSIProductCode"
+            Write-Host -ForegroundColor 'White' -Object 'Can be found with ' -NoNewline; Write-Host -ForegroundColor 'DarkYellow' 'get-wmiobject Win32_Product | Sort-Object Name | Format-Table IdentifyingNumber, Name -AutoSize'
+            $NewProductCode = Read-Host -Prompt 'ProductCode' | TrimString
+    
+            if (String.Validate $NewProductCode -MinLength $Patterns.ProductCodeMinLength -MaxLength $Patterns.ProductCodeMaxLength -AllowNull) {
+                $script:_returnValue = [ReturnValue]::Success()
+            } else {
+                $script:_returnValue = [ReturnValue]::LengthError($Patterns.ProductCodeMinLength, $Patterns.ProductCodeMaxLength)
+            }
+        } until ($script:_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
+        if ((String.Validate $NewProductCode -IsNull) -and ($_NewInstaller.Keys -contains 'ProductCode')) { 
+            $_NewInstaller.Remove('ProductCode')
+        } elseif (String.Validate -Not $NewProductCode -IsNull ) {
+            $_NewInstaller['ProductCode'] = $NewProductCode
+        }
+
+        $_NewInstaller = SortYamlKeys $_NewInstaller $InstallerEntryProperties -NoComments
+
+        $_NewInstallers += $_NewInstaller
+    }
+    $script:Installers = $_NewInstallers
 }
 
 Function PromptInstallerManifestValue {
@@ -1592,7 +1708,7 @@ Function Read-PreviousWinGet-Manifest-Yaml {
     }
 
     if (-not (Test-Path -Path "$AppFolder\..")) {
-        if ($script:Option -eq 'QuickUpdateVerison') { Write-Host -ForegroundColor Red "This option requires manifest of previous version of the package. If you want to create a new package, please select Option 1."; exit }
+        if ($script:Option -eq 'QuickUpdateVerison') { Write-Host -ForegroundColor Red 'This option requires manifest of previous version of the package. If you want to create a new package, please select Option 1.'; exit }
         $script:OldManifestType = 'None'
         return
     }
@@ -1657,7 +1773,7 @@ Read-PreviousWinGet-Manifest-Yaml
 
 Switch ($script:Option) {
     'QuickUpdateVerison' {
-        Read-WinGet-InstallerValues
+        Read-WinGet-InstallerValues-Minimal
         New-Variable -Name 'PackageLocale' -Value 'en-US' -Scope 'Script' -Force
         Write-WinGet-LocaleManifest-Yaml
         Write-WinGet-InstallerManifest-Yaml
