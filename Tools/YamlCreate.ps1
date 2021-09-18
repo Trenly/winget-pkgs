@@ -265,7 +265,7 @@ Function Show-OptionMenu {
 
     switch ($Keys[$keyInfo.Key]) {
         '1' { $script:Option = 'New' }
-        '2' { $script:Option = 'QuickUpdateVerison' }
+        '2' { $script:Option = 'QuickUpdateVersion' }
         '3' { $script:Option = 'EditMetadata' }
         '4' { $script:Option = 'NewLocale' }
         default { Write-Host; exit }
@@ -297,6 +297,20 @@ Function Request-Installer-Url {
 }
 
 Function Read-WinGet-MandatoryInfo {
+    if ($script:Option -eq 'QuickUpdateVersion') {
+        $_menu = @{
+            entries       = @('[Y] Continue with Quick Update'; '*[N] Switch to Option 1')
+            Prompt        = 'Quick Updates only allow for changes to the existing Installer URLs, Sha256 Values, and Product Codes. Are you sure you want to continue?'
+            HelpText      = 'This mode should be used with caution. If you are not 100% certain this is correct, please use Option 1 to go through the full update experience'
+            HelpTextColor = 'Red'
+            DefaultString = 'N'
+        }
+        
+        if ($(KeypressMenu -Prompt $_menu['Prompt'] -Entries $_menu['Entries'] -DefaultString $_menu['DefaultString'] -HelpText $_menu['HelpText'] -HelpTextColor $_menu['HelpTextColor']) -ne 'Y') {
+            $script:Option = 'New'; Write-Host -ForegroundColor DarkYellow -Object "`n`nSwitched to Option 1" -NoNewline;
+        }
+    }
+    
     Write-Host
 
     do {
@@ -712,20 +726,6 @@ Function Read-WinGet-InstallerValues {
 
 
 Function Read-WinGet-InstallerValues-Minimal {
-
-    $_menu = @{
-        entries       = @('[Y] Continue with Quick Update'; '*[N] Exit script and start over')
-        Prompt        = 'Quick Updates only allow for changes to the existing Installer URLs, Sha256 Values, and Product Codes. Are you sure you want to continue?'
-        HelpText      = 'This mode should be used with caution. If you are not 100% certain this is correct, please use Option 1 to go through the full update experience'
-        HelpTextColor = 'Red'
-        DefaultString = 'N'
-    }
-
-    switch ( KeypressMenu -Prompt $_menu['Prompt'] -Entries $_menu['Entries'] -DefaultString $_menu['DefaultString'] -HelpText $_menu['HelpText'] -HelpTextColor $_menu['HelpTextColor']) {
-        'Y' { Write-Host }
-        default { Write-Host;exit 1 }
-    }
-
 
     if ($script:OldInstallerManifest) { $_OldInstallers = $script:OldInstallerManifest['Installers'] } else {
         $_OldInstallers = $script:OldVersionManifest['Installers']
@@ -1439,7 +1439,7 @@ Function Submit-Manifest {
     Write-Host
     if ($PromptSubmit -eq '0') {
         switch -regex ($Option) {
-            'New|QuickUpdateVerison' {
+            'New|QuickUpdateVersion' {
                 if ( $script:OldManifestType -eq 'None' ) { $CommitType = 'New package' }
                 elseif ($script:LastVersion -lt $script:PackageVersion ) { $CommitType = 'New version' }
                 elseif ($script:PackageVersion -in $script:ExistingVersions) { $CommitType = 'Update' }
@@ -1708,7 +1708,7 @@ Function Read-PreviousWinGet-Manifest-Yaml {
     }
 
     if (-not (Test-Path -Path "$AppFolder\..")) {
-        if ($script:Option -eq 'QuickUpdateVerison') { Write-Host -ForegroundColor Red 'This option requires manifest of previous version of the package. If you want to create a new package, please select Option 1.'; exit }
+        if ($script:Option -eq 'QuickUpdateVersion') { Write-Host -ForegroundColor Red 'This option requires manifest of previous version of the package. If you want to create a new package, please select Option 1.'; exit }
         $script:OldManifestType = 'None'
         return
     }
@@ -1772,7 +1772,7 @@ Read-WinGet-MandatoryInfo
 Read-PreviousWinGet-Manifest-Yaml
 
 Switch ($script:Option) {
-    'QuickUpdateVerison' {
+    'QuickUpdateVersion' {
         Read-WinGet-InstallerValues-Minimal
         New-Variable -Name 'PackageLocale' -Value 'en-US' -Scope 'Script' -Force
         Write-WinGet-LocaleManifest-Yaml
