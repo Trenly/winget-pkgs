@@ -238,39 +238,6 @@ Function TestUrlValidity {
 
     return $HTTP_Status
 }
-Function Show-OptionMenu {
-    Clear-Host
-    Write-Host -ForegroundColor 'Cyan' 'Select Mode'
-    Write-Colors "`n[", '1', "] New Manifest or Package Version`n" 'DarkCyan', 'White', 'DarkCyan'
-    Write-Colors "`n[", '2', '] Quick Update Package Version ', "(Note: Must be used only when previous version`'s metadata is complete.)`n" 'DarkCyan', 'White', 'DarkCyan', 'Green'
-    Write-Colors "`n[", '3', "] Update Package Metadata`n" 'DarkCyan', 'White', 'DarkCyan'
-    Write-Colors "`n[", '4', "] New Locale`n" 'DarkCyan', 'White', 'DarkCyan'
-    Write-Colors "`n[", 'q', ']', " Any key to quit`n" 'DarkCyan', 'White', 'DarkCyan', 'Red'
-    Write-Colors "`nSelection: " 'White'
-
-    $Keys = @{
-        [ConsoleKey]::D1      = '1';
-        [ConsoleKey]::D2      = '2';
-        [ConsoleKey]::D3      = '3';
-        [ConsoleKey]::D4      = '4';
-        [ConsoleKey]::NumPad1 = '1';
-        [ConsoleKey]::NumPad2 = '2';
-        [ConsoleKey]::NumPad3 = '3';
-        [ConsoleKey]::NumPad4 = '4';
-    }
-
-    do {
-        $keyInfo = [Console]::ReadKey($false)
-    } until ($keyInfo.Key)
-
-    switch ($Keys[$keyInfo.Key]) {
-        '1' { $script:Option = 'New' }
-        '2' { $script:Option = 'QuickUpdateVersion' }
-        '3' { $script:Option = 'EditMetadata' }
-        '4' { $script:Option = 'NewLocale' }
-        default { Write-Host; exit }
-    }
-}
 
 Function Request-Installer-Url {
     do {
@@ -294,55 +261,6 @@ Function Request-Installer-Url {
         }
     } until ($script:_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
     return $NewInstallerUrl
-}
-
-Function Read-WinGet-MandatoryInfo {   
-    Write-Host
-
-    do {
-        Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString()
-        Write-Host -ForegroundColor 'Green' -Object '[Required] Enter the Package Identifier, in the following format <Publisher shortname.Application shortname>. For example: Microsoft.Excel'
-        $script:PackageIdentifier = Read-Host -Prompt 'PackageIdentifier' | TrimString
-        $PackageIdentifierFolder = $PackageIdentifier.Replace('.', '\')
-
-        if (String.Validate $PackageIdentifier -MinLength 4 -MaxLength $Patterns.IdentifierMaxLength -MatchPattern $Patterns.PackageIdentifier) {
-            $script:_returnValue = [ReturnValue]::Success()
-        } else {
-            if (String.Validate -not $PackageIdentifier -MinLength 4 -MaxLength $Patterns.IdentifierMaxLength) {
-                $script:_returnValue = [ReturnValue]::LengthError(4, $Patterns.IdentifierMaxLength)
-            } elseif (String.Validate -not $PackageIdentifier -MatchPattern $Patterns.PackageIdentifier) {
-                $script:_returnValue = [ReturnValue]::PatternError()
-            } else {
-                $script:_returnValue = [ReturnValue]::GenericError()
-            }
-        }
-    } until ($script:_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
-    
-    do {
-        Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString()
-        Write-Host -ForegroundColor 'Green' -Object '[Required] Enter the version. for example: 1.33.7'
-        $script:PackageVersion = Read-Host -Prompt 'Version' | TrimString
-
-        if (String.Validate $PackageVersion -MaxLength $Patterns.VersionMaxLength -MatchPattern $Patterns.PackageVersion -NotNull) {
-            $script:_returnValue = [ReturnValue]::Success()
-        } else {
-            if (String.Validate -not $PackageVersion -MaxLength $Patterns.VersionMaxLength -NotNull) {
-                $script:_returnValue = [ReturnValue]::LengthError(1, $Patterns.VersionMaxLength)
-            } elseif (String.Validate -not $PackageVersion -MatchPattern $Patterns.PackageVersion) {
-                $script:_returnValue = [ReturnValue]::PatternError()
-            } else {
-                $script:_returnValue = [ReturnValue]::GenericError()
-            }
-        }
-    } until ($script:_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
-    
-    if (Test-Path -Path "$PSScriptRoot\..\manifests") {
-        $ManifestsFolder = (Resolve-Path "$PSScriptRoot\..\manifests").Path
-    } else {
-        $ManifestsFolder = (Resolve-Path '.\').Path
-    }
-    
-    $script:AppFolder = Join-Path $ManifestsFolder -ChildPath $PackageIdentifier.ToLower().Chars(0) | Join-Path -ChildPath $PackageIdentifierFolder | Join-Path -ChildPath $PackageVersion
 }
 
 Function Read-WinGet-InstallerValues {
@@ -1236,40 +1154,6 @@ Function Read-WinGet-LocaleManifest {
     } until ($script:_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
 }
 
-Function Test-Manifest {
-    if (Get-Command 'winget.exe' -ErrorAction SilentlyContinue) { winget validate $AppFolder }
-
-    if (Get-Command 'WindowsSandbox.exe' -ErrorAction SilentlyContinue) {
-
-        $_menu = @{
-            entries       = @('*[Y] Yes'; '[N] No')
-            Prompt        = '[Recommended] Do you want to test your Manifest in Windows Sandbox?'
-            DefaultString = 'Y'
-        }
-        
-        switch ( KeypressMenu -Prompt $_menu['Prompt'] -Entries $_menu['Entries'] -DefaultString $_menu['DefaultString']) {
-            'Y' { $script:SandboxTest = '0' }
-            'N' { $script:SandboxTest = '1' }
-            default { $script:SandboxTest = '0' }
-        }
-
-        Write-Host
-        if ($script:SandboxTest -eq '0') {
-            if (Test-Path -Path "$PSScriptRoot\SandboxTest.ps1") {
-                $SandboxScriptPath = (Resolve-Path "$PSScriptRoot\SandboxTest.ps1").Path
-            } else {
-                while ([string]::IsNullOrWhiteSpace($SandboxScriptPath)) {
-                    Write-Host
-                    Write-Host -ForegroundColor 'Green' -Object 'SandboxTest.ps1 not found, input path'
-                    $SandboxScriptPath = Read-Host -Prompt 'SandboxTest.ps1' | TrimString
-                }
-            }
-
-            & $SandboxScriptPath -Manifest $AppFolder
-        }
-    }
-}
-
 Function Enter-PR-Parameters {
     $PrBodyContent = Get-Content $args[0]
     ForEach ($_line in ($PrBodyContent | Where-Object { $_ -like '-*[ ]*' })) {
@@ -1406,74 +1290,6 @@ Function Enter-PR-Parameters {
     Set-Content -Path PrBodyFile -Value $PrBodyContentReply | Out-Null
     gh pr create --body-file PrBodyFile -f
     Remove-Item PrBodyFile  
-}
-Function Submit-Manifest {
-    if (Get-Command 'git.exe' -ErrorAction SilentlyContinue) {
-        $_menu = @{
-            entries       = @('*[Y] Yes'; '[N] No')
-            Prompt        = 'Do you want to submit your PR now?'
-            DefaultString = 'Y'
-        }
-        
-        switch ( KeypressMenu -Prompt $_menu['Prompt'] -Entries $_menu['Entries'] -DefaultString $_menu['DefaultString']) {
-            'Y' { $PromptSubmit = '0' }
-            'N' { $PromptSubmit = '1' }
-            default { $PromptSubmit = '0' }
-        }
-    }
-
-    Write-Host
-    if ($PromptSubmit -eq '0') {
-        switch -regex ($Option) {
-            'New|QuickUpdateVersion' {
-                if ( $script:OldManifestType -eq 'None' ) { $CommitType = 'New package' }
-                elseif ($script:LastVersion -lt $script:PackageVersion ) { $CommitType = 'New version' }
-                elseif ($script:PackageVersion -in $script:ExistingVersions) { $CommitType = 'Update' }
-                elseif ($script:LastVersion -gt $script:PackageVersion ) { $CommitType = 'Add version' }
-            }
-            'EditMetadata' { $CommitType = 'Metadata' }
-            'NewLocale' { $CommitType = 'Locale' }
-        }
-
-        $_previousConfig = git config --global --get core.safecrlf
-        if ($_previousConfig) {
-            git config --global --replace core.safecrlf false
-        } else {
-            git config --global --add core.safecrlf false
-        }
-
-        git fetch upstream master --quiet
-        git switch -d upstream/master       
-        if ($LASTEXITCODE -eq '0') {
-            git add -A
-            git commit -m "$CommitType`: $PackageIdentifier version $PackageVersion" --quiet
-
-            git switch -c "$PackageIdentifier-$PackageVersion" --quiet
-            git push --set-upstream origin "$PackageIdentifier-$PackageVersion" --quiet
-
-            if (Get-Command 'gh.exe' -ErrorAction SilentlyContinue) {
-            
-                if (Test-Path -Path "$PSScriptRoot\..\.github\PULL_REQUEST_TEMPLATE.md") {
-                    Enter-PR-Parameters "$PSScriptRoot\..\.github\PULL_REQUEST_TEMPLATE.md"
-                } else {
-                    while ([string]::IsNullOrWhiteSpace($SandboxScriptPath)) {
-                        Write-Host
-                        Write-Host -ForegroundColor 'Green' -Object 'PULL_REQUEST_TEMPLATE.md not found, input path'
-                        $PRTemplate = Read-Host -Prompt 'PR Template' | TrimString
-                    }
-                    Enter-PR-Parameters "$PRTemplate"
-                }
-            }
-        }
-        if ($_previousConfig) {
-            git config --global --replace core.safecrlf $_previousConfig
-        } else {
-            git config --global --unset core.safecrlf
-        }
-    } else {
-        Write-Host
-        Exit
-    }
 }
 
 Function AddYamlListParameter {
@@ -1671,89 +1487,38 @@ Function Write-WinGet-LocaleManifest-Yaml {
     Write-Host "Yaml file created: $LocaleManifestPath"
 }
 
+$script:_returnValue = [ReturnValue]::new(200)
+Clear-Host
+Write-Host -ForegroundColor 'Cyan' 'Select Mode'
+Write-Colors "`n[", '1', "] New Manifest or Package Version`n" 'DarkCyan', 'White', 'DarkCyan'
+Write-Colors "`n[", '2', '] Quick Update Package Version ', "(Note: Must be used only when previous version`'s metadata is complete.)`n" 'DarkCyan', 'White', 'DarkCyan', 'Green'
+Write-Colors "`n[", '3', "] Update Package Metadata`n" 'DarkCyan', 'White', 'DarkCyan'
+Write-Colors "`n[", '4', "] New Locale`n" 'DarkCyan', 'White', 'DarkCyan'
+Write-Colors "`n[", 'q', ']', " Any key to quit`n" 'DarkCyan', 'White', 'DarkCyan', 'Red'
+Write-Colors "`nSelection: " 'White'
 
-Function Read-PreviousWinGet-Manifest-Yaml {
-    
-    if (($script:Option -eq 'NewLocale') -or ($script:Option -eq 'EditMetadata')) {
-        if (Test-Path -Path "$AppFolder\..\$PackageVersion") {
-            $script:OldManifests = Get-ChildItem -Path "$AppFolder\..\$PackageVersion"
-            $LastVersion = $PackageVersion
-        }
-        while (-not ($OldManifests.Name -like "$PackageIdentifier*.yaml")) {
-            Write-Host
-            Write-Host -ForegroundColor 'Red' -Object 'Could not find required manifests, input a version containing required manifests or "exit" to cancel'
-            $PromptVersion = Read-Host -Prompt 'Version' | TrimString
-            if ($PromptVersion -eq 'exit') { exit 1 }
-            if (Test-Path -Path "$AppFolder\..\$PromptVersion") {
-                $script:OldManifests = Get-ChildItem -Path "$AppFolder\..\$PromptVersion" 
-            }
-            $LastVersion = $PromptVersion
-            $script:AppFolder = (Split-Path $AppFolder) + "\$LastVersion"
-            $script:PackageVersion = $LastVersion
-        }
-    }
-
-    if (-not (Test-Path -Path "$AppFolder\..")) {
-        if ($script:Option -eq 'QuickUpdateVersion') { Write-Host -ForegroundColor Red 'This option requires manifest of previous version of the package. If you want to create a new package, please select Option 1.'; exit }
-        $script:OldManifestType = 'None'
-        return
-    }
-    
-    if (!$LastVersion) {
-        try {
-            $script:LastVersion = Split-Path (Split-Path (Get-ChildItem -Path "$AppFolder\..\" -Recurse -Depth 1 -File -Filter '*.yaml').FullName ) -Leaf | Sort-Object $ToNatural | Select-Object -Last 1
-            $script:ExistingVersions = Split-Path (Split-Path (Get-ChildItem -Path "$AppFolder\..\" -Recurse -Depth 1 -File -Filter '*.yaml').FullName ) -Leaf | Sort-Object $ToNatural | Select-Object -Unique
-            Write-Host -ForegroundColor 'DarkYellow' -Object "Found Existing Version: $LastVersion"
-            $script:OldManifests = Get-ChildItem -Path "$AppFolder\..\$LastVersion"
-        } catch {
-            Out-Null
-        }
-    }
-
-    if ($OldManifests.Name -eq "$PackageIdentifier.installer.yaml" -and $OldManifests.Name -eq "$PackageIdentifier.locale.en-US.yaml" -and $OldManifests.Name -eq "$PackageIdentifier.yaml") {
-        $script:OldManifestType = 'MultiManifest'
-        $script:OldInstallerManifest = ConvertFrom-Yaml -Yaml ($(Get-Content -Path $(Resolve-Path "$AppFolder\..\$LastVersion\$PackageIdentifier.installer.yaml") -Encoding UTF8) -join "`n") -Ordered
-        $script:OldLocaleManifest = ConvertFrom-Yaml -Yaml ($(Get-Content -Path $(Resolve-Path "$AppFolder\..\$LastVersion\$PackageIdentifier.locale.en-US.yaml") -Encoding UTF8) -join "`n") -Ordered
-        $script:OldVersionManifest = ConvertFrom-Yaml -Yaml ($(Get-Content -Path $(Resolve-Path "$AppFolder\..\$LastVersion\$PackageIdentifier.yaml") -Encoding UTF8) -join "`n") -Ordered
-    } elseif ($OldManifests.Name -eq "$PackageIdentifier.yaml") {
-        if ($script:Option -eq 'NewLocale') { Throw 'Error: MultiManifest Required' }
-        $script:OldManifestType = 'Singleton'
-        $script:OldVersionManifest = ConvertFrom-Yaml -Yaml ($(Get-Content -Path $(Resolve-Path "$AppFolder\..\$LastVersion\$PackageIdentifier.yaml") -Encoding UTF8) -join "`n") -Ordered
-    } else {
-        if ($script:Option -ne 'New') { Throw "Error: Version $LastVersion does not contain the required manifests" }
-        $script:OldManifestType = 'None'
-        return
-    }
-
-    if ($OldManifests) {
-
-        $_Parameters = @(
-            'Publisher'; 'PublisherUrl'; 'PublisherSupportUrl'; 'PrivacyUrl'
-            'Author'; 
-            'PackageName'; 'PackageUrl'; 'Moniker'
-            'License'; 'LicenseUrl'
-            'Copyright'; 'CopyrightUrl'
-            'ShortDescription'; 'Description'
-            'Channel'
-            'Platform'; 'MinimumOSVersion'
-            'InstallerType'
-            'Scope'
-            'UpgradeBehavior'
-            'PackageFamilyName'; 'ProductCode'
-            'Tags'; 'FileExtensions'
-            'Protocols'; 'Commands'
-            'InstallModes'; 'InstallerSuccessCodes'
-            'Capabilities'; 'RestrictedCapabilities'
-        )
-
-        Foreach ($param in $_Parameters) {
-            New-Variable -Name $param -Value $(if ($script:OldManifestType -eq 'MultiManifest') { (GetMultiManifestParameter $param) } else { $script:OldVersionManifest[$param] }) -Scope Script -Force
-        }
-    }
+$Keys = @{
+    [ConsoleKey]::D1      = '1';
+    [ConsoleKey]::D2      = '2';
+    [ConsoleKey]::D3      = '3';
+    [ConsoleKey]::D4      = '4';
+    [ConsoleKey]::NumPad1 = '1';
+    [ConsoleKey]::NumPad2 = '2';
+    [ConsoleKey]::NumPad3 = '3';
+    [ConsoleKey]::NumPad4 = '4';
 }
 
-$script:_returnValue = [ReturnValue]::new(200)
-Show-OptionMenu
+do {
+    $keyInfo = [Console]::ReadKey($false)
+} until ($keyInfo.Key)
+
+switch ($Keys[$keyInfo.Key]) {
+    '1' { $script:Option = 'New' }
+    '2' { $script:Option = 'QuickUpdateVersion' }
+    '3' { $script:Option = 'EditMetadata' }
+    '4' { $script:Option = 'NewLocale' }
+    default { Write-Host; exit }
+}
 
 if ($script:Option -eq 'QuickUpdateVersion'){
     $_menu = @{
@@ -1771,8 +1536,127 @@ if ($script:Option -eq 'QuickUpdateVersion'){
     }
 }
 
-Read-WinGet-MandatoryInfo
-Read-PreviousWinGet-Manifest-Yaml
+Write-Host
+
+do {
+    Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString()
+    Write-Host -ForegroundColor 'Green' -Object '[Required] Enter the Package Identifier, in the following format <Publisher shortname.Application shortname>. For example: Microsoft.Excel'
+    $script:PackageIdentifier = Read-Host -Prompt 'PackageIdentifier' | TrimString
+    $PackageIdentifierFolder = $PackageIdentifier.Replace('.', '\')
+
+    if (String.Validate $PackageIdentifier -MinLength 4 -MaxLength $Patterns.IdentifierMaxLength -MatchPattern $Patterns.PackageIdentifier) {
+        $script:_returnValue = [ReturnValue]::Success()
+    } else {
+        if (String.Validate -not $PackageIdentifier -MinLength 4 -MaxLength $Patterns.IdentifierMaxLength) {
+            $script:_returnValue = [ReturnValue]::LengthError(4, $Patterns.IdentifierMaxLength)
+        } elseif (String.Validate -not $PackageIdentifier -MatchPattern $Patterns.PackageIdentifier) {
+            $script:_returnValue = [ReturnValue]::PatternError()
+        } else {
+            $script:_returnValue = [ReturnValue]::GenericError()
+        }
+    }
+} until ($script:_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
+
+do {
+    Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString()
+    Write-Host -ForegroundColor 'Green' -Object '[Required] Enter the version. for example: 1.33.7'
+    $script:PackageVersion = Read-Host -Prompt 'Version' | TrimString
+
+    if (String.Validate $PackageVersion -MaxLength $Patterns.VersionMaxLength -MatchPattern $Patterns.PackageVersion -NotNull) {
+        $script:_returnValue = [ReturnValue]::Success()
+    } else {
+        if (String.Validate -not $PackageVersion -MaxLength $Patterns.VersionMaxLength -NotNull) {
+            $script:_returnValue = [ReturnValue]::LengthError(1, $Patterns.VersionMaxLength)
+        } elseif (String.Validate -not $PackageVersion -MatchPattern $Patterns.PackageVersion) {
+            $script:_returnValue = [ReturnValue]::PatternError()
+        } else {
+            $script:_returnValue = [ReturnValue]::GenericError()
+        }
+    }
+} until ($script:_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
+
+if (Test-Path -Path "$PSScriptRoot\..\manifests") {
+    $ManifestsFolder = (Resolve-Path "$PSScriptRoot\..\manifests").Path
+} else {
+    $ManifestsFolder = (Resolve-Path '.\').Path
+}
+$script:AppFolder = Join-Path $ManifestsFolder -ChildPath $PackageIdentifier.ToLower().Chars(0) | Join-Path -ChildPath $PackageIdentifierFolder | Join-Path -ChildPath $PackageVersion
+
+if (($script:Option -eq 'NewLocale') -or ($script:Option -eq 'EditMetadata')) {
+    if (Test-Path -Path "$AppFolder\..\$PackageVersion") {
+        $script:OldManifests = Get-ChildItem -Path "$AppFolder\..\$PackageVersion"
+        $LastVersion = $PackageVersion
+    }
+    while (-not ($OldManifests.Name -like "$PackageIdentifier*.yaml")) {
+        Write-Host
+        Write-Host -ForegroundColor 'Red' -Object 'Could not find required manifests, input a version containing required manifests or "exit" to cancel'
+        $PromptVersion = Read-Host -Prompt 'Version' | TrimString
+        if ($PromptVersion -eq 'exit') { exit 1 }
+        if (Test-Path -Path "$AppFolder\..\$PromptVersion") {
+            $script:OldManifests = Get-ChildItem -Path "$AppFolder\..\$PromptVersion" 
+        }
+        $LastVersion = $PromptVersion
+        $script:AppFolder = (Split-Path $AppFolder) + "\$LastVersion"
+        $script:PackageVersion = $LastVersion
+    }
+}
+
+if (-not (Test-Path -Path "$AppFolder\..")) {
+    if ($script:Option -eq 'QuickUpdateVersion') { Write-Host -ForegroundColor Red 'This option requires manifest of previous version of the package. If you want to create a new package, please select Option 1.'; exit }
+    $script:OldManifestType = 'None'
+    return
+}
+
+if (!$LastVersion) {
+    try {
+        $script:LastVersion = Split-Path (Split-Path (Get-ChildItem -Path "$AppFolder\..\" -Recurse -Depth 1 -File -Filter '*.yaml').FullName ) -Leaf | Sort-Object $ToNatural | Select-Object -Last 1
+        $script:ExistingVersions = Split-Path (Split-Path (Get-ChildItem -Path "$AppFolder\..\" -Recurse -Depth 1 -File -Filter '*.yaml').FullName ) -Leaf | Sort-Object $ToNatural | Select-Object -Unique
+        Write-Host -ForegroundColor 'DarkYellow' -Object "Found Existing Version: $LastVersion"
+        $script:OldManifests = Get-ChildItem -Path "$AppFolder\..\$LastVersion"
+    } catch {
+        Out-Null
+    }
+}
+
+if ($OldManifests.Name -eq "$PackageIdentifier.installer.yaml" -and $OldManifests.Name -eq "$PackageIdentifier.locale.en-US.yaml" -and $OldManifests.Name -eq "$PackageIdentifier.yaml") {
+    $script:OldManifestType = 'MultiManifest'
+    $script:OldInstallerManifest = ConvertFrom-Yaml -Yaml ($(Get-Content -Path $(Resolve-Path "$AppFolder\..\$LastVersion\$PackageIdentifier.installer.yaml") -Encoding UTF8) -join "`n") -Ordered
+    $script:OldLocaleManifest = ConvertFrom-Yaml -Yaml ($(Get-Content -Path $(Resolve-Path "$AppFolder\..\$LastVersion\$PackageIdentifier.locale.en-US.yaml") -Encoding UTF8) -join "`n") -Ordered
+    $script:OldVersionManifest = ConvertFrom-Yaml -Yaml ($(Get-Content -Path $(Resolve-Path "$AppFolder\..\$LastVersion\$PackageIdentifier.yaml") -Encoding UTF8) -join "`n") -Ordered
+} elseif ($OldManifests.Name -eq "$PackageIdentifier.yaml") {
+    if ($script:Option -eq 'NewLocale') { Throw 'Error: MultiManifest Required' }
+    $script:OldManifestType = 'Singleton'
+    $script:OldVersionManifest = ConvertFrom-Yaml -Yaml ($(Get-Content -Path $(Resolve-Path "$AppFolder\..\$LastVersion\$PackageIdentifier.yaml") -Encoding UTF8) -join "`n") -Ordered
+} else {
+    if ($script:Option -ne 'New') { Throw "Error: Version $LastVersion does not contain the required manifests" }
+    $script:OldManifestType = 'None'
+    return
+}
+
+if ($OldManifests) {
+    $_Parameters = @(
+        'Publisher'; 'PublisherUrl'; 'PublisherSupportUrl'; 'PrivacyUrl'
+        'Author'; 
+        'PackageName'; 'PackageUrl'; 'Moniker'
+        'License'; 'LicenseUrl'
+        'Copyright'; 'CopyrightUrl'
+        'ShortDescription'; 'Description'
+        'Channel'
+        'Platform'; 'MinimumOSVersion'
+        'InstallerType'
+        'Scope'
+        'UpgradeBehavior'
+        'PackageFamilyName'; 'ProductCode'
+        'Tags'; 'FileExtensions'
+        'Protocols'; 'Commands'
+        'InstallModes'; 'InstallerSuccessCodes'
+        'Capabilities'; 'RestrictedCapabilities'
+    )
+
+    Foreach ($param in $_Parameters) {
+        New-Variable -Name $param -Value $(if ($script:OldManifestType -eq 'MultiManifest') { (GetMultiManifestParameter $param) } else { $script:OldVersionManifest[$param] }) -Scope Script -Force
+    }
+}
 
 Switch ($script:Option) {
     'QuickUpdateVersion' {
@@ -1808,8 +1692,105 @@ Switch ($script:Option) {
         if (Get-Command 'winget.exe' -ErrorAction SilentlyContinue) { winget validate $AppFolder }
     }
 }
-Test-Manifest
-Submit-Manifest
+
+if (Get-Command 'winget.exe' -ErrorAction SilentlyContinue) { winget validate $AppFolder }
+
+if (Get-Command 'WindowsSandbox.exe' -ErrorAction SilentlyContinue) {
+
+    $_menu = @{
+        entries       = @('*[Y] Yes'; '[N] No')
+        Prompt        = '[Recommended] Do you want to test your Manifest in Windows Sandbox?'
+        DefaultString = 'Y'
+    }
+    
+    switch ( KeypressMenu -Prompt $_menu['Prompt'] -Entries $_menu['Entries'] -DefaultString $_menu['DefaultString']) {
+        'Y' { $script:SandboxTest = '0' }
+        'N' { $script:SandboxTest = '1' }
+        default { $script:SandboxTest = '0' }
+    }
+
+    Write-Host
+    if ($script:SandboxTest -eq '0') {
+        if (Test-Path -Path "$PSScriptRoot\SandboxTest.ps1") {
+            $SandboxScriptPath = (Resolve-Path "$PSScriptRoot\SandboxTest.ps1").Path
+        } else {
+            while ([string]::IsNullOrWhiteSpace($SandboxScriptPath)) {
+                Write-Host
+                Write-Host -ForegroundColor 'Green' -Object 'SandboxTest.ps1 not found, input path'
+                $SandboxScriptPath = Read-Host -Prompt 'SandboxTest.ps1' | TrimString
+            }
+        }
+
+        & $SandboxScriptPath -Manifest $AppFolder
+    }
+}
+
+if (Get-Command 'git.exe' -ErrorAction SilentlyContinue) {
+    $_menu = @{
+        entries       = @('*[Y] Yes'; '[N] No')
+        Prompt        = 'Do you want to submit your PR now?'
+        DefaultString = 'Y'
+    }
+    
+    switch ( KeypressMenu -Prompt $_menu['Prompt'] -Entries $_menu['Entries'] -DefaultString $_menu['DefaultString']) {
+        'Y' { $PromptSubmit = '0' }
+        'N' { $PromptSubmit = '1' }
+        default { $PromptSubmit = '0' }
+    }
+}
+
+Write-Host
+if ($PromptSubmit -eq '0') {
+    switch -regex ($Option) {
+        'New|QuickUpdateVersion' {
+            if ( $script:OldManifestType -eq 'None' ) { $CommitType = 'New package' }
+            elseif ($script:LastVersion -lt $script:PackageVersion ) { $CommitType = 'New version' }
+            elseif ($script:PackageVersion -in $script:ExistingVersions) { $CommitType = 'Update' }
+            elseif ($script:LastVersion -gt $script:PackageVersion ) { $CommitType = 'Add version' }
+        }
+        'EditMetadata' { $CommitType = 'Metadata' }
+        'NewLocale' { $CommitType = 'Locale' }
+    }
+
+    $_previousConfig = git config --global --get core.safecrlf
+    if ($_previousConfig) {
+        git config --global --replace core.safecrlf false
+    } else {
+        git config --global --add core.safecrlf false
+    }
+
+    git fetch upstream master --quiet
+    git switch -d upstream/master       
+    if ($LASTEXITCODE -eq '0') {
+        git add -A
+        git commit -m "$CommitType`: $PackageIdentifier version $PackageVersion" --quiet
+
+        git switch -c "$PackageIdentifier-$PackageVersion" --quiet
+        git push --set-upstream origin "$PackageIdentifier-$PackageVersion" --quiet
+
+        if (Get-Command 'gh.exe' -ErrorAction SilentlyContinue) {
+        
+            if (Test-Path -Path "$PSScriptRoot\..\.github\PULL_REQUEST_TEMPLATE.md") {
+                Enter-PR-Parameters "$PSScriptRoot\..\.github\PULL_REQUEST_TEMPLATE.md"
+            } else {
+                while ([string]::IsNullOrWhiteSpace($SandboxScriptPath)) {
+                    Write-Host
+                    Write-Host -ForegroundColor 'Green' -Object 'PULL_REQUEST_TEMPLATE.md not found, input path'
+                    $PRTemplate = Read-Host -Prompt 'PR Template' | TrimString
+                }
+                Enter-PR-Parameters "$PRTemplate"
+            }
+        }
+    }
+    if ($_previousConfig) {
+        git config --global --replace core.safecrlf $_previousConfig
+    } else {
+        git config --global --unset core.safecrlf
+    }
+} else {
+    Write-Host
+    Exit
+}
 
 Enum ErrorLevel {
     Undefined = -1
