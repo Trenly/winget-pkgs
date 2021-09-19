@@ -896,8 +896,8 @@ Function Read-WinGet-InstallerManifest {
     # Request Install Modes and validate
     do {
         if (!$InstallModes) { $InstallModes = '' }
-        $InstallModes = $InstallModes | UniqueItems
-        $script:InstallModes = PromptInstallerManifestValue $InstallModes 'InstallModes' "[Optional] List of supported installer modes. Options: $($Patterns.ValidInstallModes -join ', ')"
+        $script:InstallModes = $script:InstallModes | UniqueItems
+        $script:InstallModes = PromptInstallerManifestValue $script:InstallModes 'InstallModes' "[Optional] List of supported installer modes. Options: $($Patterns.ValidInstallModes -join ', ')"
         $script:InstallModes = $script:InstallModes | UniqueItems
         if ( (String.Validate $script:InstallModes -IsNull) -or (($script:InstallModes -split ',').Count -le $Patterns.MaxItemsInstallModes -and $($script:InstallModes.Split(',').Trim() | Where-Object { $_ -CNotIn $Patterns.ValidInstallModes }).Count -eq 0)) {
             $script:_returnValue = [ReturnValue]::Success()
@@ -1483,14 +1483,14 @@ Function Write-WinGet-InstallerManifest-Yaml {
             # Check if all installers have the same value
             $_AllAreSame = $true
             $_FirstInstallerKeyValue = ConvertTo-Json($InstallerManifest.Installers[0].$_Key)
-            foreach ($_Installer in $InstallerManifest.Installers){
-               $_CurrentInstallerKeyValue = ConvertTo-Json($_Installer.$_Key)
-               $_AllAreSame = $_AllAreSame -and (@(Compare-Object $_CurrentInstallerKeyValue $_FirstInstallerKeyValue).Length -eq 0)
+            foreach ($_Installer in $InstallerManifest.Installers) {
+                $_CurrentInstallerKeyValue = ConvertTo-Json($_Installer.$_Key)
+                $_AllAreSame = $_AllAreSame -and (@(Compare-Object $_CurrentInstallerKeyValue $_FirstInstallerKeyValue).Length -eq 0)
             }
             # If all installers are the same move the key to the manifest level
             if ($_AllAreSame) {
                 $InstallerManifest[$_Key] = $InstallerManifest.Installers[0].$_Key
-                foreach ($_Installer in $InstallerManifest.Installers){
+                foreach ($_Installer in $InstallerManifest.Installers) {
                     $_Installer.Remove($_Key)
                 }
             }
@@ -1745,6 +1745,7 @@ if ($OldManifests.Name -eq "$PackageIdentifier.installer.yaml" -and $OldManifest
     foreach ($_Key in $_KeysToMove) {
         if ($_Key -in $script:OldInstallerManifest.Keys) {
             foreach ($_Installer in $script:OldInstallerManifest['Installers']) {
+                if ($_Key -eq 'InstallModes') { $script:InstallModes = [string]$script:OldInstallerManifest.$_Key }
                 $_Installer[$_Key] = $script:OldInstallerManifest.$_Key
             }
             $script:OldInstallerManifest.Remove($_Key)
@@ -1779,6 +1780,7 @@ if ($OldManifests.Name -eq "$PackageIdentifier.installer.yaml" -and $OldManifest
     $_KeysToMove = $InstallerEntryProperties | Where-Object { $_ -in $InstallerProperties }
     foreach ($_Key in $_KeysToMove) {
         if ($_Key -in $script:OldInstallerManifest.Keys) {
+            if ($_Key -eq 'InstallModes') { $script:InstallModes = [string]$script:OldInstallerManifest.$_Key }
             foreach ($_Installer in $script:OldInstallerManifest['Installers']) {
                 $_Installer[$_Key] = $script:OldInstallerManifest.$_Key
             }
@@ -1807,7 +1809,7 @@ if ($OldManifests) {
         'PackageFamilyName'; 'ProductCode'
         'Tags'; 'FileExtensions'
         'Protocols'; 'Commands'
-        'InstallModes'; 'InstallerSuccessCodes'
+        'InstallerSuccessCodes'
         'Capabilities'; 'RestrictedCapabilities'
     )
     Foreach ($param in $_Parameters) {
