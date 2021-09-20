@@ -538,13 +538,12 @@ Function Read-WinGet-InstallerValues {
         Write-Host -ForegroundColor 'Yellow' -Object '[Optional] Enter the installer locale. For example: en-US, en-CA'
         Write-Host -ForegroundColor 'Blue' -Object 'https://docs.microsoft.com/openspecs/office_standards/ms-oe376/6c085406-a698-4e12-9d4d-c3b0ee3dbc4a'
         $InstallerLocale = Read-Host -Prompt 'InstallerLocale' | TrimString
-        if (String.Validate $InstallerLocale -IsNull) { $InstallerLocale = 'en-US' }
 
-        if (String.Validate $InstallerLocale -MaxLength $Patterns.InstallerLocaleMaxLength -MatchPattern $Patterns.PackageLocale -NotNull) {
+        if (String.Validate $InstallerLocale -MaxLength $Patterns.InstallerLocaleMaxLength -MatchPattern $Patterns.PackageLocale -AllowNull) {
             $script:_returnValue = [ReturnValue]::Success()
         } else {
-            if (String.Validate -not $InstallerLocale -MaxLength $Patterns.InstallerLocaleMaxLength -NotNull) {
-                $script:_returnValue = [ReturnValue]::LengthError(1, $Patterns.InstallerLocaleMaxLength)
+            if (String.Validate -not $InstallerLocale -MaxLength $Patterns.InstallerLocaleMaxLength -AllowNull) {
+                $script:_returnValue = [ReturnValue]::LengthError(0, $Patterns.InstallerLocaleMaxLength)
             } elseif (String.Validate -not $InstallerLocale -MatchPattern $Patterns.PackageLocale) {
                 $script:_returnValue = [ReturnValue]::PatternError()
             } else {
