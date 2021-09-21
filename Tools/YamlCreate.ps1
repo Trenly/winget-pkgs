@@ -11,7 +11,7 @@ $ofs = ', '
 .DESCRIPTION
     The intent of this file is to help you generate a manifest for publishing
     to the Windows Package Manager repository. 
-
+    
     It'll attempt to download an installer from the user-provided URL to calculate
     a checksum. That checksum and the rest of the input data will be compiled in a 
     .YAML file.
