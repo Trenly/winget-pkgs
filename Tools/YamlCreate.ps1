@@ -1676,7 +1676,7 @@ switch ($Keys[$keyInfo.Key]) {
 }
 
 # Confirm the user undertands the implications of using the quick update mode
-if ($script:Option -eq 'QuickUpdateVersion') {
+if (($script:Option -eq 'QuickUpdateVersion') -and ($ScriptSettings.SuppressQuickUpdateWarning -ne 'true')) {
     $_menu = @{
         entries       = @('[Y] Continue with Quick Update'; '[N] Use Full Update Experience'; '*[Q] Exit Script')
         Prompt        = 'Quick Updates only allow for changes to the existing Installer URLs, Sha256 Values, and Product Codes. Are you sure you want to continue?'

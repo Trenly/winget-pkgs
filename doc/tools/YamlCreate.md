@@ -33,8 +33,11 @@ DefaultInstallerLocale: en-US
     # manual - Never downloads any files. All InstallerSha256 values must be entered manually
 SaveToTemporaryFolder: false
 
-
 # This setting allows you to set a default value for whether or not you have signed the Microsoft CLA
 # If this value is set to true, all automatic PR's will be marked as having the CLA signed
 SignedCLA: false
+
+# This setting allows you to skip the prompt to confirm you want to use quick update mode
+# If this value is set to true, the Quick Update Warning will be skipped
+SuppressQuickUpdateWarning: false
 ```
