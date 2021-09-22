@@ -24,15 +24,11 @@ YamlCreate offers a few settings to customize your manifest creation experience.
     # never - Never tests manifests
 TestManifestsInSandbox: ask
 
-# This setting allows you to set a default installer locale
-# Any value defined here will be set as the installer locale if one is not entered
-DefaultInstallerLocale: en-US
-
 # This setting allows you to define a default action for whether or not to save files to the temprorary folder
     # always - Always saves files to the temporary folder
     # never - Always removes the files from the temporary folder after secript excecution
     # manual - Never downloads any files. All InstallerSha256 values must be entered manually
-SaveToTemporaryFolder: never
+SaveToTemporaryFolder: ask
 
 # This setting allows you to set a default action for whether or not to submit PR's
     # always - Always submits PR's automatically
@@ -46,4 +42,8 @@ SignedCLA: false
 # This setting allows you to skip the prompt to confirm you want to use quick update mode
 # If this value is set to true, the Quick Update Warning will be skipped
 SuppressQuickUpdateWarning: false
+
+# This setting allows you to set a default installer locale
+# Any value defined here will be set as the installer locale if one is not entered
+DefaultInstallerLocale: en-US
 ```
