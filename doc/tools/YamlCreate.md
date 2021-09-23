@@ -22,7 +22,7 @@ When running YamlCreate through the command line, you can specify additional arg
 `.\YamlCreate.ps1 [-PackageIdentifier <identifier>] [-PackageVersion <version>] [-Settings]`
 
 # YamlCreate Settings
-YamlCreate offers a few settings to customize your manifest creation experience. The settings file is found in your local appdata folder under `YamlCreate`. It is empty by default, but you can copy the sample below which describes what all of the available options are; or, you can enter just specific keys as you see fit.
+YamlCreate offers a few settings to customize your manifest creation experience. The settings file is found in the `%LOCALAPPDATA%\YamlCreate` folder. It is empty by default, but you can copy the sample below which describes what all of the available options are; or, you can enter just specific keys as you see fit.
 ```yaml
 # This setting allows you to set a default action for whether or not to test your manifest in windows sandbox
     # always - Always tests manifests
