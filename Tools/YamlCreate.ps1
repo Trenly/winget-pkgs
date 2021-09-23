@@ -1,7 +1,12 @@
 #Requires -Version 5
 Param
 (
-    [switch] $Settings
+    [switch] $Settings,
+    [Parameter(Mandatory = $false)]
+    [string] $PackageIdentifier,
+    [Parameter(Mandatory = $false)]
+    [string] $PackageVersion
+    
 )
 
 # Check for settings directory and create it if none exists
@@ -1737,11 +1742,13 @@ Write-Host
 
 # Request Package Identifier and Validate
 do {
-    Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString()
-    Write-Host -ForegroundColor 'Green' -Object '[Required] Enter the Package Identifier, in the following format <Publisher shortname.Application shortname>. For example: Microsoft.Excel'
-    $script:PackageIdentifier = Read-Host -Prompt 'PackageIdentifier' | TrimString
-    $PackageIdentifierFolder = $PackageIdentifier.Replace('.', '\')
+    if ((String.Validate $PackageIdentifier -IsNull) -or ($script:_returnValue.StatusCode -ne [ReturnValue]::Success().StatusCode)) {
+        Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString()
+        Write-Host -ForegroundColor 'Green' -Object '[Required] Enter the Package Identifier, in the following format <Publisher shortname.Application shortname>. For example: Microsoft.Excel'
+        $script:PackageIdentifier = Read-Host -Prompt 'PackageIdentifier' | TrimString
+    }
 
+    $PackageIdentifierFolder = $PackageIdentifier.Replace('.', '\')
     if (String.Validate $PackageIdentifier -MinLength 4 -MaxLength $Patterns.IdentifierMaxLength -MatchPattern $Patterns.PackageIdentifier) {
         $script:_returnValue = [ReturnValue]::Success()
     } else {
@@ -1757,10 +1764,11 @@ do {
 
 # Request Package Version and Validate
 do {
-    Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString()
-    Write-Host -ForegroundColor 'Green' -Object '[Required] Enter the version. for example: 1.33.7'
-    $script:PackageVersion = Read-Host -Prompt 'Version' | TrimString
-
+    if ((String.Validate $PackageVersion -IsNull) -or ($script:_returnValue.StatusCode -ne [ReturnValue]::Success().StatusCode)) {
+        Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString()
+        Write-Host -ForegroundColor 'Green' -Object '[Required] Enter the version. for example: 1.33.7'
+        $script:PackageVersion = Read-Host -Prompt 'Version' | TrimString
+    }
     if (String.Validate $PackageVersion -MaxLength $Patterns.VersionMaxLength -MatchPattern $Patterns.PackageVersion -NotNull) {
         $script:_returnValue = [ReturnValue]::Success()
     } else {
