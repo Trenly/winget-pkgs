@@ -2,12 +2,21 @@
 Param
 (
     [switch] $Settings,
+    [switch] $help,
     [Parameter(Mandatory = $false)]
     [string] $PackageIdentifier,
     [Parameter(Mandatory = $false)]
     [string] $PackageVersion
     
 )
+
+if ($help) {
+    Write-Host -ForegroundColor 'Green' "For full documentation of the script, see https://github.com/microsoft/winget-pkgs/tree/master/doc/tools/YamlCreate.md"
+    Write-Host -ForegroundColor 'Yellow' 'Usage: ' -NoNewline
+    Write-Host -ForegroundColor 'White' '.\YamlCreate.ps1 [-PackageIdentifier <identifier>] [-PackageVersion <version>] [-Settings]'
+    Write-Host
+    exit
+}
 
 # Check for settings directory and create it if none exists
 $script:SettingsPath = Join-Path $env:LOCALAPPDATA -ChildPath 'YamlCreate'
