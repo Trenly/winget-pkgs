@@ -1956,8 +1956,8 @@ if ($script:Option -ne 'RemoveManifest') {
     if (Get-Command 'WindowsSandbox.exe' -ErrorAction SilentlyContinue) {
         # Check the settings to see if we need to display this menu
         switch ($ScriptSettings.TestManifestsInSandbox) {
-            'always' { $script:SaveOption = '0' }
-            'never' { $script:SaveOption = '1' }
+            'always' { $script:SandboxTest = '0' }
+            'never' { $script:SandboxTest = '1' }
             default {
                 $_menu = @{
                     entries       = @('*[Y] Yes'; '[N] No')
