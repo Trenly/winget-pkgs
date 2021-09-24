@@ -1432,7 +1432,7 @@ Function Enter-PR-Parameters {
                         Write-Host -ForegroundColor 'Red' "Invalid Issue: $i"
                         continue
                     }
-                    $PrBodyContentReply += @("- Resolves #$i")
+                    $PrBodyContentReply += @("* Resolves #$i")
                 }
             }
         }
