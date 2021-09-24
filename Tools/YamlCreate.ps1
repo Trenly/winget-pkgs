@@ -1884,20 +1884,25 @@ if ($OldManifests.Name -eq "$PackageIdentifier.installer.yaml" -and $OldManifest
     $_KeysToMove = $InstallerEntryProperties | Where-Object { $_ -in $InstallerProperties }
     foreach ($_Key in $_KeysToMove) {
         if ($_Key -in $script:OldInstallerManifest.Keys) {
+            # Handle Installer switches separately
             if ($_Key -eq 'InstallerSwitches') {
                 $_SwitchKeysToMove = $script:OldInstallerManifest.$_Key.Keys
                 foreach ($_SwitchKey in $_SwitchKeysToMove) {
+                    # If the InstallerSwitches key doesn't exist, we need to create it, otherwise, preserve switches that were already there
                     foreach ($_Installer in $script:OldInstallerManifest['Installers']) {
                         if ('InstallerSwitches' -notin $_Installer.Keys) { $_Installer['InstallerSwitches'] = @{} }
                         $_Installer.InstallerSwitches["$_SwitchKey"] = $script:OldInstallerManifest.$_Key.$_SwitchKey
                     }
                 }
+                $script:OldInstallerManifest.Remove($_Key)
+                continue
             } else {
                 foreach ($_Installer in $script:OldInstallerManifest['Installers']) {
                     if ($_Key -eq 'InstallModes') { $script:InstallModes = [string]$script:OldInstallerManifest.$_Key }
                     $_Installer[$_Key] = $script:OldInstallerManifest.$_Key
                 }
             }
+            New-Variable -Name $_Key -Value $($script:OldInstallerManifest.$_Key -join ', ') -Scope Script -Force
             $script:OldInstallerManifest.Remove($_Key)
         }
     }
@@ -1940,12 +1945,15 @@ if ($OldManifests.Name -eq "$PackageIdentifier.installer.yaml" -and $OldManifest
                         $_Installer.InstallerSwitches["$_SwitchKey"] = $script:OldInstallerManifest.$_Key.$_SwitchKey
                     }
                 }
+                $script:OldInstallerManifest.Remove($_Key)
+                continue
             } else {
                 foreach ($_Installer in $script:OldInstallerManifest['Installers']) {
                     if ($_Key -eq 'InstallModes') { $script:InstallModes = [string]$script:OldInstallerManifest.$_Key }
                     $_Installer[$_Key] = $script:OldInstallerManifest.$_Key
                 }
             }
+            New-Variable -Name $_Key -Value $($script:OldInstallerManifest.$_Key -join ', ') -Scope Script -Force
             $script:OldInstallerManifest.Remove($_Key)
         }
     }
@@ -1975,7 +1983,8 @@ if ($OldManifests) {
         'Capabilities'; 'RestrictedCapabilities'
     )
     Foreach ($param in $_Parameters) {
-        New-Variable -Name $param -Value $(if ($script:OldManifestType -eq 'MultiManifest') { (GetMultiManifestParameter $param) } else { $script:OldVersionManifest[$param] }) -Scope Script -Force
+        $_ReadValue = $(if ($script:OldManifestType -eq 'MultiManifest') { (GetMultiManifestParameter $param) } else { $script:OldVersionManifest[$param] })
+        if (String.Validate -Not $_ReadValue -IsNull) { New-Variable -Name $param -Value $_ReadValue -Scope Script -Force }
     }
 }
 
