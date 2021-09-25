@@ -2104,7 +2104,7 @@ Switch ($script:Option) {
         Write-WinGet-InstallerManifest-Yaml
         Write-WinGet-VersionManifest-Yaml
         # Remove the old manifests
-        Remove-Manifest-Version "$AppFolder\..\$LastVersion"
+        if ($PackageVersion -ne $LastVersion) {Remove-Manifest-Version "$AppFolder\..\$LastVersion"}
     }
 }
 
