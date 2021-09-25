@@ -842,12 +842,13 @@ Function Read-WinGet-InstallerValues-Minimal {
         } until ($script:_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
 
         # If the product code entered is empty; Ensure we remove it if it exists and don't add it if it doesn't exist
-        if ((String.Validate $NewProductCode -IsNull) -and ($_NewInstaller.Keys -contains 'ProductCode')) { 
-            $_NewInstaller.Remove('ProductCode')
-        } elseif (String.Validate -Not $NewProductCode -IsNull ) {
+        if (String.Validate -not $NewProductCode -IsNull) {
             $_NewInstaller['ProductCode'] = $NewProductCode
+        # We can't rely on the destination path in this case, since the SHA could have been entered manually
+        } elseif ( ($_Installer.Keys -contains 'ProductCode') -and ($_Installer.InstallerType -notin @('exe','nullsoft','inno'))) {
+            $_Installer.Remove('ProductCode')
         }
-
+        
         #Add the updated installer to the new installers array
         $_NewInstaller = SortYamlKeys $_NewInstaller $InstallerEntryProperties -NoComments
         $_NewInstallers += $_NewInstaller
