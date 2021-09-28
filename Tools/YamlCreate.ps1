@@ -7,8 +7,9 @@ Param
     [Parameter(Mandatory = $false)]
     [string] $PackageIdentifier,
     [Parameter(Mandatory = $false)]
-    [string] $PackageVersion
-    
+    [string] $PackageVersion,
+    [Parameter(Mandatory = $false)]
+    [string] $Mode
 )
 
 if ($help) {
@@ -1700,32 +1701,41 @@ $script:UsingAdvancedOption = ($ScriptSettings.EnableDeveloperOptions -eq 'true'
 if (!$script:UsingAdvancedOption) {
     # Request the user to choose an operation mode
     Clear-Host
-    Write-Host -ForegroundColor 'Yellow' "Select Mode:`n"
-    Write-Colors '  [', '1', "] New Manifest or Package Version`n" 'DarkCyan', 'White', 'DarkCyan'
-    Write-Colors '  [', '2', '] Quick Update Package Version ', "(Note: Must be used only when previous version`'s metadata is complete.)`n" 'DarkCyan', 'White', 'DarkCyan', 'Green'
-    Write-Colors '  [', '3', "] Update Package Metadata`n" 'DarkCyan', 'White', 'DarkCyan'
-    Write-Colors '  [', '4', "] New Locale`n" 'DarkCyan', 'White', 'DarkCyan'
-    Write-Colors '  [', '5', "] Remove a manifest`n" 'DarkCyan', 'White', 'DarkCyan'
-    Write-Colors '  [', 'Q', ']', " Any key to quit`n" 'DarkCyan', 'White', 'DarkCyan', 'Red'
-    Write-Colors "`nSelection: " 'White'
-
-    # Listen for keypress and set operation mode based on keypress
-    $Keys = @{
-        [ConsoleKey]::D1      = '1';
-        [ConsoleKey]::D2      = '2';
-        [ConsoleKey]::D3      = '3';
-        [ConsoleKey]::D4      = '4';
-        [ConsoleKey]::D5      = '5';
-        [ConsoleKey]::NumPad1 = '1';
-        [ConsoleKey]::NumPad2 = '2';
-        [ConsoleKey]::NumPad3 = '3';
-        [ConsoleKey]::NumPad4 = '4';
-        [ConsoleKey]::NumPad5 = '5';
+    if ($Mode -in 1..5)
+    {
+        $UserChoice = $Mode
     }
-    do {
-        $keyInfo = [Console]::ReadKey($false)
-    } until ($keyInfo.Key)
-    switch ($Keys[$keyInfo.Key]) {
+    else
+    {
+        Write-Host -ForegroundColor 'Yellow' "Select Mode:`n"
+        Write-Colors '  [', '1', "] New Manifest or Package Version`n" 'DarkCyan', 'White', 'DarkCyan'
+        Write-Colors '  [', '2', '] Quick Update Package Version ', "(Note: Must be used only when previous version`'s metadata is complete.)`n" 'DarkCyan', 'White', 'DarkCyan', 'Green'
+        Write-Colors '  [', '3', "] Update Package Metadata`n" 'DarkCyan', 'White', 'DarkCyan'
+        Write-Colors '  [', '4', "] New Locale`n" 'DarkCyan', 'White', 'DarkCyan'
+        Write-Colors '  [', '5', "] Remove a manifest`n" 'DarkCyan', 'White', 'DarkCyan'
+        Write-Colors '  [', 'Q', ']', " Any key to quit`n" 'DarkCyan', 'White', 'DarkCyan', 'Red'
+        Write-Colors "`nSelection: " 'White'
+
+        # Listen for keypress and set operation mode based on keypress
+        $Keys = @{
+            [ConsoleKey]::D1      = '1';
+            [ConsoleKey]::D2      = '2';
+            [ConsoleKey]::D3      = '3';
+            [ConsoleKey]::D4      = '4';
+            [ConsoleKey]::D5      = '5';
+            [ConsoleKey]::NumPad1 = '1';
+            [ConsoleKey]::NumPad2 = '2';
+            [ConsoleKey]::NumPad3 = '3';
+            [ConsoleKey]::NumPad4 = '4';
+            [ConsoleKey]::NumPad5 = '5';
+        }
+        do {
+            $keyInfo = [Console]::ReadKey($false)
+        } until ($keyInfo.Key)
+    
+        $UserChoice = $Keys[$keyInfo.Key]
+    }
+    switch ($UserChoice) {
         '1' { $script:Option = 'New' }
         '2' { $script:Option = 'QuickUpdateVersion' }
         '3' { $script:Option = 'EditMetadata' }
