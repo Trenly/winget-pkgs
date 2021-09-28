@@ -15,7 +15,7 @@ Param
 if ($help) {
     Write-Host -ForegroundColor 'Green' 'For full documentation of the script, see https://github.com/microsoft/winget-pkgs/tree/master/doc/tools/YamlCreate.md'
     Write-Host -ForegroundColor 'Yellow' 'Usage: ' -NoNewline
-    Write-Host -ForegroundColor 'White' '.\YamlCreate.ps1 [-PackageIdentifier <identifier>] [-PackageVersion <version>] [-Settings]'
+    Write-Host -ForegroundColor 'White' '.\YamlCreate.ps1 [-PackageIdentifier <identifier>] [-PackageVersion <version>] [-Mode <1-5>] [-Settings]'
     Write-Host
     exit
 }
