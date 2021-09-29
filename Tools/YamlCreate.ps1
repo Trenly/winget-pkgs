@@ -2181,10 +2181,13 @@ if ($PromptSubmit -eq '0') {
     git switch -d upstream/master       
     if ($LASTEXITCODE -eq '0') {
         $UniqueBranchID = $(Get-FileHash $script:LocaleManifestPath).Hash[0..6] -Join ""
+        $BranchName = "$PackageIdentifier-$BranchVersion-$UniqueBranchID"
+        #Git branch names cannot start with `.` cannot contain any of {`..`, `\`, `~`, `^`, `:`, ` `, `?`, `@{`, `[`}, and cannot end with {`/`, `.lock`, `.`}
+        $BranchName =  $BranchName -replace '[\~,\^,\:,\\,\?,\@\{,\*,\[,\s]{1,}|[.lock|/|\.]*$|^\.{1,}|\.\.',""
         git add -A
         git commit -m "$CommitType`: $PackageIdentifier version $PackageVersion" --quiet
-        git switch -c "$PackageIdentifier-$PackageVersion-$UniqueBranchID" --quiet
-        git push --set-upstream origin "$PackageIdentifier-$PackageVersion-$UniqueBranchID" --quiet
+        git switch -c "$BranchName" --quiet
+        git push --set-upstream origin "$BranchName" --quiet
 
         # If the user has the cli too
         if (Get-Command 'gh.exe' -ErrorAction SilentlyContinue) {
