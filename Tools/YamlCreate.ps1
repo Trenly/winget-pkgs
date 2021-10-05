@@ -2212,9 +2212,9 @@ if ($PromptSubmit -eq '0') {
 
     # Restore the user's previous git settings to ensure we don't disrupt their normal flow
     if ($_previousConfig) {
-        git config --global --replace core.safecrlf $_previousConfig
+        git config --replace core.safecrlf $_previousConfig
     } else {
-        git config --global --unset core.safecrlf
+        git config --unset core.safecrlf
     }
 } else {
     Write-Host
