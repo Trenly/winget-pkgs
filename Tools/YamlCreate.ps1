@@ -2174,11 +2174,11 @@ if ($PromptSubmit -eq '0') {
     }
 
     # Change the users git configuration to suppress some git messages
-    $_previousConfig = git config --global --get core.safecrlf
+    $_previousConfig = git config --get core.safecrlf
     if ($_previousConfig) {
-        git config --global --replace core.safecrlf false
+        git config --replace core.safecrlf false
     } else {
-        git config --global --add core.safecrlf false
+        git config --add core.safecrlf false
     }
 
     # Fetch the upstream branch, create a commit onto the detached head, and push it to a new branch
