@@ -26,7 +26,7 @@ if ($help) {
 if ($IsWindows -or $env:OS) {
     $script:SettingsPath = Join-Path $env:LOCALAPPDATA -ChildPath 'YamlCreate' # On Windows
 } else {
-    $script:SettingsPath = Join-Path $env:HOME -ChildPath 'YamlCreate' # On Linux and macOS
+    $script:SettingsPath = Join-Path $env:HOME/.config -ChildPath 'YamlCreate' # On Linux and macOS
 }
 # Check for settings directory and create it if none exists
 if (!(Test-Path $script:SettingsPath)) { New-Item -ItemType 'Directory' -Force -Path $script:SettingsPath | Out-Null }
