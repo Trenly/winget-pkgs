@@ -20,8 +20,15 @@ if ($help) {
     exit
 }
 
+# Set settings directory on basis of Operating System
+# $IsWindows, $IsLinux and $IsMacOS were introduced in PowerShell 6.0+
+# $env:OS for older versions of PowerShell
+if ($IsWindows -or $env:OS) {
+    $script:SettingsPath = Join-Path $env:LOCALAPPDATA -ChildPath 'YamlCreate' # On Windows
+} else {
+    $script:SettingsPath = Join-Path $env:HOME -ChildPath 'YamlCreate' # On Linux and macOS
+}
 # Check for settings directory and create it if none exists
-$script:SettingsPath = Join-Path $env:LOCALAPPDATA -ChildPath 'YamlCreate'
 if (!(Test-Path $script:SettingsPath)) { New-Item -ItemType 'Directory' -Force -Path $script:SettingsPath | Out-Null }
 # Check for settings file and create it if none exists
 $script:SettingsPath = $(Join-Path $script:SettingsPath -ChildPath 'Settings.yaml')
