@@ -1640,7 +1640,7 @@ Function Write-Locale-Manifests {
 
     If ($Tags) { AddYamlListParameter $LocaleManifest 'Tags' $Tags }
     If ($Moniker) { AddYamlParameter $LocaleManifest 'Moniker' $Moniker }
-    If (!$LocaleManifest.ManifestType) {$LocaleManifest['ManifestType'] = 'defaultLocale'}
+    If (!$LocaleManifest.ManifestType) { $LocaleManifest['ManifestType'] = 'defaultLocale' }
     AddYamlParameter $LocaleManifest 'ManifestVersion' $ManifestVersion
     $LocaleManifest = SortYamlKeys $LocaleManifest $LocaleProperties
 
@@ -1803,6 +1803,30 @@ do {
     }
 } until ($script:_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
 
+# Check the api for open PR's
+# This is unauthenticated because the call-rate per minute is assumed to be low
+if ($ScriptSettings.ContinueWithExistingPRs -ne 'always') {
+    $PRApiResponse = @(Invoke-WebRequest "https://api.github.com/search/issues?q=repo%3Amicrosoft%2Fwinget-pkgs%20$($PackageIdentifier -replace '\.', '%2F'))%2F$PackageVersion%20in%3Apath&per_page=1" -UseBasicParsing -ErrorAction SilentlyContinue | ConvertFrom-Json)[0]
+    # If there was a PR found, get the URL and title
+    if ($PRApiResponse.total_count -gt 0) {
+        $_PRUrl = $PRApiResponse.items.html_url
+        $_PRTitle = $PRApiResponse.items.title
+        if ($ScriptSettings.ContinueWithExistingPRs -eq 'never') { throw "Existing PR Found - $_PRUrl" }
+
+        $_menu = @{
+            entries       = @('[Y] Yes'; '*[N] No')
+            Prompt        = 'There may already be a PR for this change. Would you like to continue anyways?'
+            DefaultString = 'N'
+            HelpText      = "$_PRTitle - $_PRUrl"
+            HelpTextColor = 'Blue'  
+        }
+        switch ( KeypressMenu -Prompt $_menu['Prompt'] -Entries $_menu['Entries'] -DefaultString $_menu['DefaultString'] -HelpText $_menu['HelpText'] -HelpTextColor $_menu['HelpTextColor'] ) {
+            'Y' { Write-Host }
+            default { Write-Host; exit 1 }
+        }
+    }   
+}
+
 # Set the root folder where new manifests should be created
 if (Test-Path -Path "$PSScriptRoot\..\manifests") {
     $ManifestsFolder = (Resolve-Path "$PSScriptRoot\..\manifests").Path
@@ -1863,7 +1887,6 @@ if ($OldManifests.Name -match "$PackageIdentifier\.locale\..*\.yaml") {
         $_ManifestContent = ConvertFrom-Yaml -Yaml ($(Get-Content -Path $($_Manifest.FullName) -Encoding UTF8) -join "`n") -Ordered
         if ($_ManifestContent.ManifestType -eq 'defaultLocale') { $PackageLocale = $_ManifestContent.PackageLocale }
     }
-    Write-Host "Found defaultLocale $PackageLocale"
 }
 
 # If the old manifests exist, read their information into variables
@@ -2197,45 +2220,16 @@ if ($PromptSubmit -eq '0') {
 
         # If the user has the cli too
         if (Get-Command 'gh.exe' -ErrorAction SilentlyContinue) {
-
-            # If we are working out of a winget-pkgs repository, check for already existing PR's
-            if ($ScriptSettings.CheckForExistingPRs -and ($pwd | Select-String 'winget-pkgs')) {
-                $_Manifest = "manifests/" + "$($PackageIdentifier[0])".ToLower() + "/" + $PackageIdentifier.Replace(".","/")+"/"+$PackageVersion
-                $_PRs = gh pr list --search "in:path $_Manifest"
-            }
-            if ($_PRs) {
-                switch ($ScriptSettings.SubmitWithExistingPRs) {
-                    'always' { $_doSubmit = $true }
-                    'never' { $_doSubmit = $false }
-                    Default {
-                        $prs[0].Split("`t")[0]
-                        $_menu = @{
-                            entries       = @('[Y] Yes'; '*[N] No')
-                            Prompt        = 'There may already be a PR for this change. Would you like to submit anyways?'
-                            DefaultString = 'N'
-                            HelpText      = "https://github.com/microsoft/winget-pkgs/issues/$($_PRs[0].Split("`t")[0..1] -join ' - ')`t"
-                            HelpTextColor = 'Blue'  
-                        }
-                        switch ( KeypressMenu -Prompt $_menu['Prompt'] -Entries $_menu['Entries'] -DefaultString $_menu['DefaultString'] -HelpText $_menu['HelpText'] -HelpTextColor $_menu['HelpTextColor'] ) {
-                            'Y' { $_doSubmit = $true }
-                            default { $_doSubmit = $false }
-                        }
-                    }
-                }       
-            } else { $_doSubmit = $true }
-
-            if ($_doSubmit) {
-                # Request the user to fill out the PR template
-                if (Test-Path -Path "$PSScriptRoot\..\.github\PULL_REQUEST_TEMPLATE.md") {
-                    Enter-PR-Parameters "$PSScriptRoot\..\.github\PULL_REQUEST_TEMPLATE.md"
-                } else {
-                    while ([string]::IsNullOrWhiteSpace($SandboxScriptPath)) {
-                        Write-Host
-                        Write-Host -ForegroundColor 'Green' -Object 'PULL_REQUEST_TEMPLATE.md not found, input path'
-                        $PRTemplate = Read-Host -Prompt 'PR Template' | TrimString
-                    }
-                    Enter-PR-Parameters "$PRTemplate"
+            # Request the user to fill out the PR template
+            if (Test-Path -Path "$PSScriptRoot\..\.github\PULL_REQUEST_TEMPLATE.md") {
+                Enter-PR-Parameters "$PSScriptRoot\..\.github\PULL_REQUEST_TEMPLATE.md"
+            } else {
+                while ([string]::IsNullOrWhiteSpace($SandboxScriptPath)) {
+                    Write-Host
+                    Write-Host -ForegroundColor 'Green' -Object 'PULL_REQUEST_TEMPLATE.md not found, input path'
+                    $PRTemplate = Read-Host -Prompt 'PR Template' | TrimString
                 }
+                Enter-PR-Parameters "$PRTemplate"
             }
         }
     }
