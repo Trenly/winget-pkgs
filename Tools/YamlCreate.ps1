@@ -1811,8 +1811,7 @@ if ($ScriptSettings.ContinueWithExistingPRs -ne 'always') {
     if ($PRApiResponse.total_count -gt 0) {
         $_PRUrl = $PRApiResponse.items.html_url
         $_PRTitle = $PRApiResponse.items.title
-        if ($ScriptSettings.ContinueWithExistingPRs -eq 'never') { throw "Existing PR Found - $_PRUrl" }
-
+        if ($ScriptSettings.ContinueWithExistingPRs -eq 'never') { Write-Host -ForegroundColor Red "Existing PR Found - $_PRUrl"; exit }
         $_menu = @{
             entries       = @('[Y] Yes'; '*[N] No')
             Prompt        = 'There may already be a PR for this change. Would you like to continue anyways?'
