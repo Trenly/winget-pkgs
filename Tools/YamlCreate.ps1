@@ -2077,10 +2077,10 @@ Switch ($script:Option) {
             Write-Host -ForegroundColor 'Green' -Object '[Required] Enter the reason for removing this manifest'
             $script:RemovalReason = Read-Host -Prompt 'Reason' | TrimString
             # Check the reason for validity. The length requirements are arbitrary, but they have been set to encourage concise yet meaningful reasons
-            if (String.Validate $script:RemovalReason -MinLength 16 -MaxLength 256 -NotNull) {
+            if (String.Validate $script:RemovalReason -MinLength 16 -MaxLength 128 -NotNull) {
                 $script:_returnValue = [ReturnValue]::Success()
             } else {
-                $script:_returnValue = [ReturnValue]::LengthError(16, 256)
+                $script:_returnValue = [ReturnValue]::LengthError(16, 128)
             }
         } until ($script:_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
 
