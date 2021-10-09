@@ -383,7 +383,7 @@ Function Read-Installer-Values {
         Write-Host 'Downloading URL. This will take a while...' -ForegroundColor Blue
         try {
             # Download and store the binary, but do not write to a file yet
-            $download = Invoke-WebRequest -Uri $InstallerUrl -UserAgent [Microsoft.PowerShell.Commands.PSUserAgent]::Chrome
+            $download = Invoke-WebRequest -Uri $InstallerUrl -UserAgent [Microsoft.PowerShell.Commands.PSUserAgent]::Chrome -DisableKeepAlive -TimeoutSec 30 -UseBasicParsing
             # Attempt to get the file from the headers
             try {
                 $contentDisposition = [System.Net.Mime.ContentDisposition]::new($download.Headers['Content-Disposition'])
@@ -780,7 +780,7 @@ Function Read-Installer-Values-Minimal {
 
         try {
             # Download and store the binary, but do not write to a file yet
-            $download = Invoke-WebRequest -Uri $_NewInstaller['InstallerUrl'] -UserAgent [Microsoft.PowerShell.Commands.PSUserAgent]::Chrome
+            $download = Invoke-WebRequest -Uri $_NewInstaller['InstallerUrl'] -UserAgent [Microsoft.PowerShell.Commands.PSUserAgent]::Chrome -DisableKeepAlive -TimeoutSec 30 -UseBasicParsing
             # Attempt to get the file from the headers
             try {
                 $contentDisposition = [System.Net.Mime.ContentDisposition]::new($download.Headers['Content-Disposition'])
@@ -2139,7 +2139,7 @@ Switch ($script:Option) {
         foreach ($_Installer in $script:OldInstallerManifest.Installers) {
             try {
                 # Download and store the binary, but do not write to a file yet
-                $download = Invoke-WebRequest -Uri $_Installer.InstallerUrl -UserAgent [Microsoft.PowerShell.Commands.PSUserAgent]::Chrome
+                $download = Invoke-WebRequest -Uri $_Installer.InstallerUrl -UserAgent [Microsoft.PowerShell.Commands.PSUserAgent]::Chrome -DisableKeepAlive -TimeoutSec 30 -UseBasicParsing
                 # Attempt to get the file from the headers
                 try {
                     $contentDisposition = [System.Net.Mime.ContentDisposition]::new($download.Headers['Content-Disposition'])
