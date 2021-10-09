@@ -293,7 +293,7 @@ Function TestUrlValidity {
     return $HTTP_Status
 }
 
-# Checks a file name for validite and returns a boolean value
+# Checks a file name for validity and returns a boolean value
 function Test-ValidFileName {
     param([string]$FileName)
     $IndexOfInvalidChar = $FileName.IndexOfAny([System.IO.Path]::GetInvalidFileNameChars())
