@@ -385,8 +385,10 @@ Function Read-Installer-Values {
             # Download and store the binary, but do not write to a file yet
             $download = Invoke-WebRequest -Uri $InstallerUrl
             # Attempt to get the file from the headers
-            $contentDisposition = [System.Net.Mime.ContentDisposition]::new($download.Headers['Content-Disposition'])
-            $_Filename = $contentDisposition.FileName
+            try {
+                $contentDisposition = [System.Net.Mime.ContentDisposition]::new($download.Headers['Content-Disposition'])
+                $_Filename = $contentDisposition.FileName
+            } catch {}
             # Validate the headers reurned a valid file name
             if (![string]::IsNullOrWhiteSpace($_Filename) -and $(Test-ValidFileName $_Filename)) {
                 $Filename = $_Filename
@@ -780,8 +782,10 @@ Function Read-Installer-Values-Minimal {
             # Download and store the binary, but do not write to a file yet
             $download = Invoke-WebRequest -Uri $_NewInstaller['InstallerUrl']
             # Attempt to get the file from the headers
-            $contentDisposition = [System.Net.Mime.ContentDisposition]::new($download.Headers['Content-Disposition'])
-            $_Filename = $contentDisposition.FileName
+            try {
+                $contentDisposition = [System.Net.Mime.ContentDisposition]::new($download.Headers['Content-Disposition'])
+                $_Filename = $contentDisposition.FileName
+            } catch {}
             # Validate the headers reurned a valid file name
             if (![string]::IsNullOrWhiteSpace($_Filename) -and $(Test-ValidFileName $_Filename)) {
                 $Filename = $_Filename
@@ -2137,9 +2141,10 @@ Switch ($script:Option) {
                 # Download and store the binary, but do not write to a file yet
                 $download = Invoke-WebRequest -Uri $_Installer.InstallerUrl
                 # Attempt to get the file from the headers
-                $contentDisposition = [System.Net.Mime.ContentDisposition]::new($download.Headers['Content-Disposition'])
-                $_Filename = $contentDisposition.FileName
-
+                try {
+                    $contentDisposition = [System.Net.Mime.ContentDisposition]::new($download.Headers['Content-Disposition'])
+                    $_Filename = $contentDisposition.FileName
+                } catch {}
                 # Validate the headers reurned a valid file name
                 if (![string]::IsNullOrWhiteSpace($_Filename) -and $(Test-ValidFileName $_Filename)) {
                     $Filename = $_Filename
