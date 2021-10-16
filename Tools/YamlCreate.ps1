@@ -201,7 +201,7 @@ Function String.Validate {
 }
 
 # Takes an array of strings and an array of colors then writes one line of text composed of each string being its respective color
-Function Write-Colors {
+Function Write-ColorizedLine {
     Param
     (
         [Parameter(Mandatory = $true, Position = 0)]
@@ -329,7 +329,7 @@ Function Request-Installer-Url {
 # Prompts the user to enter installer values
 # Sets the $script:Installers value as an output
 # Returns void
-Function Read-Installer-Values {
+Function Read-InstallerV {
     # Clear prompted variables to ensure data from previous installer entries is not used for new entries
     $InstallerValues = @(
         'Architecture'
@@ -744,14 +744,14 @@ Function Read-Installer-Values {
 
     # If there are additional entries, run this function again to fetch the values and add them to the installers array
     if ($AnotherInstaller -eq '0') {
-        Write-Host; Read-Installer-Values
+        Write-Host; Read-InstallerV
     }
 }
 
 # Prompts user for Installer Values using the `Quick Update` Method
 # Sets the $script:Installers value as an output
 # Returns void
-Function Read-Installer-Values-Minimal {
+Function Read-InstallerV-Minimal {
     # We know old manifests exist if we got here without error
     # Fetch the old installers based on the manifest type
     if ($script:OldInstallerManifest) { $_OldInstallers = $script:OldInstallerManifest['Installers'] } else {
@@ -1297,7 +1297,7 @@ Function Read-WinGet-LocaleManifest {
 
 # Requests the user to answer the prompts found in the winget-pkgs pull request template
 # Uses this template and responses to create a PR
-Function Enter-PR-Parameters {
+Function Get-PRParameters {
     $PrBodyContent = Get-Content $args[0]
     ForEach ($_line in ($PrBodyContent | Where-Object { $_ -like '-*[ ]*' })) {
         $_showMenu = $true
@@ -1664,7 +1664,7 @@ Function Write-Installer-Manifest {
 }
 
 # Take all the entered values and write the locale manifest file
-Function Write-Locale-Manifests {
+Function Write-LocaleManifest {
     # If the old manifests exist, copy it so it can be updated in place, otherwise, create a new empty manifest
     if ($script:OldManifestType -eq 'MultiManifest') {
         $LocaleManifest = $script:OldLocaleManifest
@@ -1740,7 +1740,7 @@ Function Write-Locale-Manifests {
     Write-Host "Yaml file created: $LocaleManifestPath"
 }
 
-function Remove-Manifest-Version {
+function Remove-Manifest {
     Param(
         [Parameter(Mandatory = $true, Position = 1)]
         [string] $PathToVersion
@@ -1765,13 +1765,13 @@ if (!$script:UsingAdvancedOption) {
         $UserChoice = $Mode
     } else {
         Write-Host -ForegroundColor 'Yellow' "Select Mode:`n"
-        Write-Colors '  [', '1', "] New Manifest or Package Version`n" 'DarkCyan', 'White', 'DarkCyan'
-        Write-Colors '  [', '2', '] Quick Update Package Version ', "(Note: Must be used only when previous version`'s metadata is complete.)`n" 'DarkCyan', 'White', 'DarkCyan', 'Green'
-        Write-Colors '  [', '3', "] Update Package Metadata`n" 'DarkCyan', 'White', 'DarkCyan'
-        Write-Colors '  [', '4', "] New Locale`n" 'DarkCyan', 'White', 'DarkCyan'
-        Write-Colors '  [', '5', "] Remove a manifest`n" 'DarkCyan', 'White', 'DarkCyan'
-        Write-Colors '  [', 'Q', ']', " Any key to quit`n" 'DarkCyan', 'White', 'DarkCyan', 'Red'
-        Write-Colors "`nSelection: " 'White'
+        Write-ColorizedLine '  [', '1', "] New Manifest or Package Version`n" 'DarkCyan', 'White', 'DarkCyan'
+        Write-ColorizedLine '  [', '2', '] Quick Update Package Version ', "(Note: Must be used only when previous version`'s metadata is complete.)`n" 'DarkCyan', 'White', 'DarkCyan', 'Green'
+        Write-ColorizedLine '  [', '3', "] Update Package Metadata`n" 'DarkCyan', 'White', 'DarkCyan'
+        Write-ColorizedLine '  [', '4', "] New Locale`n" 'DarkCyan', 'White', 'DarkCyan'
+        Write-ColorizedLine '  [', '5', "] Remove a manifest`n" 'DarkCyan', 'White', 'DarkCyan'
+        Write-ColorizedLine '  [', 'Q', ']', " Any key to quit`n" 'DarkCyan', 'White', 'DarkCyan', 'Red'
+        Write-ColorizedLine "`nSelection: " 'White'
 
         # Listen for keypress and set operation mode based on keypress
         $Keys = @{
@@ -2066,19 +2066,19 @@ if ($OldManifests -and $Option -ne 'NewLocale') {
 # Run the data entry and creation of manifests appropriate to the option the user selected
 Switch ($script:Option) {
     'QuickUpdateVersion' {
-        Read-Installer-Values-Minimal
-        Write-Locale-Manifests
+        Read-InstallerV-Minimal
+        Write-LocaleManifest
         Write-Installer-Manifest
         Write-Version-Manifest
     }
 
     'New' {
-        Read-Installer-Values
+        Read-InstallerV
         Read-WinGet-InstallerManifest
         Read-WinGet-LocaleManifest
         Write-Installer-Manifest
         Write-Version-Manifest
-        Write-Locale-Manifests
+        Write-LocaleManifest
     }
 
     'EditMetadata' {
@@ -2086,7 +2086,7 @@ Switch ($script:Option) {
         Read-WinGet-LocaleManifest
         Write-Installer-Manifest
         Write-Version-Manifest
-        Write-Locale-Manifests
+        Write-LocaleManifest
     }
 
     'NewLocale' {
@@ -2094,7 +2094,7 @@ Switch ($script:Option) {
         $script:OldLocaleManifest = [ordered]@{}
         $script:OldLocaleManifest['ManifestType'] = 'locale'
         Read-WinGet-LocaleManifest
-        Write-Locale-Manifests
+        Write-LocaleManifest
     }
 
     'RemoveManifest' {
@@ -2124,7 +2124,7 @@ Switch ($script:Option) {
             }
         } until ($script:_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
 
-        Remove-Manifest-Version $AppFolder
+        Remove-Manifest $AppFolder
     }
 
     'Auto' {
@@ -2208,11 +2208,11 @@ Switch ($script:Option) {
         }
         # Write the new manifests
         $script:Installers = $script:OldInstallerManifest.Installers
-        Write-Locale-Manifests
+        Write-LocaleManifest
         Write-Installer-Manifest
         Write-Version-Manifest
         # Remove the old manifests
-        if ($PackageVersion -ne $LastVersion) { Remove-Manifest-Version "$AppFolder\..\$LastVersion" }
+        if ($PackageVersion -ne $LastVersion) { Remove-Manifest "$AppFolder\..\$LastVersion" }
     }
 }
 
@@ -2317,14 +2317,14 @@ if ($PromptSubmit -eq '0') {
         if (Get-Command 'gh.exe' -ErrorAction SilentlyContinue) {
             # Request the user to fill out the PR template
             if (Test-Path -Path "$PSScriptRoot\..\.github\PULL_REQUEST_TEMPLATE.md") {
-                Enter-PR-Parameters "$PSScriptRoot\..\.github\PULL_REQUEST_TEMPLATE.md"
+                Get-PRParameters "$PSScriptRoot\..\.github\PULL_REQUEST_TEMPLATE.md"
             } else {
                 while ([string]::IsNullOrWhiteSpace($SandboxScriptPath)) {
                     Write-Host
                     Write-Host -ForegroundColor 'Green' -Object 'PULL_REQUEST_TEMPLATE.md not found, input path'
                     $PRTemplate = Read-Host -Prompt 'PR Template' | TrimString
                 }
-                Enter-PR-Parameters "$PRTemplate"
+                Get-PRParameters "$PRTemplate"
             }
         }
     }
