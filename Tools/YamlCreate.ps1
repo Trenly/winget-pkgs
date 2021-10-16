@@ -992,7 +992,7 @@ Function Read-WinGet-InstallerManifest {
 }
 
 # Requests the user to input values for the Locale Manifest file
-Function Read-WinGet-LocaleManifest {
+Function Read-LocaleMetadata {
     # Request Package Locale and Validate
     if (String.Validate -not $script:PackageLocale -MaxLength $Patterns.PackageLocaleMaxLength -MatchPattern $Patterns.PackageLocale -NotNull) {
         do {
@@ -2075,7 +2075,7 @@ Switch ($script:Option) {
     'New' {
         Read-Installer-Values
         Read-WinGet-InstallerManifest
-        Read-WinGet-LocaleManifest
+        Read-LocaleMetadata
         Write-InstallerManifest
         Write-VersionManifest
         Write-LocaleManifest
@@ -2083,7 +2083,7 @@ Switch ($script:Option) {
 
     'EditMetadata' {
         Read-WinGet-InstallerManifest
-        Read-WinGet-LocaleManifest
+        Read-LocaleMetadata
         Write-InstallerManifest
         Write-VersionManifest
         Write-LocaleManifest
@@ -2093,7 +2093,7 @@ Switch ($script:Option) {
         $PackageLocale = $null
         $script:OldLocaleManifest = [ordered]@{}
         $script:OldLocaleManifest['ManifestType'] = 'locale'
-        Read-WinGet-LocaleManifest
+        Read-LocaleMetadata
         Write-LocaleManifest
     }
 
