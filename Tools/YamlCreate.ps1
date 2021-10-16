@@ -1664,7 +1664,7 @@ Function Write-Installer-Manifest {
 }
 
 # Take all the entered values and write the locale manifest file
-Function Write-Locale-Manifests {
+Function Write-LocaleManifest {
     # If the old manifests exist, copy it so it can be updated in place, otherwise, create a new empty manifest
     if ($script:OldManifestType -eq 'MultiManifest') {
         $LocaleManifest = $script:OldLocaleManifest
@@ -2067,7 +2067,7 @@ if ($OldManifests -and $Option -ne 'NewLocale') {
 Switch ($script:Option) {
     'QuickUpdateVersion' {
         Read-Installer-Values-Minimal
-        Write-Locale-Manifests
+        Write-LocaleManifest
         Write-Installer-Manifest
         Write-Version-Manifest
     }
@@ -2078,7 +2078,7 @@ Switch ($script:Option) {
         Read-WinGet-LocaleManifest
         Write-Installer-Manifest
         Write-Version-Manifest
-        Write-Locale-Manifests
+        Write-LocaleManifest
     }
 
     'EditMetadata' {
@@ -2086,7 +2086,7 @@ Switch ($script:Option) {
         Read-WinGet-LocaleManifest
         Write-Installer-Manifest
         Write-Version-Manifest
-        Write-Locale-Manifests
+        Write-LocaleManifest
     }
 
     'NewLocale' {
@@ -2094,7 +2094,7 @@ Switch ($script:Option) {
         $script:OldLocaleManifest = [ordered]@{}
         $script:OldLocaleManifest['ManifestType'] = 'locale'
         Read-WinGet-LocaleManifest
-        Write-Locale-Manifests
+        Write-LocaleManifest
     }
 
     'RemoveManifest' {
@@ -2208,7 +2208,7 @@ Switch ($script:Option) {
         }
         # Write the new manifests
         $script:Installers = $script:OldInstallerManifest.Installers
-        Write-Locale-Manifests
+        Write-LocaleManifest
         Write-Installer-Manifest
         Write-Version-Manifest
         # Remove the old manifests
