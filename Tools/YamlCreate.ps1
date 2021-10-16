@@ -919,7 +919,7 @@ Function SortYamlKeys {
 }
 
 # Requests the user to input optional values for the Installer Manifest file
-Function Read-WinGet-InstallerManifest {
+Function Read-InstallerMetadata {
     Write-Host
 
     # Request File Extensions and validate
@@ -2074,7 +2074,7 @@ Switch ($script:Option) {
 
     'New' {
         Read-Installer-Values
-        Read-WinGet-InstallerManifest
+        Read-InstallerMetadata
         Read-LocaleMetadata
         Write-InstallerManifest
         Write-VersionManifest
@@ -2082,7 +2082,7 @@ Switch ($script:Option) {
     }
 
     'EditMetadata' {
-        Read-WinGet-InstallerManifest
+        Read-InstallerMetadata
         Read-LocaleMetadata
         Write-InstallerManifest
         Write-VersionManifest
