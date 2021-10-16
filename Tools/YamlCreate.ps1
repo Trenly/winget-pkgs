@@ -34,7 +34,7 @@ if ($help)
     Write-ColorizedOutput -ForegroundColor 'Green' 'For full documentation of the script, see https://github.com/microsoft/winget-pkgs/tree/master/doc/tools/YamlCreate.md'
     Write-ColorizedOutput -ForegroundColor 'Yellow' 'Usage: '
     Write-ColorizedOutput -ForegroundColor 'White' '   .\YamlCreate.ps1 [-PackageIdentifier <identifier>] [-PackageVersion <version>] [-Mode <1-5>] [-Settings]'
-    Write-Output
+    Write-Output $NewLine
     exit
 }
 
@@ -281,7 +281,7 @@ Function KeypressMenu
         [string] $DefaultString
     )
 
-    Write-Output
+    Write-Output $NewLine
     Write-ColorizedOutput -ForegroundColor 'Yellow' "$Prompt"
     if ($PSBoundParameters.ContainsKey('HelpText') -and (![string]::IsNullOrWhiteSpace($HelpText)))
     {
@@ -343,6 +343,7 @@ Function TestUrlValidity
     catch
     {
         # Take no action here; If there is an exception, we will treat it like a 404
+        Out-Null
     }
     If ($null -eq $HTTP_Response) { $HTTP_Status = 404 }
     Else { $HTTP_Response.Close() }
@@ -913,7 +914,7 @@ Function Read-Installer-Values
     # If there are additional entries, run this function again to fetch the values and add them to the installers array
     if ($AnotherInstaller -eq '0')
     {
-        Write-Output; Read-Installer-Values
+        Write-Output $NewLine; Read-Installer-Values
     }
 }
 
@@ -944,7 +945,7 @@ Function Read-Installer-Values-Minimal
         if ($_OldInstaller.Architecture) { Write-ColorizedOutput -ForegroundColor 'Yellow' "`tArchitecture: $($_OldInstaller.Architecture)" }
         if ($_OldInstaller.InstallerType) { Write-ColorizedOutput -ForegroundColor 'Yellow' "`tInstallerType: $($_OldInstaller.InstallerType)" }
         if ($_OldInstaller.Scope) { Write-ColorizedOutput -ForegroundColor 'Yellow' "`tScope: $($_OldInstaller.Scope)" }
-        Write-Output
+        Write-Output $NewLine
 
         # Request user enter the new Installer URL
         $_NewInstaller['InstallerUrl'] = Request-Installer-Url
@@ -1127,7 +1128,7 @@ Function SortYamlKeys
 # Requests the user to input optional values for the Installer Manifest file
 Function Read-WinGet-InstallerManifest
 {
-    Write-Output
+    Write-Output $NewLine
     # Request File Extensions and validate
     do
     {
@@ -1817,7 +1818,7 @@ Function Enter-PR-Parameters
                 }
             }
         }
-        default { Write-Output }
+        default { Write-Output $NewLine }
     }
 
     # If we are removing a manifest, we need to include the reason
@@ -1948,7 +1949,7 @@ Function Write-Version-Manifest
     [System.IO.File]::WriteAllLines($VersionManifestPath, $MyRawString, $Utf8NoBomEncoding)
 
     # Tell user the file was created and the path to the file
-    Write-Output
+    Write-Output $NewLine
     Write-Output "Yaml file created: $VersionManifestPath"
 }
 
@@ -2082,7 +2083,7 @@ Function Write-Installer-Manifest
     [System.IO.File]::WriteAllLines($InstallerManifestPath, $MyRawString, $Utf8NoBomEncoding)
 
     # Tell user the file was created and the path to the file
-    Write-Output
+    Write-Output $NewLine
     Write-Output "Yaml file created: $InstallerManifestPath"
 }
 
@@ -2165,7 +2166,7 @@ Function Write-Locale-Manifests
     }
 
     # Tell user the file was created and the path to the file
-    Write-Output
+    Write-Output $NewLine
     Write-Output "Yaml file created: $LocaleManifestPath"
 }
 
@@ -2235,7 +2236,7 @@ if (!$script:UsingAdvancedOption)
         '3' { $script:Option = 'EditMetadata' }
         '4' { $script:Option = 'NewLocale' }
         '5' { $script:Option = 'RemoveManifest' }
-        default { Write-Output; exit }
+        default { Write-Output $NewLine; exit }
     }
 }
 else
@@ -2257,10 +2258,10 @@ if (($script:Option -eq 'QuickUpdateVersion') -and ($ScriptSettings.SuppressQuic
     {
         'Y' { Write-ColorizedOutput -ForegroundColor DarkYellow "`n`nContinuing with Quick Update" }
         'N' { $script:Option = 'New'; Write-ColorizedOutput -ForegroundColor DarkYellow "`n`nSwitched to Full Update Experience" }
-        default { Write-Output; exit }
+        default { Write-Output $NewLine; exit }
     }
 }
-Write-Output
+Write-Output $NewLine
 
 # Request Package Identifier and Validate
 do
@@ -2344,8 +2345,8 @@ if ($ScriptSettings.ContinueWithExistingPRs -ne 'always' -and $script:Option -ne
         }
         switch ( KeypressMenu -Prompt $_menu['Prompt'] -Entries $_menu['Entries'] -DefaultString $_menu['DefaultString'] -HelpText $_menu['HelpText'] -HelpTextColor $_menu['HelpTextColor'] )
         {
-            'Y' { Write-Output }
-            default { Write-Output; exit }
+            'Y' { Write-Output $NewLine }
+            default { Write-Output $NewLine; exit }
         }
     }
 }
@@ -2375,7 +2376,7 @@ if ($script:Option -in @('NewLocale'; 'EditMetadata'; 'RemoveManifest'))
     # If the old manifests could not be found, request a new version
     while (-not ($OldManifests.Name -like "$PackageIdentifier*.yaml"))
     {
-        Write-Output
+        Write-Output $NewLine
         Write-ColorizedOutput -ForegroundColor 'Red' 'Could not find required manifests, input a version containing required manifests or "exit" to cancel'
         $PromptVersion = Read-Host -Prompt 'Version' | TrimString
         if ($PromptVersion -eq 'exit') { exit }
@@ -2618,8 +2619,8 @@ Switch ($script:Option)
         }
         switch ( KeypressMenu -Prompt $_menu['Prompt'] -Entries $_menu['Entries'] -DefaultString $_menu['DefaultString'] -HelpText $_menu['HelpText'] -HelpTextColor $_menu['HelpTextColor'])
         {
-            'Y' { Write-Output; continue }
-            default { Write-Output; exit 1 }
+            'Y' { Write-Output $NewLine; continue }
+            default { Write-Output $NewLine; exit 1 }
         }
 
         # Require that a reason for the deletion is provided
@@ -2650,7 +2651,7 @@ Switch ($script:Option)
         $script:OldVersionManifest['PackageVersion'] = $PackageVersion
 
         # Update the manifest with URLs that are already there
-        Write-Output
+        Write-Output $NewLine
         Write-ColorizedOutput 'Updating Manifest Information. This may take a while...' -ForegroundColor Blue
         foreach ($_Installer in $script:OldInstallerManifest.Installers)
         {
@@ -2784,7 +2785,7 @@ if ($script:Option -ne 'RemoveManifest')
                     'N' { $script:SandboxTest = '1' }
                     default { $script:SandboxTest = '0' }
                 }
-                Write-Output
+                Write-Output $NewLine
             }
         }
         if ($script:SandboxTest -eq '0')
@@ -2797,7 +2798,7 @@ if ($script:Option -ne 'RemoveManifest')
             {
                 while ([string]::IsNullOrWhiteSpace($SandboxScriptPath))
                 {
-                    Write-Output
+                    Write-Output $NewLine
                     Write-ColorizedOutput -ForegroundColor 'Green' 'SandboxTest.ps1 not found, input path'
                     $SandboxScriptPath = Read-Host -Prompt 'SandboxTest.ps1' | TrimString
                 }
@@ -2829,7 +2830,7 @@ if (Get-Command 'git.exe' -ErrorAction SilentlyContinue)
         }
     }
 }
-Write-Output
+Write-Output $NewLine
 
 # If the user agreed to automatically submit the PR
 if ($PromptSubmit -eq '0')
@@ -2888,7 +2889,7 @@ if ($PromptSubmit -eq '0')
             {
                 while ([string]::IsNullOrWhiteSpace($SandboxScriptPath))
                 {
-                    Write-Output
+                    Write-Output $NewLine
                     Write-ColorizedOutput -ForegroundColor 'Green' 'PULL_REQUEST_TEMPLATE.md not found, input path'
                     $PRTemplate = Read-Host -Prompt 'PR Template' | TrimString
                 }
@@ -2909,7 +2910,7 @@ if ($PromptSubmit -eq '0')
 }
 else
 {
-    Write-Output
+    Write-Output $NewLine
     exit
 }
 
