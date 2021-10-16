@@ -369,7 +369,7 @@ Function Read-Installer-Values {
     Foreach ($InstallerValue in $InstallerValues) { Clear-Variable -Name $InstallerValue -Force -ErrorAction SilentlyContinue }
 
     # Request user enter Installer URL
-    $InstallerUrl = Request-Installer-Url
+    $InstallerUrl = Request-Installer-Url | Out-Host
 
     # Get or request Installer Sha256
     # Check the settings to see if we need to display this menu
@@ -792,7 +792,7 @@ Function Read-Installer-Values-Minimal {
         Write-Output $NewLine
 
         # Request user enter the new Installer URL
-        $_NewInstaller['InstallerUrl'] = Request-Installer-Url
+        $_NewInstaller['InstallerUrl'] = Request-Installer-Url | Out-Host
 
         try {
             # Download and store the binary, but do not write to a file yet
