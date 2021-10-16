@@ -329,7 +329,7 @@ Function Request-Installer-Url {
 # Prompts the user to enter installer values
 # Sets the $script:Installers value as an output
 # Returns void
-Function Read-InstallerValues {
+Function Read-InstallerEntry {
     # Clear prompted variables to ensure data from previous installer entries is not used for new entries
     $InstallerValues = @(
         'Architecture'
@@ -744,14 +744,14 @@ Function Read-InstallerValues {
 
     # If there are additional entries, run this function again to fetch the values and add them to the installers array
     if ($AnotherInstaller -eq '0') {
-        Write-Host; Read-InstallerValues
+        Write-Host; Read-InstallerEntry
     }
 }
 
 # Prompts user for Installer Values using the `Quick Update` Method
 # Sets the $script:Installers value as an output
 # Returns void
-Function Read-InstallerValues-Minimal {
+Function Read-MinimalInstallerEntry {
     # We know old manifests exist if we got here without error
     # Fetch the old installers based on the manifest type
     if ($script:OldInstallerManifest) { $_OldInstallers = $script:OldInstallerManifest['Installers'] } else {
@@ -1297,7 +1297,7 @@ Function Read-WinGet-LocaleManifest {
 
 # Requests the user to answer the prompts found in the winget-pkgs pull request template
 # Uses this template and responses to create a PR
-Function Get-PRParameters {
+Function Get-PRBody {
     $PrBodyContent = Get-Content $args[0]
     ForEach ($_line in ($PrBodyContent | Where-Object { $_ -like '-*[ ]*' })) {
         $_showMenu = $true
@@ -2066,14 +2066,14 @@ if ($OldManifests -and $Option -ne 'NewLocale') {
 # Run the data entry and creation of manifests appropriate to the option the user selected
 Switch ($script:Option) {
     'QuickUpdateVersion' {
-        Read-InstallerValues-Minimal
+        Read-MinimalInstallerEntry
         Write-LocaleManifest
         Write-Installer-Manifest
         Write-Version-Manifest
     }
 
     'New' {
-        Read-InstallerValues
+        Read-InstallerEntry
         Read-WinGet-InstallerManifest
         Read-WinGet-LocaleManifest
         Write-Installer-Manifest
@@ -2317,14 +2317,14 @@ if ($PromptSubmit -eq '0') {
         if (Get-Command 'gh.exe' -ErrorAction SilentlyContinue) {
             # Request the user to fill out the PR template
             if (Test-Path -Path "$PSScriptRoot\..\.github\PULL_REQUEST_TEMPLATE.md") {
-                Get-PRParameters "$PSScriptRoot\..\.github\PULL_REQUEST_TEMPLATE.md"
+                Get-PRBody "$PSScriptRoot\..\.github\PULL_REQUEST_TEMPLATE.md"
             } else {
                 while ([string]::IsNullOrWhiteSpace($SandboxScriptPath)) {
                     Write-Host
                     Write-Host -ForegroundColor 'Green' -Object 'PULL_REQUEST_TEMPLATE.md not found, input path'
                     $PRTemplate = Read-Host -Prompt 'PR Template' | TrimString
                 }
-                Get-PRParameters "$PRTemplate"
+                Get-PRBody "$PRTemplate"
             }
         }
     }
