@@ -285,6 +285,7 @@ Function TestUrlValidity {
         $HTTP_Status = [int]$HTTP_Response.StatusCode
     } catch {
         # Take no action here; If there is an exception, we will treat it like a 404
+        Out-Null
     }
     If ($null -eq $HTTP_Response) { $HTTP_Status = 404 }
     Else { $HTTP_Response.Close() }
@@ -387,7 +388,7 @@ Function Read-Installer-Values {
             try {
                 $contentDisposition = [System.Net.Mime.ContentDisposition]::new($download.Headers['Content-Disposition'])
                 $_Filename = $contentDisposition.FileName
-            } catch {}
+            } catch { Out-Null }
             # Validate the headers reurned a valid file name
             if (![string]::IsNullOrWhiteSpace($_Filename) -and $(Test-ValidFileName $_Filename)) {
                 $Filename = $_Filename
@@ -784,7 +785,7 @@ Function Read-Installer-Values-Minimal {
             try {
                 $contentDisposition = [System.Net.Mime.ContentDisposition]::new($download.Headers['Content-Disposition'])
                 $_Filename = $contentDisposition.FileName
-            } catch {}
+            } catch { Out-Null }
             # Validate the headers reurned a valid file name
             if (![string]::IsNullOrWhiteSpace($_Filename) -and $(Test-ValidFileName $_Filename)) {
                 $Filename = $_Filename
@@ -1467,6 +1468,7 @@ Function AddYamlListParameter {
             } catch {
                 # If we can't cast the value to an integer, it doesn't matter
                 # Continue using the value as is
+                Out-Null
             }
         }
         $_Values += $Value
@@ -2144,7 +2146,7 @@ Switch ($script:Option) {
                 try {
                     $contentDisposition = [System.Net.Mime.ContentDisposition]::new($download.Headers['Content-Disposition'])
                     $_Filename = $contentDisposition.FileName
-                } catch {}
+                } catch { Out-Null }
                 # Validate the headers reurned a valid file name
                 if (![string]::IsNullOrWhiteSpace($_Filename) -and $(Test-ValidFileName $_Filename)) {
                     $Filename = $_Filename
