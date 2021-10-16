@@ -1555,7 +1555,7 @@ Function Write-VersionManifest {
 }
 
 # Take all the entered values and write the installer manifest file
-Function Write-Installer-Manifest {
+Function Write-InstallerManifest {
     # If the old manifests exist, copy it so it can be updated in place, otherwise, create a new empty manifest
     if ($script:OldManifestType -eq 'MultiManifest') {
         $InstallerManifest = $script:OldInstallerManifest
@@ -2068,7 +2068,7 @@ Switch ($script:Option) {
     'QuickUpdateVersion' {
         Read-Installer-Values-Minimal
         Write-LocaleManifest
-        Write-Installer-Manifest
+        Write-InstallerManifest
         Write-VersionManifest
     }
 
@@ -2076,7 +2076,7 @@ Switch ($script:Option) {
         Read-Installer-Values
         Read-WinGet-InstallerManifest
         Read-WinGet-LocaleManifest
-        Write-Installer-Manifest
+        Write-InstallerManifest
         Write-VersionManifest
         Write-LocaleManifest
     }
@@ -2084,7 +2084,7 @@ Switch ($script:Option) {
     'EditMetadata' {
         Read-WinGet-InstallerManifest
         Read-WinGet-LocaleManifest
-        Write-Installer-Manifest
+        Write-InstallerManifest
         Write-VersionManifest
         Write-LocaleManifest
     }
@@ -2209,7 +2209,7 @@ Switch ($script:Option) {
         # Write the new manifests
         $script:Installers = $script:OldInstallerManifest.Installers
         Write-LocaleManifest
-        Write-Installer-Manifest
+        Write-InstallerManifest
         Write-VersionManifest
         # Remove the old manifests
         if ($PackageVersion -ne $LastVersion) { Remove-Manifest-Version "$AppFolder\..\$LastVersion" }
