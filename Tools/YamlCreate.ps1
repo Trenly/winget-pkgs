@@ -230,8 +230,7 @@ Function Write-Colors {
     }
     $_index = 0
     Foreach ($String in $TextStrings) {
-        [Console]::ForegroundColor = [ConsoleColor]::$($Colors[$_index])
-        [Console]::Write($String)
+        Write-Host -ForegroundColor $Colors[$_index] -NoNewline $String
         $_index++
     }
 }
@@ -274,13 +273,11 @@ Function KeypressMenu {
         Write-ColorizedOutput -ForegroundColor $_color $_entry
     }
     if ($PSBoundParameters.ContainsKey('DefaultString') -and (![string]::IsNullOrWhiteSpace($DefaultString))) {
-        [Console]::Write("Enter Choice (default is '$DefaultString'): ")
+        Write-Host -NoNewline "Enter Choice (default is '$DefaultString'): "
     } else {
-        [Console]::Write('Enter Choice (')
-        [Console]::ForegroundColor = [ConsoleColor]::Green
-        [Console]::Write('Green')
-        [Console]::ResetColor()
-        [Console]::Write(' is default): ')
+        Write-Host -NoNewline 'Enter Choice ('
+        Write-Host -NoNewline -ForegroundColor 'Green' 'Green'
+        Write-Host -NoNewline ' is default): '
     }
 
     do {
@@ -369,7 +366,7 @@ Function Read-Installer-Values {
     Foreach ($InstallerValue in $InstallerValues) { Clear-Variable -Name $InstallerValue -Force -ErrorAction SilentlyContinue }
 
     # Request user enter Installer URL
-    $InstallerUrl = Request-Installer-Url | Out-Host
+    $InstallerUrl = Request-Installer-Url
 
     # Get or request Installer Sha256
     # Check the settings to see if we need to display this menu
@@ -2084,35 +2081,35 @@ if ($OldManifests -and $Option -ne 'NewLocale') {
 # Run the data entry and creation of manifests appropriate to the option the user selected
 Switch ($script:Option) {
     'QuickUpdateVersion' {
-        Read-Installer-Values-Minimal | Out-Host
-        Write-Locale-Manifests | Out-Host
-        Write-Installer-Manifest | Out-Host
-        Write-Version-Manifest | Out-Host
+        Read-Installer-Values-Minimal
+        Write-Locale-Manifests
+        Write-Installer-Manifest
+        Write-Version-Manifest
     }
 
     'New' {
-        Read-Installer-Values | Out-Host
-        Read-WinGet-InstallerManifest | Out-Host
-        Read-WinGet-LocaleManifest | Out-Host
-        Write-Installer-Manifest | Out-Host
-        Write-Version-Manifest | Out-Host
-        Write-Locale-Manifests | Out-Host
+        Read-Installer-Values
+        Read-WinGet-InstallerManifest
+        Read-WinGet-LocaleManifest
+        Write-Installer-Manifest
+        Write-Version-Manifest
+        Write-Locale-Manifests
     }
 
     'EditMetadata' {
-        Read-WinGet-InstallerManifest | Out-Host
-        Read-WinGet-LocaleManifest | Out-Host
-        Write-Installer-Manifest | Out-Host
-        Write-Version-Manifest | Out-Host
-        Write-Locale-Manifests | Out-Host
+        Read-WinGet-InstallerManifest
+        Read-WinGet-LocaleManifest
+        Write-Installer-Manifest
+        Write-Version-Manifest
+        Write-Locale-Manifests
     }
 
     'NewLocale' {
         $PackageLocale = $null
         $script:OldLocaleManifest = [ordered]@{}
         $script:OldLocaleManifest['ManifestType'] = 'locale'
-        Read-WinGet-LocaleManifest | Out-Host
-        Write-Locale-Manifests | Out-Host
+        Read-WinGet-LocaleManifest
+        Write-Locale-Manifests
     }
 
     'RemoveManifest' {
@@ -2142,7 +2139,7 @@ Switch ($script:Option) {
             }
         } until ($script:_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
 
-        Remove-Manifest-Version $AppFolder | Out-Host
+        Remove-Manifest-Version $AppFolder
     }
 
     'Auto' {
@@ -2226,9 +2223,9 @@ Switch ($script:Option) {
         }
         # Write the new manifests
         $script:Installers = $script:OldInstallerManifest.Installers
-        Write-Locale-Manifests | Out-Host
-        Write-Installer-Manifest | Out-Host
-        Write-Version-Manifest | Out-Host
+        Write-Locale-Manifests
+        Write-Installer-Manifest
+        Write-Version-Manifest
         # Remove the old manifests
         if ($PackageVersion -ne $LastVersion) { Remove-Manifest-Version "$AppFolder\..\$LastVersion" }
     }
@@ -2335,14 +2332,14 @@ if ($PromptSubmit -eq '0') {
         if (Get-Command 'gh.exe' -ErrorAction SilentlyContinue) {
             # Request the user to fill out the PR template
             if (Test-Path -Path "$PSScriptRoot\..\.github\PULL_REQUEST_TEMPLATE.md") {
-                Enter-PR-Parameters "$PSScriptRoot\..\.github\PULL_REQUEST_TEMPLATE.md" | Out-Host
+                Enter-PR-Parameters "$PSScriptRoot\..\.github\PULL_REQUEST_TEMPLATE.md"
             } else {
                 while ([string]::IsNullOrWhiteSpace($SandboxScriptPath)) {
                     Write-Output $NewLine
                     Write-ColorizedOutput -ForegroundColor 'Green' 'PULL_REQUEST_TEMPLATE.md not found, input path'
                     $PRTemplate = Read-Host -Prompt 'PR Template' | TrimString
                 }
-                Enter-PR-Parameters "$PRTemplate" | Out-Host
+                Enter-PR-Parameters "$PRTemplate"
             }
         }
     }
