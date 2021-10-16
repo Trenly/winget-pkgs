@@ -12,11 +12,13 @@ Param
     [string] $Mode
 )
 
+$NewLine = "`n"
+
 # Write-Output with color
 Function Write-ColorizedOutput {
     Param
     (
-        [Parameter(Mandatory = $False, Position = 1, ValueFromPipeline = $True)][System.Object] $Message,
+        [Parameter(Mandatory = $False, Position = 0, ValueFromPipeline = $True)][System.Object] $Message,
         [Parameter(Mandatory = $False)][ConsoleColor] $ForegroundColor
     )
     $currentColor = $host.UI.RawUI.ForegroundColor # Save current color
@@ -228,7 +230,8 @@ Function Write-Colors {
     }
     $_index = 0
     Foreach ($String in $TextStrings) {
-        Write-ColorizedOutput -ForegroundColor $Colors[$_index] $String
+        [Console]::ForegroundColor = [ConsoleColor]::$($Colors[$_index])
+        [Console]::Write($String)
         $_index++
     }
 }
@@ -271,9 +274,13 @@ Function KeypressMenu {
         Write-ColorizedOutput -ForegroundColor $_color $_entry
     }
     if ($PSBoundParameters.ContainsKey('DefaultString') -and (![string]::IsNullOrWhiteSpace($DefaultString))) {
-        Write-Output "Enter Choice (default is '$DefaultString'): "
+        [Console]::Write("Enter Choice (default is '$DefaultString'): ")
     } else {
-        Write-ColorizedOutput -ForegroundColor 'Green' 'Enter Choice (Green is default): '
+        [Console]::Write('Enter Choice (')
+        [Console]::ForegroundColor = [ConsoleColor]::Green
+        [Console]::Write('Green')
+        [Console]::ResetColor()
+        [Console]::Write(' is default): ')
     }
 
     do {
@@ -1780,7 +1787,9 @@ if (!$script:UsingAdvancedOption) {
         Write-Colors '  [', '4', "] New Locale`n" 'DarkCyan', 'White', 'DarkCyan'
         Write-Colors '  [', '5', "] Remove a manifest`n" 'DarkCyan', 'White', 'DarkCyan'
         Write-Colors '  [', 'Q', ']', " Any key to quit`n" 'DarkCyan', 'White', 'DarkCyan', 'Red'
-        Write-Colors "`nSelection: " 'White'
+        [Console]::ForegroundColor = [ConsoleColor]::White
+        [Console]::Write("`nSelection: ")
+        [Console]::ResetColor()
 
         # Listen for keypress and set operation mode based on keypress
         $Keys = @{
@@ -2075,35 +2084,35 @@ if ($OldManifests -and $Option -ne 'NewLocale') {
 # Run the data entry and creation of manifests appropriate to the option the user selected
 Switch ($script:Option) {
     'QuickUpdateVersion' {
-        Read-Installer-Values-Minimal
-        Write-Locale-Manifests
-        Write-Installer-Manifest
-        Write-Version-Manifest
+        Read-Installer-Values-Minimal | Out-Host
+        Write-Locale-Manifests | Out-Host
+        Write-Installer-Manifest | Out-Host
+        Write-Version-Manifest | Out-Host
     }
 
     'New' {
-        Read-Installer-Values
-        Read-WinGet-InstallerManifest
-        Read-WinGet-LocaleManifest
-        Write-Installer-Manifest
-        Write-Version-Manifest
-        Write-Locale-Manifests
+        Read-Installer-Values | Out-Host
+        Read-WinGet-InstallerManifest | Out-Host
+        Read-WinGet-LocaleManifest | Out-Host
+        Write-Installer-Manifest | Out-Host
+        Write-Version-Manifest | Out-Host
+        Write-Locale-Manifests | Out-Host
     }
 
     'EditMetadata' {
-        Read-WinGet-InstallerManifest
-        Read-WinGet-LocaleManifest
-        Write-Installer-Manifest
-        Write-Version-Manifest
-        Write-Locale-Manifests
+        Read-WinGet-InstallerManifest | Out-Host
+        Read-WinGet-LocaleManifest | Out-Host
+        Write-Installer-Manifest | Out-Host
+        Write-Version-Manifest | Out-Host
+        Write-Locale-Manifests | Out-Host
     }
 
     'NewLocale' {
         $PackageLocale = $null
         $script:OldLocaleManifest = [ordered]@{}
         $script:OldLocaleManifest['ManifestType'] = 'locale'
-        Read-WinGet-LocaleManifest
-        Write-Locale-Manifests
+        Read-WinGet-LocaleManifest | Out-Host
+        Write-Locale-Manifests | Out-Host
     }
 
     'RemoveManifest' {
@@ -2133,7 +2142,7 @@ Switch ($script:Option) {
             }
         } until ($script:_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
 
-        Remove-Manifest-Version $AppFolder
+        Remove-Manifest-Version $AppFolder | Out-Host
     }
 
     'Auto' {
@@ -2217,9 +2226,9 @@ Switch ($script:Option) {
         }
         # Write the new manifests
         $script:Installers = $script:OldInstallerManifest.Installers
-        Write-Locale-Manifests
-        Write-Installer-Manifest
-        Write-Version-Manifest
+        Write-Locale-Manifests | Out-Host
+        Write-Installer-Manifest | Out-Host
+        Write-Version-Manifest | Out-Host
         # Remove the old manifests
         if ($PackageVersion -ne $LastVersion) { Remove-Manifest-Version "$AppFolder\..\$LastVersion" }
     }
@@ -2326,14 +2335,14 @@ if ($PromptSubmit -eq '0') {
         if (Get-Command 'gh.exe' -ErrorAction SilentlyContinue) {
             # Request the user to fill out the PR template
             if (Test-Path -Path "$PSScriptRoot\..\.github\PULL_REQUEST_TEMPLATE.md") {
-                Enter-PR-Parameters "$PSScriptRoot\..\.github\PULL_REQUEST_TEMPLATE.md"
+                Enter-PR-Parameters "$PSScriptRoot\..\.github\PULL_REQUEST_TEMPLATE.md" | Out-Host
             } else {
                 while ([string]::IsNullOrWhiteSpace($SandboxScriptPath)) {
                     Write-Output $NewLine
                     Write-ColorizedOutput -ForegroundColor 'Green' 'PULL_REQUEST_TEMPLATE.md not found, input path'
                     $PRTemplate = Read-Host -Prompt 'PR Template' | TrimString
                 }
-                Enter-PR-Parameters "$PRTemplate"
+                Enter-PR-Parameters "$PRTemplate" | Out-Host
             }
         }
     }
