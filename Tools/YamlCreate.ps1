@@ -329,7 +329,7 @@ Function Request-Installer-Url {
 # Prompts the user to enter installer values
 # Sets the $script:Installers value as an output
 # Returns void
-Function Read-InstallerV {
+Function Read-InstallerValues {
     # Clear prompted variables to ensure data from previous installer entries is not used for new entries
     $InstallerValues = @(
         'Architecture'
@@ -744,14 +744,14 @@ Function Read-InstallerV {
 
     # If there are additional entries, run this function again to fetch the values and add them to the installers array
     if ($AnotherInstaller -eq '0') {
-        Write-Host; Read-InstallerV
+        Write-Host; Read-InstallerValues
     }
 }
 
 # Prompts user for Installer Values using the `Quick Update` Method
 # Sets the $script:Installers value as an output
 # Returns void
-Function Read-InstallerV-Minimal {
+Function Read-InstallerValues-Minimal {
     # We know old manifests exist if we got here without error
     # Fetch the old installers based on the manifest type
     if ($script:OldInstallerManifest) { $_OldInstallers = $script:OldInstallerManifest['Installers'] } else {
@@ -2066,14 +2066,14 @@ if ($OldManifests -and $Option -ne 'NewLocale') {
 # Run the data entry and creation of manifests appropriate to the option the user selected
 Switch ($script:Option) {
     'QuickUpdateVersion' {
-        Read-InstallerV-Minimal
+        Read-InstallerValues-Minimal
         Write-LocaleManifest
         Write-Installer-Manifest
         Write-Version-Manifest
     }
 
     'New' {
-        Read-InstallerV
+        Read-InstallerValues
         Read-WinGet-InstallerManifest
         Read-WinGet-LocaleManifest
         Write-Installer-Manifest
