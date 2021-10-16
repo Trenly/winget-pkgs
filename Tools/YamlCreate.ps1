@@ -465,7 +465,7 @@ Function Read-Installer-Values
                 $contentDisposition = [System.Net.Mime.ContentDisposition]::new($download.Headers['Content-Disposition'])
                 $_Filename = $contentDisposition.FileName
             }
-            catch {}
+            catch { Out-Null }
             # Validate the headers reurned a valid file name
             if (![string]::IsNullOrWhiteSpace($_Filename) -and $(Test-ValidFileName $_Filename))
             {
@@ -959,7 +959,7 @@ Function Read-Installer-Values-Minimal
                 $contentDisposition = [System.Net.Mime.ContentDisposition]::new($download.Headers['Content-Disposition'])
                 $_Filename = $contentDisposition.FileName
             }
-            catch {}
+            catch { Out-Null }
             # Validate the headers reurned a valid file name
             if (![string]::IsNullOrWhiteSpace($_Filename) -and $(Test-ValidFileName $_Filename))
             {
@@ -1857,6 +1857,7 @@ Function AddYamlListParameter
             {
                 # If we can't cast the value to an integer, it doesn't matter
                 # Continue using the value as is
+                Out-Null
             }
         }
         $_Values += $Value
@@ -2663,7 +2664,7 @@ Switch ($script:Option)
                     $contentDisposition = [System.Net.Mime.ContentDisposition]::new($download.Headers['Content-Disposition'])
                     $_Filename = $contentDisposition.FileName
                 }
-                catch {}
+                catch { Out-Null }
                 # Validate the headers reurned a valid file name
                 if (![string]::IsNullOrWhiteSpace($_Filename) -and $(Test-ValidFileName $_Filename))
                 {
