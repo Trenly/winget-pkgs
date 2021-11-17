@@ -151,7 +151,7 @@ if ($Settings) {
     exit
 }
 
-$ScriptHeader = '# Created with YamlCreate.ps1 v2.1.2'
+$ScriptHeader = '# Created with YamlCreate.ps1 v2.0.1'
 $ManifestVersion = '1.1.0'
 $PSDefaultParameterValues = @{ '*:Encoding' = 'UTF8' }
 $Utf8NoBomEncoding = New-Object System.Text.UTF8Encoding $False
@@ -1023,10 +1023,6 @@ Function Read-QuickInstallerEntry {
                 throw [System.Net.WebException]::new('The file could not be downloaded. Try running the script again', $_.Exception)
             } finally {
                 # Check that MSI's aren't actually WIX
-<<<<<<< HEAD
-                Write-Host -ForegroundColor 'Green' "Installer Downloaded!`nProcessing installer data. . . "
-=======
->>>>>>> 5f07cfed74 (Formatting)
                 if ($_NewInstaller['InstallerType'] -eq 'msi') {
                     $DetectedType = Get-PathInstallerType $script:dest
                     if ($DetectedType -in @('msi'; 'wix')) { $_NewInstaller['InstallerType'] = $DetectedType }
