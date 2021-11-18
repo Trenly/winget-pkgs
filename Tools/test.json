@@ -1,0 +1,8 @@
+{
+    "PackageIdentifier" : "Google.Chrome",
+    "PackageVersion" : "1.0.0",
+    "InstallerUrls" : [
+        "https://dl.google.com/dl/chrome/install/googlechromestandaloneenterprise64.msi",
+        "https://dl.google.com/dl/chrome/install/googlechromestandaloneenterprise.msi"
+    ]
+}

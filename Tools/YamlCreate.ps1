@@ -12,7 +12,9 @@ Param
     [Parameter(Mandatory = $false)]
     [string] $PackageVersion,
     [Parameter(Mandatory = $false)]
-    [string] $Mode
+    [string] $Mode,
+    [Parameter(Mandatory = $false)]
+    [PSCustomObject] $InputObject
 )
 
 if ($help) {
@@ -693,10 +695,10 @@ Function Read-InstallerEntry {
         Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString()
         Write-Host -ForegroundColor 'Yellow' -Object '[Optional] Enter the application release date. Example: 2021-11-17'
         Read-Host -Prompt 'ReleaseDate' -OutVariable _ | Out-Null
-        if ($_) { $_Installer['ReleaseDate'] = $_ | TrimString}
+        if ($_) { $_Installer['ReleaseDate'] = $_ | TrimString }
         try {
             Get-Date([datetime]$($_ | TrimString)) -f 'yyyy-MM-dd' -OutVariable _ValidDate | Out-Null
-            if ($_ValidDate) { $_Installer['ReleaseDate'] = $_ValidDate | TrimString}
+            if ($_ValidDate) { $_Installer['ReleaseDate'] = $_ValidDate | TrimString }
             $script:_returnValue = [ReturnValue]::Success()
         } catch {
             $script:_returnValue = [ReturnValue]::new(400, 'Invalid Date', 'Input could not be resolved to a date', 2)
@@ -1749,7 +1751,7 @@ function Remove-ManifestVersion {
 # Initialize the return value to be a success
 $script:_returnValue = [ReturnValue]::new(200)
 
-$script:UsingAdvancedOption = ($ScriptSettings.EnableDeveloperOptions -eq 'true') -and ($AutoUpgrade)
+$script:UsingAdvancedOption = ($ScriptSettings.EnableDeveloperOptions -eq 'true') -and ($AutoUpgrade -or $PSBoundParameters.ContainsKey('InputObject'))
 
 if (!$script:UsingAdvancedOption) {
     # Request the user to choose an operation mode
@@ -1795,6 +1797,17 @@ if (!$script:UsingAdvancedOption) {
     }
 } else {
     if ($AutoUpgrade) { $script:Option = 'Auto' }
+    if ($PSBoundParameters.ContainsKey('InputObject')) {
+        $script:ObjectData = $InputObject | ConvertFrom-Json
+        $_IsInvalid = Test-InputObject -InputObject $ObjectData
+        if ( $_IsInvalid ){
+            throw "$_IsInvalid"
+        } else {
+            $PackageIdentifier = $ObjectData.PackageIdentifier
+            $PackageVersion = $ObjectData.PackageVersion
+        }
+        $script:Option = 'FromObject'
+    }
 }
 
 # Confirm the user undertands the implications of using the quick update mode
@@ -1915,7 +1928,7 @@ if ($script:Option -in @('NewLocale'; 'EditMetadata'; 'RemoveManifest')) {
 # If the user selected `QuickUpdateVersion`, the old manifests must exist
 # If the user selected `New`, the old manifest type is specified as none
 if (-not (Test-Path -Path "$AppFolder\..")) {
-    if ($script:Option -in @('QuickUpdateVersion', 'Auto')) { Write-Host -ForegroundColor Red 'This option requires manifest of previous version of the package. If you want to create a new package, please select Option 1.'; exit }
+    if ($script:Option -in @('QuickUpdateVersion', 'Auto', 'FromObject')) { Write-Host -ForegroundColor Red 'This option requires manifest of previous version of the package. If you want to create a new package, please select Option 1.'; exit }
     $script:OldManifestType = 'None'
 }
 
@@ -2118,6 +2131,14 @@ Switch ($script:Option) {
         } until ($script:_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
 
         Remove-ManifestVersion $AppFolder
+    }
+
+    'FromObject' {
+        if ($ObjectData.InstallerUrls.Count -ne $script:OldInstallerManifest.Installers.Count) {Throw "Installer counts not equal"}
+        # Copy files to new version if version is different than last version
+        # For each key in the installer object, except InstallerURLs, update the value
+        # For each installer, in order, update the URLs
+        # Run autoupdate
     }
 
     'Auto' {
@@ -2406,4 +2427,16 @@ class UnmetDependencyException : Exception {
 }
 class ManifestException : Exception {
     ManifestException([string] $message) : base($message) {}
+}
+
+function Test-InputObject {
+    Param (
+        [Parameter(Mandatory = $true, Position = 0)]
+        [PSCustomObject] $InputObject   
+    )
+
+    if ($null -eq $InputObject.PackageIdentifier) { return 'Package Identifier is required' }
+    if ($null -eq $InputObject.PackageVersion) { return 'Package Version is required' }
+    if ($null -eq $InputObject.InstallerUrls) { return 'Installer URLS are required' }
+    return $null
 }
