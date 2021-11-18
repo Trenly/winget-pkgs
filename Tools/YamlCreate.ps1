@@ -526,7 +526,8 @@ Function Read-InstallerEntry {
         Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString()
         if ($_Installer['InstallerType'] -ieq 'exe') { Write-Host -ForegroundColor 'Green' -Object '[Required] Enter the silent install switch. For example: /S, -verysilent, /qn, --silent, /exenoui' }
         else { Write-Host -ForegroundColor 'Yellow' -Object '[Optional] Enter the silent install switch. For example: /S, -verysilent, /qn, --silent, /exenoui' }
-        $_Switches['Silent'] = Read-Host -Prompt 'Silent switch' | TrimString
+        Read-Host -Prompt 'Silent switch' -OutVariable _ | Out-Null
+        if ($_) { $_Switches['Silent'] = $_ | TrimString }
 
         if (Test-String $_Switches['Silent'] -MaxLength $Patterns.SilentSwitchMaxLength -NotNull) {
             $script:_returnValue = [ReturnValue]::Success()
@@ -540,8 +541,9 @@ Function Read-InstallerEntry {
     do {
         Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString()
         if ($_Installer['InstallerType'] -ieq 'exe') { Write-Host -ForegroundColor 'Green' -Object '[Required] Enter the silent with progress install switch. For example: /S, -silent, /qb, /exebasicui' }
-        else  { Write-Host -ForegroundColor 'Yellow' -Object '[Optional] Enter the silent with progress install switch. For example: /S, -silent, /qb, /exebasicui' }
-        $_Switches['SilentWithProgress'] = Read-Host -Prompt 'Silent with progress switch' | TrimString
+        else { Write-Host -ForegroundColor 'Yellow' -Object '[Optional] Enter the silent with progress install switch. For example: /S, -silent, /qb, /exebasicui' }
+        Read-Host -Prompt 'Silent with progress switch' -OutVariable _ | Out-Null
+        if ($_) { $_Switches['SilentWithProgress'] = $_ | TrimString }
 
         if (Test-String $_Switches['SilentWithProgress'] -MaxLength $Patterns.ProgressSwitchMaxLength -NotNull) {
             $script:_returnValue = [ReturnValue]::Success()
@@ -713,24 +715,6 @@ Function Read-InstallerEntry {
     if (!$script:Installers) {
         $script:Installers = @()
     }
-
-    # # Add the installer switches to the installer entry, if they exist
-    # If ($Silent -or $SilentWithProgress -or $Custom) {
-    #     $_InstallerSwitches = [ordered]@{}
-    #     $_Switches = [ordered] @{
-    #         'Custom'             = $Custom
-    #         'Silent'             = $Silent
-    #         'SilentWithProgress' = $SilentWithProgress
-    #     }
-    #     foreach ($_Item in $_Switches.GetEnumerator()) {
-    #         If ($_Item.Value) { Add-YamlParameter -Object $_InstallerSwitches -Parameter $_Item.Name -Value $_Item.Value }
-    #     }
-    #     $_InstallerSwitches = Restore-YamlKeyOrder $_InstallerSwitches $InstallerSwitchProperties -NoComments
-    #     $_Installer['InstallerSwitches'] = $_InstallerSwitches
-    # }
-
-    # Add the product code to the installer entry, if it exists
-    # If ($ProductCode) { Add-YamlParameter -Object $_Installer -Parameter 'ProductCode' -Value $ProductCode }
 
     # Add the completed installer to the installers array
     $_Installer = Restore-YamlKeyOrder $_Installer $InstallerEntryProperties -NoComments
