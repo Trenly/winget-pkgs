@@ -469,7 +469,8 @@ Function Read-InstallerEntry {
                 if ($_) { $_Installer['InstallerType'] = $_ | Select-Object -First 1 }
                 Get-UriArchitecture -URI $_Installer['InstallerUrl'] -OutVariable _ | Out-Null
                 if ($_) { $_Installer['Architecture'] = $_ | Select-Object -First 1 }
-                $_Installer['ProductCode'] = $(Get-AppLockerFileInformation -Path $script:dest | Select-Object Publisher | Select-String -Pattern '{[A-Z0-9]{8}-([A-Z0-9]{4}-){3}[A-Z0-9]{12}}').Matches
+                $ProductCode = $(Get-AppLockerFileInformation -Path $script:dest | Select-Object Publisher | Select-String -Pattern '{[A-Z0-9]{8}-([A-Z0-9]{4}-){3}[A-Z0-9]{12}}').Matches
+                if (Test-String -Not $ProductCode -IsNull) {$_Installer['ProductCode'] = $ProductCode}
             }
         }
         # Manual Entry of Sha256 with validation
@@ -674,7 +675,7 @@ Function Read-InstallerEntry {
         Write-Host -ForegroundColor 'White' -Object 'Can be found with ' -NoNewline; Write-Host -ForegroundColor 'DarkYellow' 'get-wmiobject Win32_Product | Sort-Object Name | Format-Table IdentifyingNumber, Name -AutoSize'
         $NewProductCode = Read-Host -Prompt 'ProductCode' | TrimString
         if (Test-String $NewProductCode -Not -IsNull) { $_Installer['ProductCode'] = $NewProductCode }
-        else { $_Installer['ProductCode'] = "$($_Installer['ProductCode'])" }
+        elseif (Test-String $_Installer['ProductCode'] -Not -IsNull) { $_Installer['ProductCode'] = "$($_Installer['ProductCode'])" }
 
         if (Test-String $_Installer['ProductCode'] -MinLength $Patterns.ProductCodeMinLength -MaxLength $Patterns.ProductCodeMaxLength -AllowNull) {
             $script:_returnValue = [ReturnValue]::Success()
