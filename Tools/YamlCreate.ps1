@@ -752,14 +752,9 @@ Function Read-InstallerEntry {
     do {
         Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString()
         if ($_Installer['InstallerType'] -ieq 'exe') { Write-Host -ForegroundColor 'Green' -Object '[Required] Enter the silent with progress install switch. For example: /S, -silent, /qb, /exebasicui' }
-<<<<<<< HEAD
         else { Write-Host -ForegroundColor 'Yellow' -Object '[Optional] Enter the silent with progress install switch. For example: /S, -silent, /qb, /exebasicui' }
         Read-Host -Prompt 'Silent with progress switch' -OutVariable _ | Out-Null
         if ($_) { $_Switches['SilentWithProgress'] = $_ | TrimString }
-=======
-        else  { Write-Host -ForegroundColor 'Yellow' -Object '[Optional] Enter the silent with progress install switch. For example: /S, -silent, /qb, /exebasicui' }
-        $_Switches['SilentWithProgress'] = Read-Host -Prompt 'Silent with progress switch' | TrimString
->>>>>>> 2f2a552204 (Condense installer switch logic)
 
         if (Test-String $_Switches['SilentWithProgress'] -MaxLength $Patterns.ProgressSwitchMaxLength -NotNull) {
             $script:_returnValue = [ReturnValue]::Success()
@@ -944,6 +939,8 @@ Function Read-InstallerEntry {
             }
         }
     } until ($script:_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
+
+    if ($script:SaveOption -eq '1' -and (Test-Path -Path $script:dest)) { Remove-Item -Path $script:dest }
 
     if ($script:SaveOption -eq '1' -and (Test-Path -Path $script:dest)) { Remove-Item -Path $script:dest }
 
