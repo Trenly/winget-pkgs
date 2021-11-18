@@ -695,7 +695,7 @@ Function Read-InstallerEntry {
         Read-Host -Prompt 'ReleaseDate' -OutVariable _ | Out-Null
         if ($_) { $_Installer['ReleaseDate'] = $_ | TrimString}
         try {
-            Get-Date([datetime]$($_ | TrimString)) -f 'yyyy-MM-dd' -OutVariable _ValidDate
+            Get-Date([datetime]$($_ | TrimString)) -f 'yyyy-MM-dd' -OutVariable _ValidDate | Out-Null
             if ($_ValidDate) { $_Installer['ReleaseDate'] = $_ValidDate | TrimString}
             $script:_returnValue = [ReturnValue]::Success()
         } catch {
