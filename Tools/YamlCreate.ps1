@@ -12,7 +12,9 @@ Param
     [Parameter(Mandatory = $false)]
     [string] $PackageVersion,
     [Parameter(Mandatory = $false)]
-    [string] $Mode
+    [string] $Mode,
+    [Parameter(Mandatory = $false)]
+    [PSCustomObject] $InputObject
 )
 
 if ($help) {
@@ -644,10 +646,6 @@ Function Read-InstallerEntry {
     $_Installer['InstallerUrl'] = Request-InstallerUrl
   
     if ($_Installer.InstallerUrl -in ($script:Installers).InstallerUrl) {
-<<<<<<< HEAD
-=======
-        Write-Host "Found Installer Matching"
->>>>>>> 5074e136ec (Confirm Architecture when Automatically Detected)
         $_MatchingInstaller = $script:Installers | Where-Object { $_.InstallerUrl -eq $_Installer.InstallerUrl } | Select-Object -First 1
         if ($_MatchingInstaller.InstallerSha256) { $_Installer['InstallerSha256'] = $_MatchingInstaller.InstallerSha256 }
         if ($_MatchingInstaller.InstallerType) { $_Installer['InstallerType'] = $_MatchingInstaller.InstallerType }
@@ -906,10 +904,10 @@ Function Read-InstallerEntry {
         Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString()
         Write-Host -ForegroundColor 'Yellow' -Object '[Optional] Enter the application release date. Example: 2021-11-17'
         Read-Host -Prompt 'ReleaseDate' -OutVariable _ | Out-Null
-        if ($_) { $_Installer['ReleaseDate'] = $_ | TrimString}
+        if ($_) { $_Installer['ReleaseDate'] = $_ | TrimString }
         try {
             Get-Date([datetime]$($_ | TrimString)) -f 'yyyy-MM-dd' -OutVariable _ValidDate | Out-Null
-            if ($_ValidDate) { $_Installer['ReleaseDate'] = $_ValidDate | TrimString}
+            if ($_ValidDate) { $_Installer['ReleaseDate'] = $_ValidDate | TrimString }
             $script:_returnValue = [ReturnValue]::Success()
         } catch {
             $script:_returnValue = [ReturnValue]::new(400, 'Invalid Date', 'Input could not be resolved to a date', 2)
@@ -2069,7 +2067,7 @@ function Remove-ManifestVersion {
 # Initialize the return value to be a success
 $script:_returnValue = [ReturnValue]::new(200)
 
-$script:UsingAdvancedOption = ($ScriptSettings.EnableDeveloperOptions -eq 'true') -and ($AutoUpgrade)
+$script:UsingAdvancedOption = ($ScriptSettings.EnableDeveloperOptions -eq 'true') -and ($AutoUpgrade -or $PSBoundParameters.ContainsKey('InputObject'))
 
 if (!$script:UsingAdvancedOption) {
     # Request the user to choose an operation mode
@@ -2119,6 +2117,17 @@ if (!$script:UsingAdvancedOption) {
     }
 } else {
     if ($AutoUpgrade) { $script:Option = 'Auto' }
+    if ($PSBoundParameters.ContainsKey('InputObject')) {
+        $script:ObjectData = $InputObject | ConvertFrom-Json
+        $_IsInvalid = Test-InputObject -InputObject $ObjectData
+        if ( $_IsInvalid ){
+            throw "$_IsInvalid"
+        } else {
+            $PackageIdentifier = $ObjectData.PackageIdentifier
+            $PackageVersion = $ObjectData.PackageVersion
+        }
+        $script:Option = 'FromObject'
+    }
 }
 
 # Confirm the user undertands the implications of using the quick update mode
@@ -2477,6 +2486,14 @@ Switch ($script:Option) {
         Remove-ManifestVersion $AppFolder
     }
 
+    'FromObject' {
+        if ($ObjectData.InstallerUrls.Count -ne $script:OldInstallerManifest.Installers.Count) {Throw "Installer counts not equal"}
+        # Copy files to new version if version is different than last version
+        # For each key in the installer object, except InstallerURLs, update the value
+        # For each installer, in order, update the URLs
+        # Run autoupdate
+    }
+
     'Auto' {
         # Set new package version
         $script:OldInstallerManifest['PackageVersion'] = $PackageVersion
@@ -2779,4 +2796,16 @@ class UnmetDependencyException : Exception {
 }
 class ManifestException : Exception {
     ManifestException([string] $message) : base($message) {}
+}
+
+function Test-InputObject {
+    Param (
+        [Parameter(Mandatory = $true, Position = 0)]
+        [PSCustomObject] $InputObject   
+    )
+
+    if ($null -eq $InputObject.PackageIdentifier) { return 'Package Identifier is required' }
+    if ($null -eq $InputObject.PackageVersion) { return 'Package Version is required' }
+    if ($null -eq $InputObject.InstallerUrls) { return 'Installer URLS are required' }
+    return $null
 }
