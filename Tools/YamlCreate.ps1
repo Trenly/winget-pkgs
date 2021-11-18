@@ -471,8 +471,6 @@ Function Read-InstallerEntry {
                 Get-UriArchitecture -URI $_Installer['InstallerUrl'] -OutVariable _ | Out-Null
                 if ($_) { $_Installer['Architecture'] = $_ | Select-Object -First 1 }
                 $_Installer['ProductCode'] = $(Get-AppLockerFileInformation -Path $script:dest | Select-Object Publisher | Select-String -Pattern '{[A-Z0-9]{8}-([A-Z0-9]{4}-){3}[A-Z0-9]{12}}').Matches
-
-                if ($script:SaveOption -eq '1' -and -not($script:dest -match '\.(msix|appx)(bundle){0,1}$')) { Remove-Item -Path $script:dest }
             }
         }
         # Manual Entry of Sha256 with validation
@@ -573,14 +571,14 @@ Function Read-InstallerEntry {
     if ($_Installer['InstallerType'] -in @('msix'; 'appx')) {
         # Detect or prompt for Signature Sha256
         if (Get-Command 'winget.exe' -ErrorAction SilentlyContinue) { $SignatureSha256 = winget hash -m $script:dest | Select-String -Pattern 'SignatureSha256:' | ConvertFrom-String; if ($SignatureSha256.P2) { $SignatureSha256 = $SignatureSha256.P2.ToUpper() } }
-        $_Installer['SignatureSha256'] = $SignatureSha256
+        if ($SignatureSha256) { $_Installer['SignatureSha256'] = $SignatureSha256 }
         if (Test-String $_Installer['SignatureSha256'] -IsNull) {
             # Manual entry of Signature Sha256 with validation
             do {
                 Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString()
                 Write-Host -ForegroundColor 'Yellow' -Object '[Recommended] Enter the installer SignatureSha256'
-                $_Installer['SignatureSha256'] = Read-Host -Prompt 'SignatureSha256' | TrimString
-
+                Read-Host -Prompt 'SignatureSha256' -OutVariable _ | Out-Null
+                if ($_) { $_Installer['SignatureSha256'] = $_ | TrimString }
                 if (Test-String $_Installer['SignatureSha256'] -MatchPattern $Patterns.SignatureSha256 -AllowNull) {
                     $script:_returnValue = [ReturnValue]::Success()
                 } else {
@@ -610,7 +608,7 @@ Function Read-InstallerEntry {
             try {
                 Add-AppxPackage -Path $script:dest
                 $InstalledPkg = Get-AppxPackage | Select-Object -Last 1 | Select-Object PackageFamilyName, PackageFullName
-                $_Installer['PackageFamilyName'] = $InstalledPkg.PackageFamilyName
+                if ($InstalledPkg.PackageFamilyName) { $_Installer['PackageFamilyName'] = $InstalledPkg.PackageFamilyName }
                 Remove-AppxPackage $InstalledPkg.PackageFullName
             } catch {
                 # Take no action here, we just want to catch the exceptions as a precaution
@@ -628,24 +626,22 @@ Function Read-InstallerEntry {
             if (($ChoicePfn -ne '0') -or ($script:_returnValue.StatusCode -ne [ReturnValue]::Success().StatusCode)) {
                 Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString()
                 Write-Host -ForegroundColor 'Yellow' -Object '[Recommended] Enter the PackageFamilyName'
-                $_Installer['PackageFamilyName'] = Read-Host -Prompt 'PackageFamilyName' | TrimString
+                Read-Host -Prompt 'PackageFamilyName' -OutVariable _ | Out-Null
+                if ($_) { $_Installer['PackageFamilyName'] = $_ | TrimString }
             }
-
             if (Test-String $_Installer['PackageFamilyName'] -MaxLength $Patterns.FamilyNameMaxLength -MatchPattern $Patterns.FamilyName -AllowNull) {
                 if (Test-String $_Installer['PackageFamilyName'] -IsNull) { $_Installer['PackageFamilyName'] = "$([char]0x2370)" }
                 $script:_returnValue = [ReturnValue]::Success()
             } else {
-                if (Test-String -not $PackageFamilyName -MaxLength $Patterns.FamilyNameMaxLength) {
+                if (Test-String -not $_Installer['PackageFamilyName'] -MaxLength $Patterns.FamilyNameMaxLength) {
                     $script:_returnValue = [ReturnValue]::LengthError(1, $Patterns.FamilyNameMaxLength)
-                } elseif (Test-String -not $PackageFamilyName -MatchPattern $Patterns.FamilyName) {
+                } elseif (Test-String -not $_Installer['PackageFamilyName'] -MatchPattern $Patterns.FamilyName) {
                     $script:_returnValue = [ReturnValue]::PatternError()
                 } else {
                     $script:_returnValue = [ReturnValue]::GenericError()
                 }
             }
-
         } until ($script:_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
-        if ($script:SaveOption -eq '1') { Remove-Item -Path $script:dest }
     }
 
     # Request installer locale with validation as optional
@@ -710,6 +706,8 @@ Function Read-InstallerEntry {
         'U' { $_Installer['UpgradeBehavior'] = 'uninstallPrevious' }
         default { $_Installer['UpgradeBehavior'] = 'install' }
     }
+
+    if ($script:SaveOption -eq '1') { Remove-Item -Path $script:dest }
 
     # If the installers array is empty, create it
     if (!$script:Installers) {
