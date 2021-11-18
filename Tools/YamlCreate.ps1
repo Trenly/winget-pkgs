@@ -768,7 +768,7 @@ Function Read-QuickInstallerEntry {
         $_NewInstaller['InstallerUrl'] = Request-InstallerUrl
 
         try {
-            Get-InstallerFile -URI $_NewInstaller['InstallerUrl'] -PackageIdentifier $PackageIdentifier -PackageVersion $PackageVersion
+            $script:dest = Get-InstallerFile -URI $_NewInstaller['InstallerUrl'] -PackageIdentifier $PackageIdentifier -PackageVersion $PackageVersion
         } catch {
             # Here we also want to pass any exceptions through for potential debugging
             throw [System.Net.WebException]::new('The file could not be downloaded. Try running the script again', $_.Exception)
@@ -2111,7 +2111,7 @@ Switch ($script:Option) {
         Write-Host 'Updating Manifest Information. This may take a while...' -ForegroundColor Blue
         foreach ($_Installer in $script:OldInstallerManifest.Installers) {
             try {
-                Get-InstallerFile -URI $_Installer.InstallerUrl -PackageIdentifier $PackageIdentifier -PackageVersion $PackageVersion
+                $script:dest = Get-InstallerFile -URI $_Installer.InstallerUrl -PackageIdentifier $PackageIdentifier -PackageVersion $PackageVersion
             } catch {
                 # Here we also want to pass any exceptions through for potential debugging
                 throw [System.Net.WebException]::new('The file could not be downloaded. Try running the script again', $_.Exception)
