@@ -2164,6 +2164,60 @@ Switch ($script:Option) {
         foreach ($_Key in $InstallerProperties) { if ($InputKeys -contains $_Key) { $NewInstallerManifest[$_Key] = $InputObject.$_Key } }
         foreach ($_Key in $VersionProperties) { if ($InputKeys -contains $_Key) { $NewVersionManifest[$_Key] = $InputObject.$_Key } }
 
+        ## This is duplicated code, will try and reduce it later ##
+        Write-Host 'Updating Manifest Information. This may take a while...' -ForegroundColor Blue
+        foreach ($_Installer in $NewInstallerManifest.Installers) {
+            try {
+                $script:dest = Get-InstallerFile -URI $_Installer.InstallerUrl -PackageIdentifier $PackageIdentifier -PackageVersion $PackageVersion
+            } catch {
+                # Here we also want to pass any exceptions through for potential debugging
+                throw [System.Net.WebException]::new('The file could not be downloaded. Try running the script again', $_.Exception)
+            } finally {
+                # Get the Sha256
+                $_Installer['InstallerSha256'] = (Get-FileHash -Path $script:dest -Algorithm SHA256).Hash
+                # Update the product code, if a new one exists
+                # If a new product code doesn't exist, and the installer isn't an `.exe` file, remove the product code if it exists
+                $MSIProductCode = [string]$(Get-AppLockerFileInformation -Path $script:dest | Select-Object Publisher | Select-String -Pattern '{[A-Z0-9]{8}-([A-Z0-9]{4}-){3}[A-Z0-9]{12}}').Matches
+                if (Test-String -not $MSIProductCode -IsNull) {
+                    $_Installer['ProductCode'] = $MSIProductCode
+                } elseif ( ($_Installer.Keys -contains 'ProductCode') -and ($script:dest -notmatch '.exe$')) {
+                    $_Installer.Remove('ProductCode')
+                }
+                # If the installer is msix or appx, try getting the new SignatureSha256
+                # If the new SignatureSha256 can't be found, remove it if it exists
+                if ($_Installer.InstallerType -in @('msix', 'appx')) {
+                    if (Get-Command 'winget.exe' -ErrorAction SilentlyContinue) { $NewSignatureSha256 = winget hash -m $script:dest | Select-String -Pattern 'SignatureSha256:' | ConvertFrom-String; if ($NewSignatureSha256.P2) { $NewSignatureSha256 = $NewSignatureSha256.P2.ToUpper() } }
+                }
+                if (Test-String -not $NewSignatureSha256 -IsNull) {
+                    $_Installer['SignatureSha256'] = $NewSignatureSha256
+                } elseif ($_Installer.Keys -contains 'SignatureSha256') {
+                    $_Installer.Remove('SignatureSha256')
+                }
+                # If the installer is msix or appx, try getting the new package family name
+                # If the new package family name can't be found, remove it if it exists
+                if ($script:dest -match '\.(msix|appx)(bundle){0,1}$') {
+                    try {
+                        Add-AppxPackage -Path $script:dest
+                        $InstalledPkg = Get-AppxPackage | Select-Object -Last 1 | Select-Object PackageFamilyName, PackageFullName
+                        $PackageFamilyName = $InstalledPkg.PackageFamilyName
+                        Remove-AppxPackage $InstalledPkg.PackageFullName
+                    } catch {
+                        # Take no action here, we just want to catch the exceptions as a precaution
+                        Out-Null
+                    } finally {
+                        if (Test-String -not $PackageFamilyName -IsNull) {
+                            $_Installer['PackageFamilyName'] = $PackageFamilyName
+                        } elseif ($_Installer.Keys -contains 'PackageFamilyName') {
+                            $_Installer.Remove('PackageFamilyName')
+                        }
+                    }
+                }
+                # Remove the downloaded files
+                Remove-Item -Path $script:dest
+            }
+        }
+        ## End of duplicated code
+
         New-Item -ItemType Directory -Path $AppFolder -Force | Out-Null
         $NewInstallerManifest = Restore-YamlKeyOrder -InputObject $NewInstallerManifest -SortOrder $InstallerProperties -NoComments
         ConvertTo-Yaml $NewInstallerManifest > $NewInstallerManifestPath
