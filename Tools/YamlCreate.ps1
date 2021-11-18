@@ -361,7 +361,7 @@ Function Get-InstallerFile {
     )
     # Create a filename based on the Package Identifier and Version; Try to get the extension from the URL
     # If the extension isn't found, use a custom one
-    $_Filename = "$PackageIdentifier v$PackageVersion" + $(if ([System.IO.Path]::HasExtension($URI)) { [System.IO.Path]::GetExtension($URI) } else { '.winget-tmp' })
+    $_Filename = "$PackageIdentifier v$PackageVersion - $(Get-Date -f 'yyyy.MM.dd-hh.mm.ss')" + $(if ([System.IO.Path]::HasExtension($URI)) { [System.IO.Path]::GetExtension($URI) } else { '.winget-tmp' })
     $_OutFile = Join-Path -Path $env:TEMP -ChildPath $_Filename
 
     # Create a new web client for downloading the file
@@ -458,7 +458,7 @@ Function Read-InstallerEntry {
             Write-Host $NewLine
             Write-Host 'Downloading URL. This will take a while...' -ForegroundColor Blue
             try {
-                $script:dest = Get-InstallerFile -URI $InstallerUrl -PackageIdentifier $PackageIdentifier -PackageVersion $PackageVersion
+                $script:dest = Get-InstallerFile -URI  $_Installer['InstallerUrl'] -PackageIdentifier $PackageIdentifier -PackageVersion $PackageVersion
             } catch {
                 # Here we also want to pass any exceptions through for potential debugging
                 throw [System.Net.WebException]::new('The file could not be downloaded. Try running the script again', $_.Exception)
