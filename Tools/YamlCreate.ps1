@@ -458,7 +458,7 @@ Function Read-InstallerEntry {
             Write-Host $NewLine
             Write-Host 'Downloading URL. This will take a while...' -ForegroundColor Blue
             try {
-                $script:dest = Get-InstallerFile -URI  $_Installer['InstallerUrl'] -PackageIdentifier $PackageIdentifier -PackageVersion $PackageVersion
+                $script:dest = Get-InstallerFile -URI $_Installer['InstallerUrl'] -PackageIdentifier $PackageIdentifier -PackageVersion $PackageVersion
             } catch {
                 # Here we also want to pass any exceptions through for potential debugging
                 throw [System.Net.WebException]::new('The file could not be downloaded. Try running the script again', $_.Exception)
@@ -680,6 +680,21 @@ Function Read-InstallerEntry {
             $script:_returnValue = [ReturnValue]::Success()
         } else {
             $script:_returnValue = [ReturnValue]::LengthError($Patterns.ProductCodeMinLength, $Patterns.ProductCodeMaxLength)
+        }
+    } until ($script:_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
+
+    # Request release date
+    do {
+        Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString()
+        Write-Host -ForegroundColor 'Yellow' -Object '[Optional] Enter the application release date. Example: 2021-11-17'
+        Read-Host -Prompt 'ReleaseDate' -OutVariable _ | Out-Null
+        if ($_) { $_Installer['ReleaseDate'] = $_ | TrimString}
+        try {
+            Get-Date([datetime]$($_ | TrimString)) -f 'yyyy-MM-dd' -OutVariable _ValidDate
+            if ($_ValidDate) { $_Installer['ReleaseDate'] = $_ValidDate | TrimString}
+            $script:_returnValue = [ReturnValue]::Success()
+        } catch {
+            $script:_returnValue = [ReturnValue]::new(400, 'Invalid Date', 'Input could not be resolved to a date', 2)
         }
     } until ($script:_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
 
