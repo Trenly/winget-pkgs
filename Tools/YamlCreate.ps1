@@ -436,7 +436,7 @@ Function Read-InstallerEntry {
     $_Installer['InstallerUrl'] = Request-InstallerUrl
   
     if ($_Installer.InstallerUrl -in ($script:Installers).InstallerUrl) {
-        $_MatchingInstaller = $script:Installers | Where-Object { $_.InstallerUrl -eq $InstallerUrl } | Select-Object -First 1
+        $_MatchingInstaller = $script:Installers | Where-Object { $_.InstallerUrl -eq $_Installer.InstallerUrl } | Select-Object -First 1
         if ($_MatchingInstaller.InstallerSha256) { $_Installer['InstallerSha256'] = $_MatchingInstaller.InstallerSha256 }
         if ($_MatchingInstaller.InstallerType) { $_Installer['InstallerType'] = $_MatchingInstaller.InstallerType }
         if ($_MatchingInstaller.Architecture) { $_Installer['Architecture'] = $_MatchingInstaller.Architecture }
@@ -469,7 +469,8 @@ Function Read-InstallerEntry {
                 if ($_) { $_Installer['InstallerType'] = $_ | Select-Object -First 1 }
                 Get-UriArchitecture -URI $_Installer['InstallerUrl'] -OutVariable _ | Out-Null
                 if ($_) { $_Installer['Architecture'] = $_ | Select-Object -First 1 }
-                $_Installer['ProductCode'] = $(Get-AppLockerFileInformation -Path $script:dest | Select-Object Publisher | Select-String -Pattern '{[A-Z0-9]{8}-([A-Z0-9]{4}-){3}[A-Z0-9]{12}}').Matches
+                $ProductCode = $(Get-AppLockerFileInformation -Path $script:dest | Select-Object Publisher | Select-String -Pattern '{[A-Z0-9]{8}-([A-Z0-9]{4}-){3}[A-Z0-9]{12}}').Matches
+                if (Test-String -Not "$ProductCode" -IsNull) { $_Installer['ProductCode'] = "$ProductCode" }
             }
         }
         # Manual Entry of Sha256 with validation
@@ -490,18 +491,22 @@ Function Read-InstallerEntry {
     }
 
     # Manual Entry of Architecture with validation
-    if ($_Installer['Architecture'] -CNotIn @($Patterns.ValidArchitectures)) {
-        do {
-            Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString()
-            Write-Host -ForegroundColor 'Green' -Object '[Required] Enter the architecture. Options:' , @($Patterns.ValidArchitectures -join ', ')
-            $_Installer['Architecture'] = Read-Host -Prompt 'Architecture' | TrimString
-            if ($_Installer['Architecture'] -Cin @($Patterns.ValidArchitectures)) {
-                $script:_returnValue = [ReturnValue]::Success()
-            } else {
-                $script:_returnValue = [ReturnValue]::new(400, 'Invalid Architecture', "Value must exist in the enum - $(@($Patterns.ValidArchitectures -join ', '))", 2)
-            }
-        } until ($script:_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
-    }
+    do {
+        Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString()
+        if (Test-String $_Installer['Architecture'] -IsNull) { Write-Host -ForegroundColor 'Green' -Object '[Required] Enter the architecture. Options:' , @($Patterns.ValidArchitectures -join ', ') }
+        else {
+            Write-Host -ForegroundColor 'Yellow' -Object '[Optional] Enter the architecture. Options:' , @($Patterns.ValidArchitectures -join ', ')
+            Write-Host -ForegroundColor 'DarkGray' -Object "Old Variable: $($_Installer['Architecture'])"
+        }
+        Read-Host -Prompt 'Architecture' -OutVariable _ | Out-Null
+        if (Test-String $_ -Not -IsNull) { $_Installer['Architecture'] = $_ | TrimString }
+
+        if ($_Installer['Architecture'] -Cin @($Patterns.ValidArchitectures)) {
+            $script:_returnValue = [ReturnValue]::Success()
+        } else {
+            $script:_returnValue = [ReturnValue]::new(400, 'Invalid Architecture', "Value must exist in the enum - $(@($Patterns.ValidArchitectures -join ', '))", 2)
+        }
+    } until ($script:_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
 
     # Manual Entry of Installer Type with validation
     if ($_Installer['InstallerType'] -CNotIn @($Patterns.ValidInstallerTypes)) {
@@ -674,7 +679,7 @@ Function Read-InstallerEntry {
         Write-Host -ForegroundColor 'White' -Object 'Can be found with ' -NoNewline; Write-Host -ForegroundColor 'DarkYellow' 'get-wmiobject Win32_Product | Sort-Object Name | Format-Table IdentifyingNumber, Name -AutoSize'
         $NewProductCode = Read-Host -Prompt 'ProductCode' | TrimString
         if (Test-String $NewProductCode -Not -IsNull) { $_Installer['ProductCode'] = $NewProductCode }
-        else { $_Installer['ProductCode'] = "$($_Installer['ProductCode'])" }
+        elseif (Test-String $_Installer['ProductCode'] -Not -IsNull) { $_Installer['ProductCode'] = "$($_Installer['ProductCode'])" }
 
         if (Test-String $_Installer['ProductCode'] -MinLength $Patterns.ProductCodeMinLength -MaxLength $Patterns.ProductCodeMaxLength -AllowNull) {
             $script:_returnValue = [ReturnValue]::Success()
@@ -853,7 +858,7 @@ Function Read-InstallerMetadataValue {
     )
     Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString()
     Write-Host -ForegroundColor 'Yellow' -Object $Prompt
-    if (Test-String -not $Variable -IsNull) { Write-Host -ForegroundColor 'DarkGray' "Old Value: $Variable" }
+    if (Test-String -not $Variable -IsNull) { Write-Host -ForegroundColor 'DarkGray' "Old Variable: $Variable" }
     $NewValue = Read-Host -Prompt $Key | TrimString
 
     if (Test-String -not $NewValue -IsNull) {
