@@ -644,6 +644,10 @@ Function Read-InstallerEntry {
     $_Installer['InstallerUrl'] = Request-InstallerUrl
   
     if ($_Installer.InstallerUrl -in ($script:Installers).InstallerUrl) {
+<<<<<<< HEAD
+=======
+        Write-Host "Found Installer Matching"
+>>>>>>> 5074e136ec (Confirm Architecture when Automatically Detected)
         $_MatchingInstaller = $script:Installers | Where-Object { $_.InstallerUrl -eq $_Installer.InstallerUrl } | Select-Object -First 1
         if ($_MatchingInstaller.InstallerSha256) { $_Installer['InstallerSha256'] = $_MatchingInstaller.InstallerSha256 }
         if ($_MatchingInstaller.InstallerType) { $_Installer['InstallerType'] = $_MatchingInstaller.InstallerType }
