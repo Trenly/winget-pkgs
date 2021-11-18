@@ -429,6 +429,18 @@ Function Get-UriArchitecture {
     return $null
 }
 
+function Test-InputObject {
+    Param (
+        [Parameter(Mandatory = $true, Position = 0)]
+        [PSCustomObject] $InputObject   
+    )
+
+    if ($null -eq $InputObject.PackageIdentifier) { return 'Package Identifier is required' }
+    if ($null -eq $InputObject.PackageVersion) { return 'Package Version is required' }
+    if ($null -eq $InputObject.InstallerUrls) { return 'Installer URLS are required' }
+    return $null
+}
+
 # Prompts the user to enter installer values
 # Sets the $script:Installers value as an output
 # Returns void
@@ -1798,13 +1810,12 @@ if (!$script:UsingAdvancedOption) {
 } else {
     if ($AutoUpgrade) { $script:Option = 'Auto' }
     if ($PSBoundParameters.ContainsKey('InputObject')) {
-        $script:ObjectData = $InputObject | ConvertFrom-Json
-        $_IsInvalid = Test-InputObject -InputObject $ObjectData
-        if ( $_IsInvalid ){
+        $_IsInvalid = Test-InputObject -InputObject $InputObject
+        if ( $null -ne $_IsInvalid ) {
             throw "$_IsInvalid"
         } else {
-            $PackageIdentifier = $ObjectData.PackageIdentifier
-            $PackageVersion = $ObjectData.PackageVersion
+            $script:PackageIdentifier = $InputObject.PackageIdentifier
+            $script:PackageVersion = $InputObject.PackageVersion
         }
         $script:Option = 'FromObject'
     }
@@ -1937,7 +1948,7 @@ if (!$LastVersion) {
     try {
         $script:LastVersion = Split-Path (Split-Path (Get-ChildItem -Path "$AppFolder\..\" -Recurse -Depth 1 -File -Filter '*.yaml' -ErrorAction SilentlyContinue).FullName ) -Leaf | Sort-Object $ToNatural | Select-Object -Last 1
         $script:ExistingVersions = Split-Path (Split-Path (Get-ChildItem -Path "$AppFolder\..\" -Recurse -Depth 1 -File -Filter '*.yaml' -ErrorAction SilentlyContinue).FullName ) -Leaf | Sort-Object $ToNatural | Select-Object -Unique
-        if ($script:Option -eq 'Auto' -and $PackageVersion -in $script:ExistingVersions) { $LastVersion = $PackageVersion }
+        if ($script:Option -in @('Auto'; 'FromObject') -and $PackageVersion -in $script:ExistingVersions) { $LastVersion = $PackageVersion }
         Write-Host -ForegroundColor 'DarkYellow' -Object "Found Existing Version: $LastVersion"
         $script:OldManifests = Get-ChildItem -Path "$AppFolder\..\$LastVersion"
     } catch {
@@ -1989,7 +2000,7 @@ if ($OldManifests.Name -eq "$PackageIdentifier.installer.yaml" -and $OldManifest
     $script:OldLocaleManifest = ConvertFrom-Yaml -Yaml ($(Get-Content -Path $(Resolve-Path "$AppFolder\..\$LastVersion\$PackageIdentifier.locale.$PackageLocale.yaml") -Encoding UTF8) -join "`n") -Ordered
     $script:OldVersionManifest = ConvertFrom-Yaml -Yaml ($(Get-Content -Path $(Resolve-Path "$AppFolder\..\$LastVersion\$PackageIdentifier.yaml") -Encoding UTF8) -join "`n") -Ordered
 } elseif ($OldManifests.Name -eq "$PackageIdentifier.yaml") {
-    if ($script:Option -eq 'NewLocale') { throw [ManifestException]::new('MultiManifest Required') }
+    if ($script:Option -in @('NewLocale'; 'FromObject')) { throw [ManifestException]::new('MultiManifest Required') }
     $script:OldManifestType = 'MultiManifest'
     $script:OldSingletonManifest = ConvertFrom-Yaml -Yaml ($(Get-Content -Path $(Resolve-Path "$AppFolder\..\$LastVersion\$PackageIdentifier.yaml") -Encoding UTF8) -join "`n") -Ordered
     $PackageLocale = $script:OldSingletonManifest.PackageLocale
@@ -2134,11 +2145,56 @@ Switch ($script:Option) {
     }
 
     'FromObject' {
-        if ($ObjectData.InstallerUrls.Count -ne $script:OldInstallerManifest.Installers.Count) {Throw "Installer counts not equal"}
-        # Copy files to new version if version is different than last version
-        # For each key in the installer object, except InstallerURLs, update the value
-        # For each installer, in order, update the URLs
-        # Run autoupdate
+        # Update the manifest with URLs that are already there
+        Write-Host $NewLine
+        Write-Host 'Parsing Input Data...' -ForegroundColor Blue
+
+        if ($InputObject.InstallerUrls.Count -ne $script:OldInstallerManifest.Installers.Count) { Throw 'Installer counts not equal' }
+        $NewManifestFiles = Get-ChildItem $(Resolve-Path "$AppFolder/../$LastVersion/") -Filter '*.yaml'
+        $NewInstallerManifestPath = Join-Path -Path $AppFolder -ChildPath "$PackageIdentifier.installer.yaml"
+        $NewInstallerManifest = Get-Content -Path ($NewManifestFiles | Where-Object { $_.Name -match "$PackageIdentifier.installer.yaml" }).FullName | ConvertFrom-Yaml -Ordered
+
+        $NewVersionManifestPath = Join-Path -Path $AppFolder -ChildPath "$PackageIdentifier.yaml"
+        $NewVersionManifest = Get-Content -Path ($NewManifestFiles | Where-Object { $_.FullName -match "$PackageIdentifier.yaml" }).FullName | ConvertFrom-Yaml -Ordered
+        
+        for ( $i = 0; $i -lt $NewInstallerManifest.Installers.Count; $i++) {
+            $NewInstallerManifest.Installers[$i].InstallerUrl = $InputObject.InstallerUrls[$i]
+        }
+        $InputKeys = ($InputObject | Get-Member | Where-Object { $_.MemberType -eq 'NoteProperty' }).Name
+        foreach ($_Key in $InstallerProperties) { if ($InputKeys -contains $_Key) { $NewInstallerManifest[$_Key] = $InputObject.$_Key } }
+        foreach ($_Key in $VersionProperties) { if ($InputKeys -contains $_Key) { $NewVersionManifest[$_Key] = $InputObject.$_Key } }
+
+        New-Item -ItemType Directory -Path $AppFolder -Force | Out-Null
+        $NewInstallerManifest = Restore-YamlKeyOrder -InputObject $NewInstallerManifest -SortOrder $InstallerProperties -NoComments
+        ConvertTo-Yaml $NewInstallerManifest > $NewInstallerManifestPath
+        $(Get-Content $NewInstallerManifestPath -Encoding UTF8) -replace "(.*)$([char]0x2370)", "# `$1" | Out-File -FilePath $NewInstallerManifestPath -Force
+        $MyRawString = Get-Content -Raw $NewInstallerManifestPath | TrimString
+        [System.IO.File]::WriteAllLines($NewInstallerManifestPath, $MyRawString, $Utf8NoBomEncoding)
+
+        $NewVersionManifest = Restore-YamlKeyOrder -InputObject $NewVersionManifest -SortOrder $VersionProperties
+        ConvertTo-Yaml $NewVersionManifest > $NewVersionManifestPath
+        $(Get-Content $NewVersionManifestPath -Encoding UTF8) -replace "(.*)$([char]0x2370)", "# `$1" | Out-File -FilePath $NewVersionManifestPath -Force
+        $MyRawString = Get-Content -Raw $NewVersionManifestPath | TrimString
+        [System.IO.File]::WriteAllLines($NewVersionManifestPath, $MyRawString, $Utf8NoBomEncoding)
+        
+        $NewLocaleFiles = $NewManifestFiles | Where-Object { $_.FullName -match "$PackageIdentifier.locale.*.yaml" }
+        if ($InputKeys -contains 'Locales') { $InputLocales = ($InputObject.Locales | Get-Member | Where-Object { $_.MemberType -eq 'NoteProperty' }).Name }
+        Write-Host $InputLocales
+        foreach ($_LocaleFile in $NewLocaleFiles) {
+            $NewLocalePath = Join-Path -Path $AppFolder -ChildPath $_LocaleFile.Name
+            $NewLocaleManifest = Get-Content -Path $_LocaleFile.FullName | ConvertFrom-Yaml -Ordered
+            foreach ($_Key in $LocaleProperties) { if ($InputKeys -contains $_Key) { $NewLocaleManifest[$_Key] = $InputObject.$_Key } }
+            if ($InputLocales -and $InputLocales -contains $NewLocaleManifest.PackageLocale ) {
+                $InputLocaleKeys = ($InputObject.Locales.$($NewLocaleManifest.PackageLocale) | Get-Member | Where-Object { $_.MemberType -eq 'NoteProperty' }).Name
+                foreach ($_Key in $LocaleProperties) { if ($InputLocaleKeys -contains $_Key) { $NewLocaleManifest[$_Key] = $InputObject.Locales.$($NewLocaleManifest.PackageLocale).$_Key } }
+            }
+            $NewLocaleManifest = Restore-YamlKeyOrder -InputObject $NewLocaleManifest -SortOrder $LocaleProperties
+            ConvertTo-Yaml $NewLocaleManifest > $NewLocalePath
+            $(Get-Content $NewLocalePath -Encoding UTF8) -replace "(.*)$([char]0x2370)", "# `$1" | Out-File -FilePath $NewLocalePath -Force
+            $MyRawString = Get-Content -Raw $NewLocalePath | TrimString
+            [System.IO.File]::WriteAllLines($NewLocalePath, $MyRawString, $Utf8NoBomEncoding)
+        }
+        # Upgrade SHAs etc
     }
 
     'Auto' {
@@ -2427,16 +2483,4 @@ class UnmetDependencyException : Exception {
 }
 class ManifestException : Exception {
     ManifestException([string] $message) : base($message) {}
-}
-
-function Test-InputObject {
-    Param (
-        [Parameter(Mandatory = $true, Position = 0)]
-        [PSCustomObject] $InputObject   
-    )
-
-    if ($null -eq $InputObject.PackageIdentifier) { return 'Package Identifier is required' }
-    if ($null -eq $InputObject.PackageVersion) { return 'Package Version is required' }
-    if ($null -eq $InputObject.InstallerUrls) { return 'Installer URLS are required' }
-    return $null
 }
