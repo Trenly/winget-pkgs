@@ -431,7 +431,6 @@ Function Get-UriArchitecture {
 # Sets the $script:Installers value as an output
 # Returns void
 Function Read-InstallerEntry {
-
     $_Installer = [ordered] @{}
     # Request user enter Installer URL
     $_Installer['InstallerUrl'] = Request-InstallerUrl
@@ -707,7 +706,7 @@ Function Read-InstallerEntry {
         default { $_Installer['UpgradeBehavior'] = 'install' }
     }
 
-    if ($script:SaveOption -eq '1') { Remove-Item -Path $script:dest }
+    if ($script:SaveOption -eq '1' -and (Test-Path -Path $script:dest)) { Remove-Item -Path $script:dest }
 
     # If the installers array is empty, create it
     if (!$script:Installers) {
@@ -1692,6 +1691,7 @@ Function Write-LocaleManifest {
                 $script:OldLocaleManifest = ConvertFrom-Yaml -Yaml ($(Get-Content -Path $DifLocale.FullName -Encoding UTF8) -join "`n") -Ordered
                 $script:OldLocaleManifest['PackageVersion'] = $PackageVersion
                 if ($script:OldLocaleManifest.Keys -contains 'Moniker') { $script:OldLocaleManifest.Remove('Moniker') }
+                $script:OldLocaleManifest['ManifestVersion'] = $ManifestVersion
                 $script:OldLocaleManifest = Restore-YamlKeyOrder $script:OldLocaleManifest $LocaleProperties
 
                 $yamlServer = "# yaml-language-server: $schema=https://aka.ms/winget-manifest.locale.$ManifestVersion.schema.json"
@@ -1723,6 +1723,8 @@ function Remove-ManifestVersion {
         $PathToVersion = Split-Path $PathToVersion
     } while (@(Get-ChildItem $PathToVersion).Count -eq 0)
 }
+
+## START OF MAIN SCRIPT ##
 
 # Initialize the return value to be a success
 $script:_returnValue = [ReturnValue]::new(200)
