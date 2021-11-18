@@ -760,6 +760,7 @@ Function Read-QuickInstallerEntry {
         # This is to ensure all previously entered and un-modified parameters are retained
         $_iteration += 1
         $_NewInstaller = $_OldInstaller
+        $_NewInstaller.Remove('InstallerSha256');
 
         # Show the user which installer entry they should be entering information for
         Write-Host -ForegroundColor 'Green' "Installer Entry #$_iteration`:`n"
@@ -772,53 +773,69 @@ Function Read-QuickInstallerEntry {
         # Request user enter the new Installer URL
         $_NewInstaller['InstallerUrl'] = Request-InstallerUrl
 
-        try {
-            $script:dest = Get-InstallerFile -URI $_NewInstaller['InstallerUrl'] -PackageIdentifier $PackageIdentifier -PackageVersion $PackageVersion
-        } catch {
-            # Here we also want to pass any exceptions through for potential debugging
-            throw [System.Net.WebException]::new('The file could not be downloaded. Try running the script again', $_.Exception)
-        } finally {
-            # Get the Sha256
-            $_NewInstaller['InstallerSha256'] = (Get-FileHash -Path $script:dest -Algorithm SHA256).Hash
-            # Update the product code, if a new one exists
-            # If a new product code doesn't exist, and the installer isn't an `.exe` file, remove the product code if it exists
-            $MSIProductCode = [string]$(Get-AppLockerFileInformation -Path $script:dest | Select-Object Publisher | Select-String -Pattern '{[A-Z0-9]{8}-([A-Z0-9]{4}-){3}[A-Z0-9]{12}}').Matches
-            if (Test-String -not $MSIProductCode -IsNull) {
-                $_NewInstaller['ProductCode'] = $MSIProductCode
-            } elseif ( ($_NewInstaller.Keys -contains 'ProductCode') -and ($script:dest -notmatch '.exe$')) {
-                $_NewInstaller.Remove('ProductCode')
-            }
-            # If the installer is msix or appx, try getting the new SignatureSha256
-            # If the new SignatureSha256 can't be found, remove it if it exists
-            if ($_NewInstaller.InstallerType -in @('msix', 'appx')) {
-                if (Get-Command 'winget.exe' -ErrorAction SilentlyContinue) { $NewSignatureSha256 = winget hash -m $script:dest | Select-String -Pattern 'SignatureSha256:' | ConvertFrom-String; if ($NewSignatureSha256.P2) { $NewSignatureSha256 = $NewSignatureSha256.P2.ToUpper() } }
-            }
-            if (Test-String -not $NewSignatureSha256 -IsNull) {
-                $_NewInstaller['SignatureSha256'] = $NewSignatureSha256
-            } elseif ($_NewInstaller.Keys -contains 'SignatureSha256') {
-                $_NewInstaller.Remove('SignatureSha256')
-            }
-            # If the installer is msix or appx, try getting the new package family name
-            # If the new package family name can't be found, remove it if it exists
-            if ($script:dest -match '\.(msix|appx)(bundle){0,1}$') {
-                try {
-                    Add-AppxPackage -Path $script:dest
-                    $InstalledPkg = Get-AppxPackage | Select-Object -Last 1 | Select-Object PackageFamilyName, PackageFullName
-                    $PackageFamilyName = $InstalledPkg.PackageFamilyName
-                    Remove-AppxPackage $InstalledPkg.PackageFullName
-                } catch {
-                    # Take no action here, we just want to catch the exceptions as a precaution
-                    Out-Null
-                } finally {
-                    if (Test-String -not $PackageFamilyName -IsNull) {
-                        $_NewInstaller['PackageFamilyName'] = $PackageFamilyName
-                    } elseif ($_NewInstaller.Keys -contains 'PackageFamilyName') {
-                        $_NewInstaller.Remove('PackageFamilyName')
+        if ($_NewInstaller.InstallerUrl -in ($_NewInstallers).InstallerUrl) {
+            Write-Host "Matching Installer Foud"
+            $_MatchingInstaller = $_NewInstallers | Where-Object { $_.InstallerUrl -eq $_NewInstaller.InstallerUrl } | Select-Object -First 1
+            if ($_MatchingInstaller.InstallerSha256) { $_NewInstaller['InstallerSha256'] = $_MatchingInstaller.InstallerSha256 } 
+            if ($_MatchingInstaller.InstallerType) { $_NewInstaller['InstallerType'] = $_MatchingInstaller.InstallerType }
+            if ($_MatchingInstaller.Architecture) { $_NewInstaller['Architecture'] = $_MatchingInstaller.Architecture }
+            if ($_MatchingInstaller.ProductCode) { $_NewInstaller['ProductCode'] = $_MatchingInstaller.ProductCode }
+            elseif ( ($_NewInstaller.Keys -contains 'ProductCode') -and ($script:dest -notmatch '.exe$')) { $_NewInstaller.Remove('ProductCode') }
+            if ($_MatchingInstaller.PackageFamilyName) { $_NewInstaller['PackageFamilyName'] = $_MatchingInstaller.PackageFamilyName }
+            elseif ($_NewInstaller.Keys -contains 'PackageFamilyName') { $_NewInstaller.Remove('PackageFamilyName') }
+            if ($_MatchingInstaller.SignatureSha256) { $_NewInstaller['SignatureSha256'] = $_MatchingInstaller.SignatureSha256 }
+            elseif ($_NewInstaller.Keys -contains 'SignatureSha256') { $_NewInstaller.Remove('SignatureSha256') }
+        }
+
+        if ($_NewInstaller.Keys -notcontains 'InstallerSha256') {
+            try {
+                $script:dest = Get-InstallerFile -URI $_NewInstaller['InstallerUrl'] -PackageIdentifier $PackageIdentifier -PackageVersion $PackageVersion
+            } catch {
+                # Here we also want to pass any exceptions through for potential debugging
+                throw [System.Net.WebException]::new('The file could not be downloaded. Try running the script again', $_.Exception)
+            } finally {
+                # Get the Sha256
+                $_NewInstaller['InstallerSha256'] = (Get-FileHash -Path $script:dest -Algorithm SHA256).Hash
+                # Update the product code, if a new one exists
+                # If a new product code doesn't exist, and the installer isn't an `.exe` file, remove the product code if it exists
+                $MSIProductCode = [string]$(Get-AppLockerFileInformation -Path $script:dest | Select-Object Publisher | Select-String -Pattern '{[A-Z0-9]{8}-([A-Z0-9]{4}-){3}[A-Z0-9]{12}}').Matches
+                if (Test-String -not $MSIProductCode -IsNull) {
+                    $_NewInstaller['ProductCode'] = $MSIProductCode
+                } elseif ( ($_NewInstaller.Keys -contains 'ProductCode') -and ($script:dest -notmatch '.exe$')) {
+                    $_NewInstaller.Remove('ProductCode')
+                }
+                # If the installer is msix or appx, try getting the new SignatureSha256
+                # If the new SignatureSha256 can't be found, remove it if it exists
+                if ($_NewInstaller.InstallerType -in @('msix', 'appx')) {
+                    if (Get-Command 'winget.exe' -ErrorAction SilentlyContinue) { $NewSignatureSha256 = winget hash -m $script:dest | Select-String -Pattern 'SignatureSha256:' | ConvertFrom-String; if ($NewSignatureSha256.P2) { $NewSignatureSha256 = $NewSignatureSha256.P2.ToUpper() } }
+                }
+                if (Test-String -not $NewSignatureSha256 -IsNull) {
+                    $_NewInstaller['SignatureSha256'] = $NewSignatureSha256
+                } elseif ($_NewInstaller.Keys -contains 'SignatureSha256') {
+                    $_NewInstaller.Remove('SignatureSha256')
+                }
+                # If the installer is msix or appx, try getting the new package family name
+                # If the new package family name can't be found, remove it if it exists
+                if ($script:dest -match '\.(msix|appx)(bundle){0,1}$') {
+                    try {
+                        Add-AppxPackage -Path $script:dest
+                        $InstalledPkg = Get-AppxPackage | Select-Object -Last 1 | Select-Object PackageFamilyName, PackageFullName
+                        $PackageFamilyName = $InstalledPkg.PackageFamilyName
+                        Remove-AppxPackage $InstalledPkg.PackageFullName
+                    } catch {
+                        # Take no action here, we just want to catch the exceptions as a precaution
+                        Out-Null
+                    } finally {
+                        if (Test-String -not $PackageFamilyName -IsNull) {
+                            $_NewInstaller['PackageFamilyName'] = $PackageFamilyName
+                        } elseif ($_NewInstaller.Keys -contains 'PackageFamilyName') {
+                            $_NewInstaller.Remove('PackageFamilyName')
+                        }
                     }
                 }
+                # Remove the downloaded files
+                Remove-Item -Path $script:dest
             }
-            # Remove the downloaded files
-            Remove-Item -Path $script:dest
         }
         #Add the updated installer to the new installers array
         $_NewInstaller = Restore-YamlKeyOrder $_NewInstaller $InstallerEntryProperties -NoComments
