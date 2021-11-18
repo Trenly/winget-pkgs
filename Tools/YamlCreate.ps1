@@ -692,14 +692,17 @@ Function Read-InstallerEntry {
     do {
         Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString()
         Write-Host -ForegroundColor 'Yellow' -Object '[Optional] Enter the application release date. Example: 2021-11-17'
-        Read-Host -Prompt 'ReleaseDate' -OutVariable _ | Out-Null
-        if ($_) { $_Installer['ReleaseDate'] = $_ | TrimString}
+        Read-Host -Prompt 'ReleaseDate' -OutVariable ReleaseDate | Out-Null
         try {
-            Get-Date([datetime]$($_ | TrimString)) -f 'yyyy-MM-dd' -OutVariable _ValidDate | Out-Null
-            if ($_ValidDate) { $_Installer['ReleaseDate'] = $_ValidDate | TrimString}
+            Get-Date([datetime]$($ReleaseDate | TrimString)) -f 'yyyy-MM-dd' -OutVariable _ValidDate | Out-Null
+            if ($_ValidDate) { $_Installer['ReleaseDate'] = $_ValidDate | TrimString }
             $script:_returnValue = [ReturnValue]::Success()
         } catch {
-            $script:_returnValue = [ReturnValue]::new(400, 'Invalid Date', 'Input could not be resolved to a date', 2)
+            if (Test-String $ReleaseDate -IsNull) {
+                $script:_returnValue = [ReturnValue]::Success()
+            } else {
+                $script:_returnValue = [ReturnValue]::new(400, 'Invalid Date', 'Input could not be resolved to a date', 2)
+            }
         }
     } until ($script:_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
 
@@ -835,6 +838,7 @@ Function Read-QuickInstallerEntry {
             # Remove the downloaded files
             Remove-Item -Path $script:dest
         }
+        if ($_NewInstaller.Keys -contains 'ReleaseDate') { $_NewInstaller.Remove('ReleaseDate') }
         #Add the updated installer to the new installers array
         $_NewInstaller = Restore-YamlKeyOrder $_NewInstaller $InstallerEntryProperties -NoComments
         $_NewInstallers += $_NewInstaller
@@ -2175,6 +2179,7 @@ Switch ($script:Option) {
                         }
                     }
                 }
+                if ($_Installer.Keys -contains 'ReleaseDate') { $_Installer.Remove('ReleaseDate') }
                 # Remove the downloaded files
                 Remove-Item -Path $script:dest
             }
