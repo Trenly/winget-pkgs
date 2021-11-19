@@ -774,7 +774,6 @@ Function Read-QuickInstallerEntry {
         $_NewInstaller['InstallerUrl'] = Request-InstallerUrl
 
         if ($_NewInstaller.InstallerUrl -in ($_NewInstallers).InstallerUrl) {
-            Write-Host "Matching Installer Foud"
             $_MatchingInstaller = $_NewInstallers | Where-Object { $_.InstallerUrl -eq $_NewInstaller.InstallerUrl } | Select-Object -First 1
             if ($_MatchingInstaller.InstallerSha256) { $_NewInstaller['InstallerSha256'] = $_MatchingInstaller.InstallerSha256 } 
             if ($_MatchingInstaller.InstallerType) { $_NewInstaller['InstallerType'] = $_MatchingInstaller.InstallerType }
