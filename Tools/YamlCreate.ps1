@@ -2254,11 +2254,11 @@ if ($PromptSubmit -eq '0') {
     # Determine what type of update should be used as the prefix for the PR
     switch -regex ($Option) {
         'New|QuickUpdateVersion|Auto' {
-            $AllVersions = ($script:ExistingVersions + $PackageVersion) | Sort-Object $ToNatural
+            $AllVersions = (@($script:ExistingVersions) + @($PackageVersion)) | Sort-Object $ToNatural
             if ($AllVersions.Count -eq '1') { $CommitType = 'New package' }
             elseif ($script:PackageVersion -in $script:ExistingVersions) { $CommitType = 'Update' }
-            elseif (($AllVersions.IndexOf($PackageVersion)+1) -eq $AllVersions.Count) { $CommitType = 'New version' }
-            elseif (($AllVersions.IndexOf($PackageVersion)+1) -ne $AllVersions.Count) { $CommitType = 'Add version' }
+            elseif (($AllVersions.IndexOf($PackageVersion) + 1) -eq $AllVersions.Count) { $CommitType = 'New version' }
+            elseif (($AllVersions.IndexOf($PackageVersion) + 1) -ne $AllVersions.Count) { $CommitType = 'Add version' }
         }
         'EditMetadata' { $CommitType = 'Metadata' }
         'NewLocale' { $CommitType = 'Locale' }
