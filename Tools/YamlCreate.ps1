@@ -721,6 +721,7 @@ Function Read-InstallerEntry {
         'U' { $_Installer['UpgradeBehavior'] = 'uninstallPrevious' }
         default { $_Installer['UpgradeBehavior'] = 'install' }
     }
+    Write-Host
 
     # Request release date
     do {
@@ -1338,13 +1339,13 @@ Function Read-LocaleMetadata {
     do {
         Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString()
         Write-Host -ForegroundColor 'Yellow' -Object '[Optional] Enter the release notes URL for this version of the package.'
-        $script:ReleaseNotesUrl = Read-Host -Prompt 'ReleaseNotesURL' | TrimString
-        if (Test-String $script:ReleaseNotesURL -MaxLength $Patterns.GenericUrlMaxLength -MatchPattern $Patterns.GenericUrl -AllowNull) {
+        $script:ReleaseNotesUrl = Read-Host -Prompt 'ReleaseNotesUrl' | TrimString
+        if (Test-String $script:ReleaseNotesUrl -MaxLength $Patterns.GenericUrlMaxLength -MatchPattern $Patterns.GenericUrl -AllowNull) {
             $script:_returnValue = [ReturnValue]::Success()
         } else {
-            if (Test-String -not $script:ReleaseNotesURL -MaxLength $Patterns.GenericUrlMaxLength -AllowNull) {
+            if (Test-String -not $script:ReleaseNotesUrl -MaxLength $Patterns.GenericUrlMaxLength -AllowNull) {
                 $script:_returnValue = [ReturnValue]::LengthError(1, $Patterns.GenericUrlMaxLength)
-            } elseif (Test-String -not $script:ReleaseNotesURL -MatchPattern $Patterns.GenericUrl) {
+            } elseif (Test-String -not $script:ReleaseNotesUrl -MatchPattern $Patterns.GenericUrl) {
                 $script:_returnValue = [ReturnValue]::PatternError()
             } else {
                 $script:_returnValue = [ReturnValue]::GenericError()
@@ -1760,6 +1761,10 @@ Function Write-LocaleManifest {
     # Clean up the existing files just in case
     if ($LocaleManifest['Tags']) { $LocaleManifest['Tags'] = @($LocaleManifest['Tags'] | ToLower | UniqueItems | NoWhitespace | Sort-Object) }
     if ($LocaleManifest['Moniker']) { $LocaleManifest['Moniker'] = $LocaleManifest['Moniker'] | ToLower | NoWhitespace }
+
+    # Clean up the volatile fields
+    if ($LocaleManifest['ReleaseNotes'] -and (Test-String $script:ReleaseNotes -IsNull)) { $LocaleManifest.Remove('ReleaseNotes')}
+    if ($LocaleManifest['ReleaseNotesUrl'] -and (Test-String $script:ReleaseNotes -IsNull)) { $LocaleManifest.Remove('ReleaseNotesUrl')}
 
     $LocaleManifest = Restore-YamlKeyOrder $LocaleManifest $LocaleProperties
 
