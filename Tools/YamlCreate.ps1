@@ -724,6 +724,7 @@ Function Read-InstallerEntry {
     Write-Host
 
     # Request release date
+    $script:ReleaseDatePrompted = $true
     do {
         Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString()
         Write-Host -ForegroundColor 'Yellow' -Object '[Optional] Enter the application release date. Example: 2021-11-17'
@@ -1637,6 +1638,10 @@ Function Write-InstallerManifest {
         $InstallerManifest['Installers'] = $script:OldVersionManifest['Installers']
     }
 
+    foreach ($_Installer in $InstallerManifest.Installers){
+        if ($_Installer['ReleaseDate'] -and !$script:ReleaseDatePrompted) { $_Installer.Remove('ReleaseDate') }
+    }
+
     Add-YamlParameter -Object $InstallerManifest -Parameter 'ManifestType' -Value 'installer'
     Add-YamlParameter -Object $InstallerManifest -Parameter 'ManifestVersion' -Value $ManifestVersion
     If ($InstallerManifest['Dependencies']) {
@@ -1794,11 +1799,10 @@ Function Write-LocaleManifest {
                 # Clean up the existing files just in case
                 if ($script:OldLocaleManifest['Tags']) { $script:OldLocaleManifest['Tags'] = @($script:OldLocaleManifest['Tags'] | ToLower | UniqueItems | NoWhitespace | Sort-Object) }
 
-                
                 # Clean up the volatile fields
                 if ($OldLocaleManifest['ReleaseNotes'] -and (Test-String $script:ReleaseNotes -IsNull)) { $OldLocaleManifest.Remove('ReleaseNotes') }
                 if ($OldLocaleManifest['ReleaseNotesUrl'] -and (Test-String $script:ReleaseNotes -IsNull)) { $OldLocaleManifest.Remove('ReleaseNotesUrl') }
-                
+
                 $script:OldLocaleManifest = Restore-YamlKeyOrder $script:OldLocaleManifest $LocaleProperties
 
                 $yamlServer = "# yaml-language-server: `$schema=https://aka.ms/winget-manifest.locale.$ManifestVersion.schema.json"
