@@ -489,7 +489,7 @@ Function Read-InstallerEntry {
                 Get-UriArchitecture -URI $_Installer['InstallerUrl'] -OutVariable _ | Out-Null
                 if ($_) { $_Installer['Architecture'] = $_ | Select-Object -First 1 }
                 if ([System.Environment]::OSVersion.Platform -match 'Win' -and ($script:dest).EndsWith('.msi')) {
-                    $ProductCode = ([string](Get-MSIProperty -MSIPath $script:dest -Parameter 'ProductCode') | Select-String -Pattern '{[A-Z0-9]{8}-([A-Z0-9]{4}-){3}[A-Z0-9]{12}}').Matches
+                    $ProductCode = ([string](Get-MSIProperty -MSIPath $script:dest -Parameter 'ProductCode') | Select-String -Pattern '{[A-Z0-9]{8}-([A-Z0-9]{4}-){3}[A-Z0-9]{12}}').Matches.Value
                 }
                 if (Test-String -Not "$ProductCode" -IsNull) { $_Installer['ProductCode'] = "$ProductCode" }
             }
@@ -838,7 +838,7 @@ Function Read-QuickInstallerEntry {
                 # Update the product code, if a new one exists
                 # If a new product code doesn't exist, and the installer isn't an `.exe` file, remove the product code if it exists
                 if ([System.Environment]::OSVersion.Platform -match 'Win' -and ($script:dest).EndsWith('.msi')) {
-                    $MSIProductCode = ([string](Get-MSIProperty -MSIPath $script:dest -Parameter 'ProductCode') | Select-String -Pattern '{[A-Z0-9]{8}-([A-Z0-9]{4}-){3}[A-Z0-9]{12}}').Matches
+                    $MSIProductCode = ([string](Get-MSIProperty -MSIPath $script:dest -Parameter 'ProductCode') | Select-String -Pattern '{[A-Z0-9]{8}-([A-Z0-9]{4}-){3}[A-Z0-9]{12}}').Matches.Value
                 }
                 if (Test-String -not $MSIProductCode -IsNull) {
                     $_NewInstaller['ProductCode'] = $MSIProductCode
@@ -2242,7 +2242,7 @@ Switch ($script:Option) {
                 # Update the product code, if a new one exists
                 # If a new product code doesn't exist, and the installer isn't an `.exe` file, remove the product code if it exists
                 if ([System.Environment]::OSVersion.Platform -match 'Win' -and ($script:dest).EndsWith('.msi')) {
-                    $MSIProductCode = ([string](Get-MSIProperty -MSIPath $script:dest -Parameter 'ProductCode') | Select-String -Pattern '{[A-Z0-9]{8}-([A-Z0-9]{4}-){3}[A-Z0-9]{12}}').Matches
+                    $MSIProductCode = ([string](Get-MSIProperty -MSIPath $script:dest -Parameter 'ProductCode') | Select-String -Pattern '{[A-Z0-9]{8}-([A-Z0-9]{4}-){3}[A-Z0-9]{12}}').Matches.Value
                 }
                 if (Test-String -not $MSIProductCode -IsNull) {
                     $_Installer['ProductCode'] = $MSIProductCode
