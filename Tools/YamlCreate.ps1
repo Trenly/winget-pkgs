@@ -884,7 +884,7 @@ Function Read-QuickInstallerEntry {
                 # Check that MSI's aren't actually WIX
                 if ($_NewInstaller['InstallerType'] -eq 'msi'){
                     $DetectedType = Get-PathInstallerType $script:dest
-                    if ($DetectedType -in @('msi','wix')){$_NewInstaller['InstallerType'] = $DetectedType}
+                    if ($DetectedType -in @('msi';'wix')){$_NewInstaller['InstallerType'] = $DetectedType}
                 }
                 # Get the Sha256
                 $_NewInstaller['InstallerSha256'] = (Get-FileHash -Path $script:dest -Algorithm SHA256).Hash
@@ -2294,7 +2294,7 @@ Switch ($script:Option) {
                 # Check that MSI's aren't actually WIX
                 if ($_Installer['InstallerType'] -eq 'msi'){
                     $DetectedType = Get-PathInstallerType $script:dest
-                    if ($DetectedType -in @('msi','wix')){$_Installer['InstallerType'] = $DetectedType}
+                    if ($DetectedType -in @('msi';'wix')){$_Installer['InstallerType'] = $DetectedType}
                 }
                 # Get the Sha256
                 $_Installer['InstallerSha256'] = (Get-FileHash -Path $script:dest -Algorithm SHA256).Hash
