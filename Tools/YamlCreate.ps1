@@ -369,6 +369,34 @@ Function Get-InstallerFile {
     return $_OutFile
 }
 
+Function Get-MSIProperty {
+    Param
+    (
+        [Parameter(Mandatory = $true)]
+        [string] $MSIPath,
+        [Parameter(Mandatory = $true)]
+        [string] $Parameter
+    )
+    try {
+        $windowsInstaller = New-Object -com WindowsInstaller.Installer
+        $database = $windowsInstaller.GetType().InvokeMember('OpenDatabase', 'InvokeMethod', $null, $windowsInstaller, @($MSIPath, 0))
+        $view = $database.GetType().InvokeMember('OpenView', 'InvokeMethod', $null, $database, ("SELECT Value FROM Property WHERE Property = '$Parameter'"))
+        $view.GetType().InvokeMember('Execute', 'InvokeMethod', $null, $view, $null)
+        $record = $view.GetType().InvokeMember('Fetch', 'InvokeMethod', $null, $view, $null)
+        $outputObject = $($record.GetType().InvokeMember('StringData', 'GetProperty', $null, $record, 1))
+        $view.GetType().InvokeMember('Close', 'InvokeMethod', $null, $view, $null)
+        [System.Runtime.InteropServices.Marshal]::FinalReleaseComObject($view)
+        [System.Runtime.InteropServices.Marshal]::FinalReleaseComObject($database)
+        [System.Runtime.InteropServices.Marshal]::FinalReleaseComObject($windowsInstaller)
+        [System.GC]::Collect()
+        [System.GC]::WaitForPendingFinalizers()
+        return $outputObject
+    } catch {
+        Write-Error -Message $_.ToString()
+        break
+    }
+}
+
 Function Get-UserSavePreference {
     switch ($ScriptSettings.SaveToTemporaryFolder) {
         'always' { $_Preference = '0' }
@@ -460,8 +488,8 @@ Function Read-InstallerEntry {
                 if ($_) { $_Installer['InstallerType'] = $_ | Select-Object -First 1 }
                 Get-UriArchitecture -URI $_Installer['InstallerUrl'] -OutVariable _ | Out-Null
                 if ($_) { $_Installer['Architecture'] = $_ | Select-Object -First 1 }
-                if ([System.Environment]::OSVersion.Platform -match 'Win') {
-                    $MSIProductCode = [string]$(Get-AppLockerFileInformation -Path $script:dest | Select-Object Publisher | Select-String -Pattern '{[A-Z0-9]{8}-([A-Z0-9]{4}-){3}[A-Z0-9]{12}}').Matches
+                if ([System.Environment]::OSVersion.Platform -match 'Win' -and ($script:dest).EndsWith('.msi')) {
+                    $ProductCode = ([string](Get-MSIProperty -MSIPath $script:dest -Parameter 'ProductCode') | Select-String -Pattern '{[A-Z0-9]{8}-([A-Z0-9]{4}-){3}[A-Z0-9]{12}}').Matches
                 }
                 if (Test-String -Not "$ProductCode" -IsNull) { $_Installer['ProductCode'] = "$ProductCode" }
             }
@@ -809,12 +837,12 @@ Function Read-QuickInstallerEntry {
                 $_NewInstaller['InstallerSha256'] = (Get-FileHash -Path $script:dest -Algorithm SHA256).Hash
                 # Update the product code, if a new one exists
                 # If a new product code doesn't exist, and the installer isn't an `.exe` file, remove the product code if it exists
-                if ([System.Environment]::OSVersion.Platform -match 'Win') {
-                    $MSIProductCode = [string]$(Get-AppLockerFileInformation -Path $script:dest | Select-Object Publisher | Select-String -Pattern '{[A-Z0-9]{8}-([A-Z0-9]{4}-){3}[A-Z0-9]{12}}').Matches
+                if ([System.Environment]::OSVersion.Platform -match 'Win' -and ($script:dest).EndsWith('.msi')) {
+                    $MSIProductCode = ([string](Get-MSIProperty -MSIPath $script:dest -Parameter 'ProductCode') | Select-String -Pattern '{[A-Z0-9]{8}-([A-Z0-9]{4}-){3}[A-Z0-9]{12}}').Matches
                 }
                 if (Test-String -not $MSIProductCode -IsNull) {
                     $_NewInstaller['ProductCode'] = $MSIProductCode
-                } elseif ( ($_NewInstaller.Keys -contains 'ProductCode') -and ($_NewInstaller.InstallerType -in @('appx'; 'msi'; 'msix'; 'appxbundle'; 'msixbundle'))) {
+                } elseif ( ($_NewInstaller.Keys -contains 'ProductCode') -and ($_NewInstaller.InstallerType -in @('appx'; 'msi'; 'msix'; 'wix'))) {
                     $_NewInstaller.Remove('ProductCode')
                 }
                 # If the installer is msix or appx, try getting the new SignatureSha256
@@ -2213,12 +2241,12 @@ Switch ($script:Option) {
                 $_Installer['InstallerSha256'] = (Get-FileHash -Path $script:dest -Algorithm SHA256).Hash
                 # Update the product code, if a new one exists
                 # If a new product code doesn't exist, and the installer isn't an `.exe` file, remove the product code if it exists
-                if ([System.Environment]::OSVersion.Platform -match 'Win') {
-                    $MSIProductCode = [string]$(Get-AppLockerFileInformation -Path $script:dest | Select-Object Publisher | Select-String -Pattern '{[A-Z0-9]{8}-([A-Z0-9]{4}-){3}[A-Z0-9]{12}}').Matches
+                if ([System.Environment]::OSVersion.Platform -match 'Win' -and ($script:dest).EndsWith('.msi')) {
+                    $MSIProductCode = ([string](Get-MSIProperty -MSIPath $script:dest -Parameter 'ProductCode') | Select-String -Pattern '{[A-Z0-9]{8}-([A-Z0-9]{4}-){3}[A-Z0-9]{12}}').Matches
                 }
                 if (Test-String -not $MSIProductCode -IsNull) {
                     $_Installer['ProductCode'] = $MSIProductCode
-                } elseif ( ($_Installer.Keys -contains 'ProductCode') -and ($_Installer.InstallerType -in @('appx'; 'msi'; 'msix'; 'appxbundle'; 'msixbundle'))) {
+                } elseif ( ($_Installer.Keys -contains 'ProductCode') -and ($_Installer.InstallerType -in @('appx'; 'msi'; 'msix'; 'wix'))) {
                     $_Installer.Remove('ProductCode')
                 }
                 # If the installer is msix or appx, try getting the new SignatureSha256
