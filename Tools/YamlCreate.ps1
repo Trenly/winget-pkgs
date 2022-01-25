@@ -397,6 +397,48 @@ Function Get-MSIProperty {
     }
 }
 
+Function Get-ItemMetadata {
+    Param
+    (
+        [Parameter(Mandatory = $true)]
+        [string] $FilePath
+    )
+    try {
+        $MetaDataObject = [ordered] @{}
+        $FileInformation = (Get-Item $FilePath)
+        $ShellApplication = New-Object -ComObject Shell.Application
+        $ShellFolder = $ShellApplication.Namespace($FileInformation.Directory.FullName)
+        $ShellFile = $ShellFolder.ParseName($FileInformation.Name)
+        $MetaDataProperties = [ordered] @{}
+        0..400 | ForEach-Object -Process {
+            $DataValue = $ShellFolder.GetDetailsOf($null, $_)
+            $PropertyValue = (Get-Culture).TextInfo.ToTitleCase($DataValue.Trim()).Replace(' ', '')
+            if ($PropertyValue -ne '') {
+                $MetaDataProperties["$_"] = $PropertyValue
+            }
+        }
+        foreach ($Key in $MetaDataProperties.Keys) {
+            $Property = $MetaDataProperties[$Key]
+            $Value = $ShellFolder.GetDetailsOf($ShellFile, [int] $Key)
+            if ($Property -in 'Attributes', 'Folder', 'Type', 'SpaceFree', 'TotalSize', 'SpaceUsed') {
+                continue
+            }
+            If (($null -ne $Value) -and ($Value -ne '')) {
+                $MetaDataObject["$Property"] = $Value
+            }
+        }
+        [void][System.Runtime.InteropServices.Marshal]::FinalReleaseComObject($ShellFile)
+        [void][System.Runtime.InteropServices.Marshal]::FinalReleaseComObject($ShellFolder)
+        [void][System.Runtime.InteropServices.Marshal]::FinalReleaseComObject($ShellApplication)
+        [System.GC]::Collect()
+        [System.GC]::WaitForPendingFinalizers()
+        return $MetaDataObject
+    } catch {
+        Write-Error -Message $_.ToString()
+        break
+    }
+}
+
 Function Get-UserSavePreference {
     switch ($ScriptSettings.SaveToTemporaryFolder) {
         'always' { $_Preference = '0' }
@@ -427,7 +469,13 @@ Function Get-PathInstallerType {
     )
 
     if ($Path -match '\.msix(bundle){0,1}$') { return 'msix' }
-    if ($Path -match '\.msi$') { return 'msi' }
+    if ($Path -match '\.msi$') {
+        $ObjectMetadata = Get-ItemMetadata $Path
+        if ($ObjectMetadata.Keys -contains 'ProgramName') {
+            if ($ObjectMetadata.ProgramName -ne 'Windows Installer') { return 'wix' }
+        }
+        return 'msi' 
+    }
     if ($Path -match '\.appx(bundle){0,1}$') { return 'appx' }
     if ($Path -match '\.zip$') { return 'zip' }
     return $null
@@ -833,6 +881,11 @@ Function Read-QuickInstallerEntry {
                 # Here we also want to pass any exceptions through for potential debugging
                 throw [System.Net.WebException]::new('The file could not be downloaded. Try running the script again', $_.Exception)
             } finally {
+                # Check that MSI's aren't actually WIX
+                if ($_NewInstaller['InstallerType'] -eq 'msi'){
+                    $DetectedType = Get-PathInstallerType $script:dest
+                    if ($DetectedType -in @('msi';'wix')){$_NewInstaller['InstallerType'] = $DetectedType}
+                }
                 # Get the Sha256
                 $_NewInstaller['InstallerSha256'] = (Get-FileHash -Path $script:dest -Algorithm SHA256).Hash
                 # Update the product code, if a new one exists
@@ -1649,7 +1702,7 @@ Function Write-InstallerManifest {
         $InstallerManifest['Installers'] = $script:OldVersionManifest['Installers']
     }
 
-    foreach ($_Installer in $InstallerManifest.Installers){
+    foreach ($_Installer in $InstallerManifest.Installers) {
         if ($_Installer['ReleaseDate'] -and !$script:ReleaseDatePrompted) { $_Installer.Remove('ReleaseDate') }
     }
 
@@ -2238,6 +2291,11 @@ Switch ($script:Option) {
                 # Here we also want to pass any exceptions through for potential debugging
                 throw [System.Net.WebException]::new('The file could not be downloaded. Try running the script again', $_.Exception)
             } finally {
+                # Check that MSI's aren't actually WIX
+                if ($_Installer['InstallerType'] -eq 'msi'){
+                    $DetectedType = Get-PathInstallerType $script:dest
+                    if ($DetectedType -in @('msi';'wix')){$_Installer['InstallerType'] = $DetectedType}
+                }
                 # Get the Sha256
                 $_Installer['InstallerSha256'] = (Get-FileHash -Path $script:dest -Algorithm SHA256).Hash
                 # Update the product code, if a new one exists
