@@ -472,7 +472,7 @@ Function Get-PathInstallerType {
     if ($Path -match '\.msi$') {
         $ObjectMetadata = Get-ItemMetadata $Path
         if ($ObjectMetadata.Keys -contains 'ProgramName') {
-            if ($ObjectMetadata.ProgramName -match 'Windows Installer XML') { return 'wix' }
+            if ($ObjectMetadata.ProgramName -ne 'Windows Installer') { return 'wix' }
         }
         return 'msi' 
     }
