@@ -153,7 +153,7 @@ if ($Settings) {
     exit
 }
 
-$ScriptHeader = '# Created with YamlCreate.ps1 v2.0.2-alpha'
+$ScriptHeader = '# Created with YamlCreate.ps1 v2.0.6-alpha'
 $ManifestVersion = '1.1.0'
 $PSDefaultParameterValues = @{ '*:Encoding' = 'UTF8' }
 $Utf8NoBomEncoding = New-Object System.Text.UTF8Encoding $False
@@ -911,21 +911,6 @@ Function Read-InstallerEntry {
         }
     } until ($script:_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
 
-    # Request release date
-    do {
-        Write-Host -ForegroundColor 'Red' $script:_returnValue.ErrorString()
-        Write-Host -ForegroundColor 'Yellow' -Object '[Optional] Enter the application release date. Example: 2021-11-17'
-        Read-Host -Prompt 'ReleaseDate' -OutVariable _ | Out-Null
-        if ($_) { $_Installer['ReleaseDate'] = $_ | TrimString }
-        try {
-            Get-Date([datetime]$($_ | TrimString)) -f 'yyyy-MM-dd' -OutVariable _ValidDate | Out-Null
-            if ($_ValidDate) { $_Installer['ReleaseDate'] = $_ValidDate | TrimString }
-            $script:_returnValue = [ReturnValue]::Success()
-        } catch {
-            $script:_returnValue = [ReturnValue]::new(400, 'Invalid Date', 'Input could not be resolved to a date', 2)
-        }
-    } until ($script:_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
-
     # Request installer scope
     $_menu = @{
         entries       = @('[M] Machine'; '[U] User'; '*[N] No idea')
@@ -968,8 +953,6 @@ Function Read-InstallerEntry {
             }
         }
     } until ($script:_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
-
-    if ($script:SaveOption -eq '1' -and (Test-Path -Path $script:dest)) { Remove-Item -Path $script:dest }
 
     if ($script:SaveOption -eq '1' -and (Test-Path -Path $script:dest)) { Remove-Item -Path $script:dest }
 
