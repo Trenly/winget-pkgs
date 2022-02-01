@@ -1023,7 +1023,10 @@ Function Read-QuickInstallerEntry {
                 throw [System.Net.WebException]::new('The file could not be downloaded. Try running the script again', $_.Exception)
             } finally {
                 # Check that MSI's aren't actually WIX
+<<<<<<< HEAD
                 Write-Host -ForegroundColor 'Green' "Installer Downloaded!`nProcessing installer data. . . "
+=======
+>>>>>>> 5f07cfed74 (Formatting)
                 if ($_NewInstaller['InstallerType'] -eq 'msi') {
                     $DetectedType = Get-PathInstallerType $script:dest
                     if ($DetectedType -in @('msi'; 'wix')) { $_NewInstaller['InstallerType'] = $DetectedType }
