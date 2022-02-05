@@ -319,7 +319,7 @@ Function Test-ValidFileName {
 # Returns the validated URL which was entered
 Function Request-InstallerUrl {
     do {
-        Write-Host -ForegroundColor $(if ($script:_returnValue.Severity -gt 1) {'red'} else {'yellow'}) $script:_returnValue.ErrorString()
+        Write-Host -ForegroundColor $(if ($script:_returnValue.Severity -gt 1) { 'red' } else { 'yellow' }) $script:_returnValue.ErrorString()
         if ($script:_returnValue.StatusCode -ne 409) {
             Write-Host -ForegroundColor 'Green' -Object '[Required] Enter the download url to the installer.'
             $NewInstallerUrl = Read-Host -Prompt 'Url' | TrimString
@@ -336,7 +336,7 @@ Function Request-InstallerUrl {
                     HelpText      = "Discovered URL: $($HTTP_Response.ResponseUri.OriginalString)"
                     DefaultString = 'Y'
                 }
-                switch ($(if ($ScriptSettings.UseRedirectedURL -eq 'always') {'Y'} else {Invoke-KeypressMenu -Prompt $_menu['Prompt'] -Entries $_menu['Entries'] -DefaultString $_menu['DefaultString'] -HelpText $_menu['HelpText']})) {
+                switch ($(if ($ScriptSettings.UseRedirectedURL -eq 'always') { 'Y' } else { Invoke-KeypressMenu -Prompt $_menu['Prompt'] -Entries $_menu['Entries'] -DefaultString $_menu['DefaultString'] -HelpText $_menu['HelpText'] })) {
                     'N' {} #Continue without replacing URL
                     default { 
                         $NewInstallerUrl = $HTTP_Response.ResponseUri.OriginalString
