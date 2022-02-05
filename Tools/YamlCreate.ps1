@@ -329,7 +329,7 @@ Function Request-InstallerUrl {
         if ((Test-Url $NewInstallerUrl) -ne 200) {
             $script:_returnValue = [ReturnValue]::new(502, 'Invalid URL Response', 'The URL did not return a successful response from the server', 2)
         } else {
-            if (($script:ResponseUri -ne $NewInstallerUrl) -and ($ScriptSettings.UseRedirectedURL -ne 'never')) {
+            if (($script:ResponseUri -ne $NewInstallerUrl) -and ($ScriptSettings.UseRedirectedURL -ne 'never') -and ($NewInstallerUrl -notmatch 'github')) {
                 #If urls don't match, ask to update; If they do update, set custom error and check for validity;
                 $_menu = @{
                     entries       = @('*[Y] Use detected URL'; '[N] Use original URL')
