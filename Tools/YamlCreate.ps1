@@ -295,7 +295,8 @@ Function Test-Url {
     try {
         $HTTP_Request = [System.Net.WebRequest]::Create($URL)
         $HTTP_Request.UserAgent = 'Microsoft-Delivery-Optimization/10.1'
-        $script:HTTP_Response = $HTTP_Request.GetResponse()
+        $HTTP_Response = $HTTP_Request.GetResponse()
+        $script:ResponseUri = $HTTP_Response.ResponseUri.OriginalString
         $HTTP_Status = [int]$HTTP_Response.StatusCode
     } catch {
         # Take no action here; If there is an exception, we will treat it like a 404
@@ -328,18 +329,18 @@ Function Request-InstallerUrl {
         if ((Test-Url $NewInstallerUrl) -ne 200) {
             $script:_returnValue = [ReturnValue]::new(502, 'Invalid URL Response', 'The URL did not return a successful response from the server', 2)
         } else {
-            if (($HTTP_Response.ResponseUri.OriginalString -ne $NewInstallerUrl) -and ($ScriptSettings.UseRedirectedURL -ne 'never')) {
+            if (($script:ResponseUri -ne $NewInstallerUrl) -and ($ScriptSettings.UseRedirectedURL -ne 'never')) {
                 #If urls don't match, ask to update; If they do update, set custom error and check for validity;
                 $_menu = @{
                     entries       = @('*[Y] Use detected URL'; '[N] Use original URL')
                     Prompt        = 'The URL provided appears to be redirected. Would you like to use the destination URL instead?'
-                    HelpText      = "Discovered URL: $($HTTP_Response.ResponseUri.OriginalString)"
+                    HelpText      = "Discovered URL: $($script:ResponseUri)"
                     DefaultString = 'Y'
                 }
                 switch ($(if ($ScriptSettings.UseRedirectedURL -eq 'always') { 'Y' } else { Invoke-KeypressMenu -Prompt $_menu['Prompt'] -Entries $_menu['Entries'] -DefaultString $_menu['DefaultString'] -HelpText $_menu['HelpText'] })) {
                     'N' {} #Continue without replacing URL
                     default { 
-                        $NewInstallerUrl = $HTTP_Response.ResponseUri.OriginalString
+                        $NewInstallerUrl = $script:ResponseUri
                         $script:_returnValue = [ReturnValue]::new(409, 'URL Changed', 'The URL was changed during processing and will be re-validated', 1)
                         Write-Host
                     }
