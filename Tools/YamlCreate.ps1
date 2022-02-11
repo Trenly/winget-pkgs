@@ -296,7 +296,7 @@ Function Test-Url {
         $HTTP_Request = [System.Net.WebRequest]::Create($URL)
         $HTTP_Request.UserAgent = 'Microsoft-Delivery-Optimization/10.1'
         $HTTP_Response = $HTTP_Request.GetResponse()
-        $script:ResponseUri = $HTTP_Response.ResponseUri.OriginalString
+        $script:ResponseUri = $HTTP_Response.ResponseUri.AbsoluteUri
         $HTTP_Status = [int]$HTTP_Response.StatusCode
     } catch {
         # Take no action here; If there is an exception, we will treat it like a 404
