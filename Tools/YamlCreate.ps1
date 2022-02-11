@@ -338,7 +338,7 @@ Function Request-InstallerUrl {
                     DefaultString = 'Y'
                 }
                 switch ($(if ($ScriptSettings.UseRedirectedURL -eq 'always') { 'Y' } else { Invoke-KeypressMenu -Prompt $_menu['Prompt'] -Entries $_menu['Entries'] -DefaultString $_menu['DefaultString'] -HelpText $_menu['HelpText'] })) {
-                    'N' {} #Continue without replacing URL
+                    'N' { Write-Host -ForegroundColor 'Green' "`nOriginal URL Retained - Proceeding with $NewInstallerUrl`n" } #Continue without replacing URL
                     default { 
                         $NewInstallerUrl = $script:ResponseUri
                         $script:_returnValue = [ReturnValue]::new(409, 'URL Changed', 'The URL was changed during processing and will be re-validated', 1)
@@ -902,12 +902,14 @@ Function Read-QuickInstallerEntry {
 
         if ($_NewInstaller.Keys -notcontains 'InstallerSha256') {
             try {
+                Write-Host -ForegroundColor 'Green' 'Downloading Installer. . .'
                 $script:dest = Get-InstallerFile -URI $_NewInstaller['InstallerUrl'] -PackageIdentifier $PackageIdentifier -PackageVersion $PackageVersion
             } catch {
                 # Here we also want to pass any exceptions through for potential debugging
                 throw [System.Net.WebException]::new('The file could not be downloaded. Try running the script again', $_.Exception)
             } finally {
                 # Check that MSI's aren't actually WIX
+                Write-Host -ForegroundColor 'Green' "Installer Downloaded!`nProcessing installer data. . . "
                 if ($_NewInstaller['InstallerType'] -eq 'msi') {
                     $DetectedType = Get-PathInstallerType $script:dest
                     if ($DetectedType -in @('msi'; 'wix')) { $_NewInstaller['InstallerType'] = $DetectedType }
@@ -956,6 +958,7 @@ Function Read-QuickInstallerEntry {
                 }
                 # Remove the downloaded files
                 Remove-Item -Path $script:dest
+                Write-Host -ForegroundColor 'Green' "Installer updated!`n"
             }
         }
         #Add the updated installer to the new installers array
