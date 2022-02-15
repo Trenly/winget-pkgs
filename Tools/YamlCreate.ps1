@@ -521,10 +521,6 @@ Function Test-IsWix {
     if ($Database.Keys -match 'wix') { return $true }
     # If any of the keys in the property table match wix
     if ($Database.Property.Keys.Where({ $_ -match 'wix' })) { return $true }
-    # # If any of the keys in any of the tables match wix
-    # if ($Database.Values.Keys.Where({ $_ -match 'wix' })) { return $true }
-    # # If any of the values of any of the keys in any of the tables match wix
-    # if ($Database.Values.Values.Where({ $_ -match 'wix' })) { return $true }
     # If the CreatedBy value matches wix
     if ($MetaDataObject.ProgramName -match 'wix') { return $true }
     # If the CreatedBy value matches xml
