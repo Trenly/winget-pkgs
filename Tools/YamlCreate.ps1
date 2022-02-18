@@ -59,8 +59,8 @@ $ManifestVersion = '1.1.0'
 $PSDefaultParameterValues = @{ '*:Encoding' = 'UTF8' }
 $Utf8NoBomEncoding = New-Object System.Text.UTF8Encoding $False
 $ofs = ', '
-$callingUICulture = [Threading.Thread]::CurrentThread.CurrentUICulture | Out-Null
-$callingCulture = [Threading.Thread]::CurrentThread.CurrentCulture | Out-Null
+$callingUICulture = [Threading.Thread]::CurrentThread.CurrentUICulture
+$callingCulture = [Threading.Thread]::CurrentThread.CurrentCulture
 [Threading.Thread]::CurrentThread.CurrentUICulture = 'en-US'
 [Threading.Thread]::CurrentThread.CurrentCulture = 'en-US'
 
