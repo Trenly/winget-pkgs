@@ -87,6 +87,15 @@ $callingCulture = [Threading.Thread]::CurrentThread.CurrentCulture
     https://github.com/microsoft/winget-pkgs/blob/master/Tools/YamlCreate.ps1
 #>
 
+# Check whether the script is present inside a fork/clone of microsoft/winget-pkgs repository
+try {
+  $script:gitTopLevel = (Resolve-Path $(git rev-parse --show-toplevel)).Path
+}
+catch {
+  # If there was an exception, the user isn't in a git repo. Throw a custom exception and pass the original exception as an InternalException
+  throw [UnmetDependencyException]::new("This script must be run from inside a clone of the winget-pkgs repository", $_.Exception)
+}
+
 # Fetch Schema data from github for entry validation, key ordering, and automatic commenting
 try {
     $ProgressPreference = 'SilentlyContinue'
