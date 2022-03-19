@@ -2509,8 +2509,8 @@ if ($script:Option -ne 'RemoveManifest') {
             }
         }
         if ($script:SandboxTest -eq '0') {
-            if (Test-Path -Path "$PSScriptRoot\SandboxTest.ps1") {
-                $SandboxScriptPath = (Resolve-Path "$PSScriptRoot\SandboxTest.ps1").Path
+            if (Test-Path -Path "$(git rev-parse --show-toplevel)\Tools\SandboxTest.ps1") {
+                $SandboxScriptPath = (Resolve-Path "$(git rev-parse --show-toplevel)\Tools\SandboxTest.ps1").Path
             } else {
                 while ([string]::IsNullOrWhiteSpace($SandboxScriptPath)) {
                     Write-Host
@@ -2587,8 +2587,8 @@ if ($PromptSubmit -eq '0') {
         # If the user has the cli too
         if (Get-Command 'gh.exe' -ErrorAction SilentlyContinue) {
             # Request the user to fill out the PR template
-            if (Test-Path -Path "$PSScriptRoot\..\.github\PULL_REQUEST_TEMPLATE.md") {
-                Read-PRBody "$PSScriptRoot\..\.github\PULL_REQUEST_TEMPLATE.md"
+            if (Test-Path -Path "$(git rev-parse --show-toplevel)\.github\PULL_REQUEST_TEMPLATE.md") {
+                Read-PRBody (Resolve-Path "$(git rev-parse --show-toplevel)\.github\PULL_REQUEST_TEMPLATE.md").Path
             } else {
                 while ([string]::IsNullOrWhiteSpace($SandboxScriptPath)) {
                     Write-Host
