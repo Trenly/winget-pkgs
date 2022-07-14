@@ -1,5 +1,5 @@
 name: Validate Manifests
-on: [push]
+on: [pull_request]
 jobs:
   Validate-Manifests-Against-Schema:
     runs-on: windows-latest
