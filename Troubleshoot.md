@@ -1,3 +1,4 @@
+I borked it lolz
 # Troubleshooting Errors
 Many of the issues can be caught before submitting your PR, if you follow these steps:
 1) Validate the manifest file by running ```winget validate <path-to-the-manifest>```
