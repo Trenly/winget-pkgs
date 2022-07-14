@@ -1,0 +1,15 @@
+name: Validate Manifests
+on: [push]
+jobs:
+  Explore-GitHub-Actions:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: nwisbeta/validate-yaml-schema@v1.0.4
+        with:
+          yamlSchemasJson: |
+            {
+                "https://aka.ms/winget-manifest.installer.1.1.0.schema.json": ["/manifests/**/*.installer.yaml"],
+                "https://aka.ms/winget-manifest.defaultLocale.1.1.0.schema.json": ["/manifests/**/*.locale.*.yaml"],
+                "https://aka.ms/winget-manifest.version.1.1.0.schema.json": ["/manifests/**/*.yaml"],
+            }
