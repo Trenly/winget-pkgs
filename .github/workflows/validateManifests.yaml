@@ -1,7 +1,7 @@
 name: Validate Manifests
 on: [push]
 jobs:
-  Explore-GitHub-Actions:
+  Validate-Manifests-Against-Schema:
     runs-on: windows-latest
     steps:
       - name: Checkout Repository
@@ -13,5 +13,5 @@ jobs:
             {
                 "https://aka.ms/winget-manifest.installer.1.1.0.schema.json": ["/manifests/**/*.installer.yaml"],
                 "https://aka.ms/winget-manifest.defaultLocale.1.1.0.schema.json": ["/manifests/**/*.locale.*.yaml"],
-                "https://aka.ms/winget-manifest.version.1.1.0.schema.json": ["/manifests/**/*.yaml"],
+                "https://aka.ms/winget-manifest.version.1.1.0.schema.json": ["/manifests/**/*.yaml"]
             }
