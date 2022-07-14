@@ -4,8 +4,10 @@ jobs:
   Explore-GitHub-Actions:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: nwisbeta/validate-yaml-schema@v1.0.4
+      - name: Checkout Repository
+        uses: actions/checkout@v2
+      - name: Validate Yaml Files
+        uses: ssbarnea/validate-yaml-schema@v1.0.4
         with:
           yamlSchemasJson: |
             {
