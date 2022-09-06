@@ -20,7 +20,7 @@ jobs:
           format: json
       - name: Check File Endings
         id: endings
-        uses: ./
+        uses: Trenly/CheckLineEndings@v0.1
         with:
           files: ${{ steps.changed-files.outputs.added_modified }}
       - name: Log File Endings
