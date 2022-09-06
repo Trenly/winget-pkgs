@@ -1,0 +1,29 @@
+name: Line Endings
+on:
+  pull_request:
+  push:
+    branches:
+      - "**"
+    tags-ignore:
+      - "**"
+jobs:
+  checkout:
+    runs-on: ubuntu-latest
+    name: Check line endings of the files in the pull request
+    steps:
+      - name: checkout
+        uses: actions/checkout@v3
+      - name: Get Changed files
+        id: changed-files
+        uses: Trenly/get-changed-files@v1.0
+        with:
+          format: json
+      - name: Check File Endings
+        id: endings
+        uses: ./
+        with:
+          files: ${{ steps.changed-files.outputs.added_modified }}
+      - name: Log File Endings
+        run: |
+          echo "Files with CRLF Endings: ${{ steps.endings.outputs.CRLF }}"
+          echo "Files with LF Endings: ${{ steps.endings.outputs.LF }}"
