@@ -1,0 +1,31 @@
+on: [push, pull-request]
+
+jobs:
+  checkout:
+    runs-on: ubuntu-latest
+    name: Check line endings of the files in the pull request
+    steps:
+      # To use this repository's private action,
+      # you must check out the repository
+      - name: checkout-merge
+        if: "contains(github.event_name, 'pull_request')"
+        uses: actions/checkout@v2
+        with:
+          ref: refs/pull/${{github.event.pull_request.number}}/merge
+      - name: checkout
+        if: ${{ github.event_name == 'push' }}
+        uses: actions/checkout@v2
+      - name: Get Changed files
+        id: compare
+        uses: jitterbit/get-changed-files@v1
+        with:
+          format: 'json'
+      - name: Check File Endings
+        id: endings
+        uses: Trenly/CheckLineEndings@v0.1
+        with:
+          files: ${{ steps.compare.outputs.added_modified }}
+      - name: Log File Endings
+        run: |
+          echo "Files with CRLF Endings: ${{ steps.endings.outputs.CRLF }}"
+          echo "Files with LF Endings: ${{ steps.endings.outputs.LF }}"
