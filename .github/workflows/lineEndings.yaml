@@ -21,7 +21,7 @@ jobs:
         id: endings
         uses: Trenly/CheckLineEndings@v0.1
         with:
-          files: ${{ steps.changed-files.outputs.added_modified }}
+          files: ${{ steps.changed-files.outputs.added_modified_renamed }}
       - name: Log File Endings
         run: |
           echo "Files with CRLF Endings: ${{ steps.endings.outputs.CRLF }}"
