@@ -1,5 +1,11 @@
-on: [push, pull_request]
-
+name: Line Endings
+on:
+  pull_request_target:
+  push:
+    branches:
+      - "**"
+    tags-ignore:
+      - "**"
 jobs:
   checkout:
     runs-on: ubuntu-latest
