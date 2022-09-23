@@ -20,8 +20,8 @@ Param
     [Parameter()] [int] $Mode,
     [Parameter(
         Mandatory = $false,
-        ValueFromPipeline = $true 
-    )] 
+        ValueFromPipeline = $true
+    )]
     [ValidateNotNullOrEmpty()]
     [PSCustomObject] $InputObject,
 
@@ -54,10 +54,10 @@ Begin {
     New-Variable -Name 'IsWindowsOS' -Value ([System.Environment]::OSVersion.Platform -match 'Win') -Option Constant
     New-Variable -Name 'ScriptSettingsFile' -Value (Join-Path -Path $(if ($IsWindowsOS) { $env:LOCALAPPDATA } else { $env:HOME + '/.config' } ) -ChildPath 'ManageManifests/Settings.yaml') -Option Constant
     New-Variable -Name 'ScriptLogsFolder' -Value (Join-Path -Path $(if ($IsWindowsOS) { $env:LOCALAPPDATA } else { $env:HOME + '/.config' } ) -ChildPath 'ManageManifests/Logs') -Option Constant
-    New-Variable -Name 'GitIsInstalled' -Value ((Get-Command 'git.exe' -ErrorAction SilentlyContinue) -is [System.Object]) -Option Constant
-    New-Variable -Name 'GitCliIsInstalled' -Value ((Get-Command 'gh.exe' -ErrorAction SilentlyContinue) -is [System.Object]) -Option Constant
-    New-Variable -Name 'WingetIsInstalled' -Value ((Get-Command 'winget.exe' -ErrorAction SilentlyContinue) -is [System.Object]) -Option Constant
-    New-Variable -Name 'SandboxIsEnabled' -Value ((Get-Command 'WindowsSandbox.exe' -ErrorAction SilentlyContinue) -is [System.Object]) -Option Constant
+    New-Variable -Name 'GitIsInstalled' -Value ((Get-Command 'git' -ErrorAction SilentlyContinue) -is [System.Object]) -Option Constant
+    New-Variable -Name 'GitCliIsInstalled' -Value ((Get-Command 'gh' -ErrorAction SilentlyContinue) -is [System.Object]) -Option Constant
+    New-Variable -Name 'WingetIsInstalled' -Value ((Get-Command 'winget' -ErrorAction SilentlyContinue) -is [System.Object]) -Option Constant
+    New-Variable -Name 'SandboxIsEnabled' -Value ((Get-Command 'WindowsSandbox' -ErrorAction SilentlyContinue) -is [System.Object]) -Option Constant
     New-Variable -Name 'ManifestsFolder' -Value $(if (Test-Path -Path "$PSScriptRoot\..\manifests") { (Resolve-Path "$PSScriptRoot\..\manifests").Path } else { (Resolve-Path '.\').Path }) -Option Constant
     New-Variable -Name 'IsDotSourced' -Value $($MyInvocation.InvocationName -eq '.' -or $MyInvocation.Line -eq '') -Option Constant
 
@@ -325,11 +325,11 @@ Begin {
         do {
             $keyInfo = [Console]::ReadKey($false)
         } until ($keyInfo.Key)
-    
+
         return $keyInfo.Key
     }
-    
-    Function Validate-PackageIdentifier {        
+
+    Function Validate-PackageIdentifier {
         Param (
             [Parameter(Mandatory = $true)]
             [AllowEmptyString()]
@@ -337,7 +337,7 @@ Begin {
         )
         if ([string]::IsNullOrEmpty($PackageIdentifier)) { return [ReturnValue]::new(204, 'No Content', 'The package identifier has no value', 0) }
         if (
-            ($PackageIdentifier.Length -gt $ValidationPatterns.IdentifierMaxLength) -or 
+            ($PackageIdentifier.Length -gt $ValidationPatterns.IdentifierMaxLength) -or
             ($PackageIdentifier.Length -lt 4)
         ) { return [ReturnValue]::LengthError(4, $ValidationPatterns.IdentifierMaxLength) }
         if ($PackageIdentifier -notmatch $ValidationPatterns.PackageIdentifier) { return [ReturnValue]::PatternError() }
@@ -360,7 +360,7 @@ Begin {
         return $PackageIdentifier
     }
 
-    Function Validate-PackageVersion {        
+    Function Validate-PackageVersion {
         Param (
             [Parameter(Mandatory = $true)]
             [AllowEmptyString()]
@@ -388,7 +388,7 @@ Begin {
         return $PackageVersion
     }
 
-    Function Validate-InstallerUrl {        
+    Function Validate-InstallerUrl {
         Param (
             [Parameter(Mandatory = $true)]
             [AllowEmptyString()]
@@ -443,7 +443,7 @@ Begin {
         return @{
             PackageFolder   = $_PackageFolder
             PackageVersions = $_PackageVersions
-            ValidationFile  = $_ValidationFile   
+            ValidationFile  = $_ValidationFile
             SubPackages     = (Get-ChildItem -Path $_PackageFolder -Directory).Where({ $_.Name -cnotin $_PackageVersions }).Name
         }
     }
@@ -547,7 +547,7 @@ Begin {
         $_File = Invoke-WebClientDownload $UrlResponse $_FilePath
         if ($null -eq $_File) { $_File = Invoke-ResponseStreamDownload $UrlResponse $_FilePath }
         $ProgressPreference = 'SilentlyContinue'
-        if ($null -eq $_File) { 
+        if ($null -eq $_File) {
             throw [System.Net.WebException]::new('The file could not be downloaded. Try running the script again', $_.Exception)
         }
         return $_File
@@ -571,7 +571,7 @@ Begin {
         $_WebClient = [System.Net.WebClient]::new()
         $_WebClient.Headers.Add('User-Agent', 'Microsoft-Delivery-Optimization/10.1')
         if ($PowershellMajorVersion -lt 6) { $_WebClient.Proxy = [System.Net.WebProxy]::GetDefaultProxy() }
-        try { 
+        try {
             $_WebClient.DownloadFile($UrlResponse.Url, $FilePath)
             $_File = [System.IO.FileInfo]::new($FilePath)
         } catch {
@@ -595,7 +595,7 @@ Begin {
     function Get-Property ($Object, $PropertyName, [object[]]$ArgumentList) {
         return $Object.GetType().InvokeMember($PropertyName, 'Public, Instance, GetProperty', $null, $Object, $ArgumentList)
     }
-    
+
     Function Get-MsiDatabase {
         Param
         (
@@ -693,7 +693,7 @@ Begin {
             Write-Host -ForegroundColor $_color $_entry
         }
         Write-Host
-        if (![string]::IsNullOrWhiteSpace($MenuObject.DefaultString)) { Write-Host -NoNewline "Enter Choice (default is '$($MenuObject.DefaultString)'): " } 
+        if (![string]::IsNullOrWhiteSpace($MenuObject.DefaultString)) { Write-Host -NoNewline "Enter Choice (default is '$($MenuObject.DefaultString)'): " }
         else {
             Write-Host -NoNewline 'Enter Choice ('
             Write-Host -NoNewline -ForegroundColor 'Green' 'Green'
@@ -730,7 +730,7 @@ Begin {
         }
         if ($_PRSubmissionContent.AutoSubmit -eq $false) { return $_PRSubmissionContent }
         $_PrSubmissionContent['PRBody'] = Request-PRBodyText($AdditionalInfo)
-        return $_PRSubmissionContent 
+        return $_PRSubmissionContent
     }
 
     Function Request-PRBodyText($AdditionalInfo) {
@@ -993,7 +993,7 @@ Begin {
             'Delete' {
                 $_VersionStructure = Get-VersionStructure $InputObject.PackageIdentifier $InputObject.PackageVersion
                 if ($null -eq $_VersionStructure) { return [ReturnValue]::new(400, 'Bad Request', 'The package version does not exist', 2) }
-                if ($_VersionStructure.ValidationFile) { return [ReturnValue]::new(403, 'Forbidden', 'The package may be effected by a validation file and must be removed manually', 2) }    
+                if ($_VersionStructure.ValidationFile) { return [ReturnValue]::new(403, 'Forbidden', 'The package may be effected by a validation file and must be removed manually', 2) }
             }
             'Auto' {
                 #     $_VersionStructure = Get-VersionStructure $InputObject.PackageIdentifier $InputObject.PackageVersion
@@ -1003,7 +1003,7 @@ Begin {
         }
         return [ReturnValue]::Success()
     }
-    
+
     ########## VARIABLE DEFINITIONS ###########
     #
     # This section contains definitions of all the variables used elsewhere in this script.
@@ -1079,7 +1079,7 @@ Begin {
             ReleaseNotesMinLength     = $LocaleSchema.properties.ReleaseNotes.MinLength
             ReleaseNotesMaxLength     = $LocaleSchema.properties.ReleaseNotes.MaxLength
         }
-    ) -Option Constant    
+    ) -Option Constant
 
     ########## INITIALIZATION ###########
     #
@@ -1125,7 +1125,7 @@ Process {
                             & $SandboxScriptPath -Manifest $_VersionFolder -SkipManifestValidation
                         } else {
                             & $SandboxScriptPath -Manifest $_VersionFolder
-                        }                        
+                        }
                     } else {
                         $_DidSandboxTest = $false
                     }
@@ -1187,7 +1187,7 @@ Process {
                     switch ($_VersionStructure.ManifestType) {
                         'MultiManifest' { $_Manifests = Import-MultiManifest $_VersionStructure }
                         'Singleton' { $_Manifests = Import-SingletonManifest $_VersionStructure }
-                        default {  
+                        default {
                             "The manifest type of $($InputObject.PackageIdentifier) $($InputObject.PackageVersion) could not be determined" | Out-Log
                             Write-Host -ForegroundColor 'Red' "Error when processing $($InputObject.PackageIdentifier) $($InputObject.PackageVersion)"
                             return
@@ -1352,9 +1352,9 @@ End {
             $PassedObject = @{'InputObject' = $OutputObject }
             & $PSCommandPath @PassedObject
         }
-    }   
+    }
     if ($ScriptLogging.LogFile) {
-        $_LogContents = Get-Content $ScriptLogging.LogFile 
+        $_LogContents = Get-Content $ScriptLogging.LogFile
         $_LogContents | ForEach-Object { $_.Trim() } | Set-Content $ScriptLogging.LogFile
     }
 }
