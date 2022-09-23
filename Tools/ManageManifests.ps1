@@ -386,6 +386,113 @@ Begin {
         return [ReturnValue]::Success()
     }
 
+    Function Get-FileInstallerType {
+        Param
+        (
+            [Parameter(Mandatory = $true, Position = 0)]
+            [string] $Path
+        )
+        if ($Path -match '\.msix(bundle){0,1}$') { return 'msix' }
+        if ($Path -match '\.msi$') {
+            $ObjectMetadata = Get-ItemMetadata $Path
+            $ObjectDatabase = Get-MsiDatabase $Path
+            if (Test-IsWix -Database $ObjectDatabase -MetaDataObject $ObjectMetadata ) {
+                return 'wix'
+            }
+            return 'msi'
+        }
+        if ($Path -match '\.appx(bundle){0,1}$') { return 'appx' }
+        if ($Path -match '\.zip$') { return 'zip' }
+        return $null
+    }
+
+    Function Validate-InstallerType {
+        Param (
+            [Parameter(Mandatory = $true)]
+            [AllowEmptyString()]
+            [string] $InstallerType
+        )
+        if ($InstallerType -eq 'zip' -and $ManifestVersion -lt '1.4.0') {
+            return [ReturnValue]::new(500, 'Zip Installer Not Supported', "Zip installers are only supported with ManifestVersion 1.4.0 or later. Current ManifestVersion: $ManifestVersion", 2)
+        }
+        if ($InstallerType -Cin @($ValidationPatterns.ValidInstallerTypes)) {
+            return [ReturnValue]::Success()
+        } else {
+            return [ReturnValue]::new(400, 'Invalid Installer Type', "Value must exist in the enum - $(@($ValidationPatterns.ValidInstallerTypes -join ', '))", 2)
+        }
+    }
+
+    Function Request-InstallerType {
+        Param (
+            [Parameter(Mandatory = $true)]
+            [ref] $Installer,
+            [Parameter(Mandatory = $true)]
+            [PsCustomObject] $InstallerFile
+        )
+        $_Installer = $Installer.Value
+        if (!$_Installer['InstallerType']) { $_Installer['InstallerType'] = Get-FileInstallerType $InstallerFile.FullName }
+        $_ValidationResult = Validate-InstallerType $_Installer.InstallerType
+        while ($_ValidationResult.StatusCode -ne $SuccessStatusCode) {
+            if ($_Installer.InstallerType) { Write-Host -ForegroundColor 'Red' $_ValidationResult.ErrorString() }
+            Write-Host -ForegroundColor 'Green' -Object '[Required] Enter the InstallerType. Options:' , @($ValidationPatterns.ValidInstallerTypes -join ', ' )
+            $_Installer['InstallerType'] = Read-Host -Prompt 'InstallerType' | TrimString
+            $_ValidationResult = Validate-InstallerType $_Installer.InstallerType
+        }
+    }
+
+    Function Validate-Sha256 {
+        Param (
+            [Parameter(Mandatory = $true)]
+            [AllowEmptyString()]
+            [string] $Sha256
+        )
+        if ($_Installer['InstallerSha256'] -match $ValidationPatterns.InstallerSha256) {
+            return [ReturnValue]::Success()
+        } else {
+            return [ReturnValue]::PatternError()
+        }
+    }
+
+    Function Request-InstallerSha256 {
+        Param (
+            [Parameter(Mandatory = $true)]
+            [ref] $Installer,
+            [Parameter(Mandatory = $true)]
+            [PsCustomObject] $InstallerFile
+        )
+        $_Installer = $Installer.Value
+        if (!$_Installer['InstallerSha256'] -and $InstallerFile) { $_Installer['InstallerSha256'] = (Get-FileHash $InstallerFile -Algorithm SHA256).Hash }
+        $_ValidationResult = Validate-Sha256 $Installer.InstallerSha256
+        while ($_ValidationResult.StatusCode -ne $SuccessStatusCode) {
+            Write-Host -ForegroundColor 'Red' $_ValidationResult.ErrorString()
+            Write-Host -ForegroundColor 'Green' -Object '[Required] Enter the installer SHA256 Hash'
+            $_Installer['InstallerSha256'] = $(Read-Host -Prompt 'InstallerSha256' | TrimString).ToUpper()
+            $_ValidationResult = Validate-Sha256 $Installer.InstallerSha256
+        }
+    }
+
+    Function Request-InstallerFile {
+        Param (
+            [Parameter(Mandatory = $true)]
+            [ValidateNotNullOrEmpty()]
+            [string] $Url
+        )
+        switch ( Invoke-KeypressMenu (
+                @{
+                    Prompt        = 'Do you want to download the file? It will automatically be removed later'
+                    Entries       = @('*[Y] Yes'; '[N] No')
+                    DefaultString = 'Y'
+                    HelpText      = 'Downloading the file allows for automated processing of some fields'
+                })
+        ) {
+            'N' { return $null }
+            default {
+                return $(Get-InstallerFile $Url (New-Guid).ToString())
+            }
+        }
+
+    }
+
     Function Request-InstallerUrl {
         Param (
             [Parameter(Mandatory = $false)]
@@ -400,6 +507,32 @@ Begin {
             $_ValidationResult = Validate-InstallerUrl $Url
         }
         return Get-UrlResponse $Url
+    }
+
+    Function Request-InstallerEntry {
+        Param (
+            [Parameter(Mandatory = $false)]
+            [PsCustomObject] $InstallerEntries
+        )
+        $_Installer = [ordered] @{}
+        $__Installer = ([ref]$_Installer)
+        $_Installer['InstallerUrl'] = (Request-InstallerUrl).Url
+        # If the url matches an existing installer entry, get some common information
+        if ($_Installer.InstallerUrl -in $InstallerEntries.InstallerUrl) {
+            $_MatchingInstaller = $InstallerEntries.Where({ $_.InstallerUrl -eq $_Installer.InstallerUrl }) | Select-Object -First 1
+            if ($_MatchingInstaller.InstallerSha256) { $_Installer['InstallerSha256'] = $_MatchingInstaller.InstallerSha256 }
+            if ($_MatchingInstaller.InstallerType) { $_Installer['InstallerType'] = $_MatchingInstaller.InstallerType }
+            if ($_MatchingInstaller.ProductCode) { $_Installer['ProductCode'] = $_MatchingInstaller.ProductCode }
+            if ($_MatchingInstaller.PackageFamilyName) { $_Installer['PackageFamilyName'] = $_MatchingInstaller.PackageFamilyName }
+            if ($_MatchingInstaller.SignatureSha256) { $_Installer['SignatureSha256'] = $_MatchingInstaller.SignatureSha256 }
+        } else {
+
+        }
+        $_InstallerFilePath = Request-InstallerFile $_Installer.InstallerUrl
+        Request-InstallerSha256 $__Installer $_InstallerFilePath
+        Request-InstallerType $__Installer $_InstallerFilePath
+        return $_Installer
+        # Request-InstallerArchitecture $__Installer $_InstallerFilePath
     }
 
     Function Get-PackageFolder {
@@ -510,7 +643,8 @@ Begin {
 
     Function Get-UrlResponseFilename($UrlResponse, $AlternateName) {
         if ($UrlResponse.Headers.Keys -contains 'Content-Disposition') {
-            [string]$_Filename = $UrlResponse.Headers['Content-Disposition'].Split(';').Trim().Where({ $_ -match 'filename=' }).Split('=')[1]
+            $_FilePart = ($UrlResponse.Headers['Content-Disposition'] -Split ';').Trim().Where({ $_ -match 'filename=' }) | Select-Object -First 1
+            [string]$_Filename = ($_FilePart -split '=')[1]
         }
         if ([string]::IsNullOrWhiteSpace($_Filename)) {
             #Try getting the extension from the ResponseUrl
@@ -523,16 +657,19 @@ Begin {
         return $_Filename
     }
 
-    Function Get-InstallerFile($UrlResponse, $AlternateName) {
+    Function Get-InstallerFile($Url, $AlternateName) {
+        $UrlResponse = Get-UrlResponse $Url
         $ProgressPreference = 'Continue'
         $_Filename = Get-UrlResponseFilename $UrlResponse $AlternateName
         $_FilePath = Join-Path -Path $env:TEMP -ChildPath $_FileName
+        Write-Host 'Downloading Installer. This may take a while...' -ForegroundColor Blue
         $_File = Invoke-WebClientDownload $UrlResponse $_FilePath
         if ($null -eq $_File) { $_File = Invoke-ResponseStreamDownload $UrlResponse $_FilePath }
         $ProgressPreference = 'SilentlyContinue'
         if ($null -eq $_File) {
             throw [System.Net.WebException]::new('The file could not be downloaded. Try running the script again', $_.Exception)
         }
+        Write-Host "File Downloaded: $($_File.FullName)" -ForegroundColor 'Green'
         return $_File
     }
 
@@ -1202,8 +1339,7 @@ Process {
                     foreach ($_Installer in $_Manifests.Installer.Installers) {
                         if ($_Installer.InstallerUrl -notin $_KnownInstallers.Keys) {
                             Write-Host "Processing $($_Installer.InstallerUrl)"
-                            $_InstallerUrlResponse = Get-UrlResponse $_Installer.InstallerUrl
-                            $_InstallerFile = Get-InstallerFile $_InstallerUrlResponse "$($InputObject.PackageIdentifier) v$($InputObject.PackageVersion)"
+                            $_InstallerFile = Get-InstallerFile $_Installer.InstallerUrl "$($InputObject.PackageIdentifier) v$($InputObject.PackageVersion)"
                             $_InstallerObject = @{
                                 InstallerSha256 = (Get-FileHash -Path $_InstallerFile.FullName -Algorithm SHA256).Hash
                             }
@@ -1349,6 +1485,9 @@ End {
                         $OutputObject['Action'] = 'Modify'
                     }
                 }
+                # TODO: Actually process installer entries
+                Write-Output $(Request-InstallerEntry)
+                Exit 1
             }
             'Quick' {
                 # Quick is mostly the same as create, but it requires there to be an existing version of the package
