@@ -47,13 +47,12 @@ Begin {
     New-Variable -Name 'UpstreamUri' -Value 'https://github.com/microsoft/winget-pkgs.git' -Option Constant
     New-Variable -Name 'ToNatural' -Value { [regex]::Replace($_, '\d+', { $args[0].Value.PadLeft(20) }) } -Option Constant
     New-Variable -Name 'ScriptHeader' -Value '# Created with ManageManifests.ps1 ' -Option Constant
-    New-Variable -Name 'ScriptVersion' -Value 'v3.0.0-alpha.1' -Option Constant
-    New-Variable -Name 'ManifestVersion' -Value '1.1.0' -Option Constant
+    New-Variable -Name 'ScriptVersion' -Value 'v3.0.0-alpha.2' -Option Constant
+    New-Variable -Name 'ManifestVersion' -Value '1.4.0' -Option Constant
     New-Variable -Name 'PowershellMajorVersion' -Value $PSVersionTable.PSVersion.Major -Option constant
     New-Variable -Name 'Utf8NoBomEncoding' -Value (New-Object System.Text.UTF8Encoding $False) -Option Constant
     New-Variable -Name 'IsWindowsOS' -Value ([System.Environment]::OSVersion.Platform -match 'Win') -Option Constant
     New-Variable -Name 'ScriptSettingsFile' -Value (Join-Path -Path $(if ($IsWindowsOS) { $env:LOCALAPPDATA } else { $env:HOME + '/.config' } ) -ChildPath 'ManageManifests/Settings.yaml') -Option Constant
-    New-Variable -Name 'ScriptLogsFolder' -Value (Join-Path -Path $(if ($IsWindowsOS) { $env:LOCALAPPDATA } else { $env:HOME + '/.config' } ) -ChildPath 'ManageManifests/Logs') -Option Constant
     New-Variable -Name 'GitIsInstalled' -Value ((Get-Command 'git' -ErrorAction SilentlyContinue) -is [System.Object]) -Option Constant
     New-Variable -Name 'GitCliIsInstalled' -Value ((Get-Command 'gh' -ErrorAction SilentlyContinue) -is [System.Object]) -Option Constant
     New-Variable -Name 'WingetIsInstalled' -Value ((Get-Command 'winget' -ErrorAction SilentlyContinue) -is [System.Object]) -Option Constant
@@ -308,19 +307,6 @@ Begin {
         return (ConvertFrom-Yaml -Yaml $(Get-Content -Path $ScriptSettingsFile -Raw))
     }
 
-    Function Initialize-ScriptLogging {
-        if (!$ScriptSettings) { return @{ EnableLogging = $false; LogFile = $null } }
-        if ($ScriptSettings.DisableLogging -eq $true) { return @{ EnableLogging = $false; LogFile = $null } }
-        if (!(Test-Path $ScriptLogsFolder)) { New-Item -Path $ScriptLogsFolder -ItemType Directory -Force }
-        $_LogPath = Join-Path -Path $ScriptLogsFolder -ChildPath "$((New-Guid).ToString('N')).log"
-        New-Item -Path $_LogPath -ItemType File -Force | Out-Null
-        return @{ EnableLogging = $true; LogFile = $_LogPath }
-    }
-
-    Filter Out-Log {
-        if ($ScriptLogging.LogFile) { $_ | Out-File -FilePath $ScriptLogging.LogFile -Append }
-    }
-
     Function Read-KeyPress {
         do {
             $keyInfo = [Console]::ReadKey($false)
@@ -337,9 +323,9 @@ Begin {
         )
         if ([string]::IsNullOrEmpty($PackageIdentifier)) { return [ReturnValue]::new(204, 'No Content', 'The package identifier has no value', 0) }
         if (
-            ($PackageIdentifier.Length -gt $ValidationPatterns.IdentifierMaxLength) -or
+            ($PackageIdentifier.Length -gt $ValidationPatterns.PackageIdentifierMaxLength) -or
             ($PackageIdentifier.Length -lt 4)
-        ) { return [ReturnValue]::LengthError(4, $ValidationPatterns.IdentifierMaxLength) }
+        ) { return [ReturnValue]::LengthError(4, $ValidationPatterns.PackageIdentifierMaxLength) }
         if ($PackageIdentifier -notmatch $ValidationPatterns.PackageIdentifier) { return [ReturnValue]::PatternError() }
         return [ReturnValue]::Success()
     }
@@ -435,7 +421,7 @@ Begin {
         $_ManifestFiles = (Get-ChildItem -Path $_PackageFolder -Recurse -Depth 1 -File -Filter '*.yaml' -ErrorAction SilentlyContinue).FullName
         $_PackageVersions = $(
             if ($null -ne $_ManifestFiles) {
-                @(Split-Path (Split-Path $_ManifestFiles) -Leaf | Sort-Object $ToNatural | Select-Object -Unique)
+                @(Split-Path (Split-Path $_ManifestFiles) -Leaf | Select-Object -Unique)
             } else { $null }
         )
         $_PackageFiles = Get-ChildItem -Path $_PackageFolder
@@ -458,14 +444,14 @@ Begin {
             [string] $PackageVersion
         )
         $_PackageStructure = Get-PackageStructure -PackageIdentifier $PackageIdentifier
-        if ($PackageVersion -cnotin $_PackageStructure.PackageVersions) { return $null }
+        if ($PackageVersion -notin $_PackageStructure.PackageVersions) { return $null }
         $_VersionFolder = Join-Path -Path $_PackageStructure.PackageFolder -ChildPath $PackageVersion
         $_VersionFiles = Get-ChildItem $_VersionFolder
-        $_VersionManifest = $(if ("$PackageIdentifier.yaml" -cin $_VersionFiles.Name) { $_VersionFiles.Where({ $_.Name -ceq "$PackageIdentifier.yaml" }) })
-        $_InstallerManifest = $(if ("$PackageIdentifier.installer.yaml" -cin $_VersionFiles.Name) { $_VersionFiles.Where({ $_.Name -ceq "$PackageIdentifier.installer.yaml" }) })
-        $_ValidationFile = $(if ('.validation' -cin $_VersionFiles.Name) { $_VersionFiles.Where({ $_.Name -ceq '.validation' }) })
+        $_VersionManifest = $(if ("$PackageIdentifier.yaml" -in $_VersionFiles.Name) { $_VersionFiles.Where({ $_.Name -eq "$PackageIdentifier.yaml" }) })
+        $_InstallerManifest = $(if ("$PackageIdentifier.installer.yaml" -in $_VersionFiles.Name) { $_VersionFiles.Where({ $_.Name -eq "$PackageIdentifier.installer.yaml" }) })
+        $_ValidationFile = $(if ('.validation' -in $_VersionFiles.Name) { $_VersionFiles.Where({ $_.Name -eq '.validation' }) })
         if (!$_ValidationFile) { if ($_PackageStructure.ValidationFile) { $_ValidationFile = $_PackageStructure.ValidationFile } }
-        $_LocaleManifests = @($($_VersionFiles.Where({ $_.Name -cnotin @($_VersionManifest.Name; $_InstallerManifest.Name; $_ValidationFile.Name) })))
+        $_LocaleManifests = @($($_VersionFiles.Where({ $_.Name -notin @($_VersionManifest.Name; $_InstallerManifest.Name; $_ValidationFile.Name) })))
         return @{
             PackageFolder     = $_PackageStructure.PackageFolder
             VersionFolder     = $_VersionFolder
@@ -481,18 +467,15 @@ Begin {
         }
     }
 
-    Function Validate-PackageVersionExists {
+    Function Get-LatestVersion {
         Param (
             [Parameter(Mandatory = $true)]
-            [AllowEmptyString()]
-            [string] $PackageIdentifier,
-            [Parameter(Mandatory = $true)]
-            [AllowEmptyString()]
-            [string] $PackageVersion
+            [ValidateNotNullOrEmpty()]
+            [string] $PackageIdentifier
         )
-        if ([string]::IsNullOrEmpty($PackageIdentifier)) { return [ReturnValue]::new(204, 'No Content', 'The package identifier has no value', 0) }
-        if ($null -ne (Get-VersionStructure $PackageIdentifier $PackageVersion)) { return [ReturnValue]::Success() }
-        else { return [ReturnValue]::new(404, 'Version not found', 'The version does not exist for that package', 2) }
+        $_PackageStructure = Get-PackageStructure $PackageIdentifier
+        if (!$_PackageStructure) { return $null }
+        return $_PackageStructure.PackageVersions | Sort-Object $ToNatural | Select-Object -Last 1
     }
 
     Function Get-UrlResponse {
@@ -666,6 +649,7 @@ Begin {
             Remove-Item -Path $PathToVersion -Recurse -Force
             $PathToVersion = Split-Path $PathToVersion
         } while (@(Get-ChildItem $PathToVersion).Count -eq 0)
+        return $PathToVersion
     }
 
     Function Initialize-GitUpstream {
@@ -878,9 +862,10 @@ Begin {
         if (!$GitIsInstalled) { return $false }
         if (!(Initialize-GitUpstream)) { return $false }
         git fetch upstream master --quiet
-        git switch -d upstream/master
+        git switch -d upstream/master --quiet
         if ($LASTEXITCODE -eq '0') {
             $_BranchName = 'autogenerated/' + $PackageIdentifier + '/' + (New-Guid).ToString('D')
+            # TODO: Use the version folder, or in the case of removal, lowest level folder available
             git add 'manifests/*'
             git commit -m $CommitMessage --quiet
             git switch -c $_BranchName --quiet
@@ -975,6 +960,37 @@ Begin {
         }
     }
 
+    Function Get-ExistingManifestData {
+        Param (
+            [Parameter(Mandatory = $true)]
+            [ValidateNotNullOrEmpty()]
+            [string] $PackageIdentifier,
+            [Parameter(Mandatory = $true)]
+            [ValidateNotNullOrEmpty()]
+            [string] $PackageVersion
+        )
+        $_ExistingManifestData = $null
+
+        # Check if the package version exists
+        if (Get-PackageStructure $OutputObject.PackageIdentifier) {
+            # The package exists, now to check the version
+            $_ExistingVersionStructure = Get-VersionStructure $OutputObject.PackageIdentifier $OutputObject.PackageVersion
+            if (!$_ExistingVersionStructure) {
+                # The specified version does not exist, but a version does; Set the existing structure to the latest version
+                $_ExistingVersionStructure = Get-VersionStructure $OutputObject.PackageIdentifier $(Get-LatestVersion $OutputObject.PackageIdentifier)
+            }
+            # With the existing structure found, import the manifest data
+            switch ($_ExistingVersionStructure.ManifestType) {
+                'MultiManifest' { $_ExistingManifestData = Import-MultiManifest $_ExistingVersionStructure }
+                'Singleton' { $_ExistingManifestData = Import-SingletonManifest $_ExistingVersionStructure }
+                'Unknown' { throw [System.FormatException]::New('The detected manifest is malformed.') }
+                default { }
+            }
+            Write-Host -ForegroundColor 'Yellow' "Found Package Version $(Split-Path $_ExistingVersionStructure.VersionFolder -Leaf)"
+        }
+        return $_ExistingManifestData
+    }
+
     Function Validate-InputObject($InputObject) {
         if ($InputObject.Keys -notcontains 'PackageIdentifier') { return [ReturnValue]::new(400, 'Missing Data', 'PackageIdentifier is required', 2) }
         if ($InputObject.Keys -notcontains 'PackageVersion') { return [ReturnValue]::new(400, 'Missing Data', 'PackageVersion is required', 2) }
@@ -1017,67 +1033,79 @@ Begin {
     # Fetch Schema data from github for entry validation, key ordering, and automatic commenting
     try {
         $ProgressPreference = 'SilentlyContinue'
-        New-Variable -Name 'LocaleSchema' -Value @(Invoke-WebRequest "https://raw.githubusercontent.com/microsoft/winget-cli/master/schemas/JSON/manifests/v$ManifestVersion/manifest.locale.$ManifestVersion.json" -UseBasicParsing | ConvertFrom-Json) -Option Constant
+        New-Variable -Name 'AkaLinksExisting' -Value $((Invoke-WebRequest "https://aka.ms/winget-manifest.version.$ManifestVersion.schema.json" -UseBasicParsing).BaseResponse.ContentLength -ne -1)
+        New-Variable -Name 'LocaleSchemaUrl' -Value $(if (!$AkaLinksExisting) { "https://raw.githubusercontent.com/microsoft/winget-cli/master/schemas/JSON/manifests/v$ManifestVersion/manifest.locale.$ManifestVersion.json" } else { "https://aka.ms/winget-manifest.locale.$ManifestVersion.schema.json" })
+        New-Variable -Name 'LocaleSchema' -Value @(Invoke-WebRequest $LocaleSchemaUrl -UseBasicParsing | ConvertFrom-Json) -Option Constant
         New-Variable -Name 'LocaleProperties' -Value (ConvertTo-Yaml $LocaleSchema.properties | ConvertFrom-Yaml -Ordered).Keys -Option Constant
-        New-Variable -Name 'defaultLocaleSchema' -Value @(Invoke-WebRequest "https://raw.githubusercontent.com/microsoft/winget-cli/master/schemas/JSON/manifests/v$ManifestVersion/manifest.defaultLocale.$ManifestVersion.json" -UseBasicParsing | ConvertFrom-Json) -Option Constant
+        New-Variable -Name 'defaultLocaleSchemaUrl' -Value $(if (!$AkaLinksExisting) { "https://raw.githubusercontent.com/microsoft/winget-cli/master/schemas/JSON/manifests/v$ManifestVersion/manifest.defaultLocale.$ManifestVersion.json" } else { "https://aka.ms/winget-manifest.defaultLocale.$ManifestVersion.schema.json" })
+        New-Variable -Name 'defaultLocaleSchema' -Value @(Invoke-WebRequest $defaultLocaleSchemaUrl -UseBasicParsing | ConvertFrom-Json) -Option Constant
         New-Variable -Name 'defaultLocaleProperties' -Value (ConvertTo-Yaml $defaultLocaleSchema.properties | ConvertFrom-Yaml -Ordered).Keys -Option Constant
-        New-Variable -Name 'VersionSchema' -Value @(Invoke-WebRequest "https://raw.githubusercontent.com/microsoft/winget-cli/master/schemas/JSON/manifests/v$ManifestVersion/manifest.version.$ManifestVersion.json" -UseBasicParsing | ConvertFrom-Json) -Option Constant
+        New-Variable -Name 'VersionSchemaUrl' -Value $(if (!$AkaLinksExisting) { "https://raw.githubusercontent.com/microsoft/winget-cli/master/schemas/JSON/manifests/v$ManifestVersion/manifest.version.$ManifestVersion.json" } else { "https://aka.ms/winget-manifest.version.$ManifestVersion.schema.json" }) -Option Constant
+        New-Variable -Name 'VersionSchema' -Value @(Invoke-WebRequest $VersionSchemaUrl -UseBasicParsing | ConvertFrom-Json) -Option Constant
         New-Variable -Name 'VersionProperties' -Value (ConvertTo-Yaml $VersionSchema.properties | ConvertFrom-Yaml -Ordered).Keys -Option Constant
-        New-Variable -Name 'InstallerSchema' -Value @(Invoke-WebRequest "https://raw.githubusercontent.com/microsoft/winget-cli/master/schemas/JSON/manifests/v$ManifestVersion/manifest.installer.$ManifestVersion.json" -UseBasicParsing | ConvertFrom-Json) -Option Constant
+        New-Variable -Name 'InstallerSchemaUrl' -Value $(if (!$AkaLinksExisting) { "https://raw.githubusercontent.com/microsoft/winget-cli/master/schemas/JSON/manifests/v$ManifestVersion/manifest.installer.$ManifestVersion.json" } else { "https://aka.ms/winget-manifest.installer.$ManifestVersion.schema.json" })
+        New-Variable -Name 'InstallerSchema' -Value @(Invoke-WebRequest $InstallerSchemaUrl -UseBasicParsing | ConvertFrom-Json) -Option Constant
         New-Variable -Name 'InstallerProperties' -Value (ConvertTo-Yaml $InstallerSchema.properties | ConvertFrom-Yaml -Ordered).Keys -Option Constant
         New-Variable -Name 'InstallerSwitchProperties' -Value (ConvertTo-Yaml $InstallerSchema.definitions.InstallerSwitches.properties | ConvertFrom-Yaml -Ordered).Keys -Option Constant
         New-Variable -Name 'InstallerEntryProperties' -Value (ConvertTo-Yaml $InstallerSchema.definitions.Installer.properties | ConvertFrom-Yaml -Ordered).Keys -Option Constant
         New-Variable -Name 'InstallerDependencyProperties' -Value (ConvertTo-Yaml $InstallerSchema.definitions.Dependencies.properties | ConvertFrom-Yaml -Ordered).Keys -Option Constant
+        Remove-Variable -Name 'AkaLinksExisting' -Force
     } catch {
         throw [System.Net.WebException]::new('Manifest schemas could not be downloaded. Try running the script again', $_.Exception)
     }
     # Various patterns used in validation to simplify the validation logic
     New-Variable -Name 'ValidationPatterns' -Value (
         @{
-            PackageIdentifier         = $VersionSchema.properties.PackageIdentifier.pattern
-            IdentifierMaxLength       = $VersionSchema.properties.PackageIdentifier.maxLength
-            PackageVersion            = $InstallerSchema.definitions.PackageVersion.pattern
-            VersionMaxLength          = $VersionSchema.properties.PackageVersion.maxLength
-            InstallerSha256           = $InstallerSchema.definitions.Installer.properties.InstallerSha256.pattern
-            InstallerUrl              = $InstallerSchema.definitions.Installer.properties.InstallerUrl.pattern
-            InstallerUrlMaxLength     = $InstallerSchema.definitions.Installer.properties.InstallerUrl.maxLength
-            ValidArchitectures        = $InstallerSchema.definitions.Installer.properties.Architecture.enum
-            ValidInstallerTypes       = $InstallerSchema.definitions.InstallerType.enum
-            SilentSwitchMaxLength     = $InstallerSchema.definitions.InstallerSwitches.properties.Silent.maxLength
-            ProgressSwitchMaxLength   = $InstallerSchema.definitions.InstallerSwitches.properties.SilentWithProgress.maxLength
-            CustomSwitchMaxLength     = $InstallerSchema.definitions.InstallerSwitches.properties.Custom.maxLength
-            SignatureSha256           = $InstallerSchema.definitions.Installer.properties.SignatureSha256.pattern
-            FamilyName                = $InstallerSchema.definitions.PackageFamilyName.pattern
-            FamilyNameMaxLength       = $InstallerSchema.definitions.PackageFamilyName.maxLength
-            PackageLocale             = $LocaleSchema.properties.PackageLocale.pattern
-            InstallerLocaleMaxLength  = $InstallerSchema.definitions.Locale.maxLength
-            ProductCodeMinLength      = $InstallerSchema.definitions.ProductCode.minLength
-            ProductCodeMaxLength      = $InstallerSchema.definitions.ProductCode.maxLength
-            MaxItemsFileExtensions    = $InstallerSchema.definitions.FileExtensions.maxItems
-            MaxItemsProtocols         = $InstallerSchema.definitions.Protocols.maxItems
-            MaxItemsCommands          = $InstallerSchema.definitions.Commands.maxItems
-            MaxItemsSuccessCodes      = $InstallerSchema.definitions.InstallerSuccessCodes.maxItems
-            MaxItemsInstallModes      = $InstallerSchema.definitions.InstallModes.maxItems
-            PackageLocaleMaxLength    = $LocaleSchema.properties.PackageLocale.maxLength
-            PublisherMaxLength        = $LocaleSchema.properties.Publisher.maxLength
-            PackageNameMaxLength      = $LocaleSchema.properties.PackageName.maxLength
-            MonikerMaxLength          = $LocaleSchema.definitions.Tag.maxLength
-            GenericUrl                = $LocaleSchema.definitions.Url.pattern
-            GenericUrlMaxLength       = $LocaleSchema.definitions.Url.maxLength
-            AuthorMinLength           = $LocaleSchema.properties.Author.minLength
-            AuthorMaxLength           = $LocaleSchema.properties.Author.maxLength
-            LicenseMaxLength          = $LocaleSchema.properties.License.maxLength
-            CopyrightMinLength        = $LocaleSchema.properties.Copyright.minLength
-            CopyrightMaxLength        = $LocaleSchema.properties.Copyright.maxLength
-            TagsMaxItems              = $LocaleSchema.properties.Tags.maxItems
-            ShortDescriptionMaxLength = $LocaleSchema.properties.ShortDescription.maxLength
-            DescriptionMinLength      = $LocaleSchema.properties.Description.minLength
-            DescriptionMaxLength      = $LocaleSchema.properties.Description.maxLength
-            ValidInstallModes         = $InstallerSchema.definitions.InstallModes.items.enum
-            FileExtension             = $InstallerSchema.definitions.FileExtensions.items.pattern
-            FileExtensionMaxLength    = $InstallerSchema.definitions.FileExtensions.items.maxLength
-            ReleaseNotesMinLength     = $LocaleSchema.properties.ReleaseNotes.MinLength
-            ReleaseNotesMaxLength     = $LocaleSchema.properties.ReleaseNotes.MaxLength
+            PackageIdentifier             = $VersionSchema.properties.PackageIdentifier.pattern
+            PackageIdentifierMaxLength    = $VersionSchema.properties.PackageIdentifier.maxLength
+            PackageVersion                = $InstallerSchema.definitions.PackageVersion.pattern
+            VersionMaxLength              = $VersionSchema.properties.PackageVersion.maxLength
+            InstallerSha256               = $InstallerSchema.definitions.Installer.properties.InstallerSha256.pattern
+            InstallerUrl                  = $InstallerSchema.definitions.Installer.properties.InstallerUrl.pattern
+            InstallerUrlMaxLength         = $InstallerSchema.definitions.Installer.properties.InstallerUrl.maxLength
+            ValidArchitectures            = $InstallerSchema.definitions.Architecture.enum
+            ValidInstallerTypes           = $InstallerSchema.definitions.InstallerType.enum
+            ValidNestedInstallerTypes     = $InstallerSchema.definitions.NestedInstallerType.enum
+            SilentSwitchMaxLength         = $InstallerSchema.definitions.InstallerSwitches.properties.Silent.maxLength
+            ProgressSwitchMaxLength       = $InstallerSchema.definitions.InstallerSwitches.properties.SilentWithProgress.maxLength
+            CustomSwitchMaxLength         = $InstallerSchema.definitions.InstallerSwitches.properties.Custom.maxLength
+            SignatureSha256               = $InstallerSchema.definitions.Installer.properties.SignatureSha256.pattern
+            FamilyName                    = $InstallerSchema.definitions.PackageFamilyName.pattern
+            FamilyNameMaxLength           = $InstallerSchema.definitions.PackageFamilyName.maxLength
+            PackageLocale                 = $LocaleSchema.properties.PackageLocale.pattern
+            InstallerLocaleMaxLength      = $InstallerSchema.definitions.Locale.maxLength
+            ProductCodeMinLength          = $InstallerSchema.definitions.ProductCode.minLength
+            ProductCodeMaxLength          = $InstallerSchema.definitions.ProductCode.maxLength
+            MaxItemsFileExtensions        = $InstallerSchema.definitions.FileExtensions.maxItems
+            MaxItemsProtocols             = $InstallerSchema.definitions.Protocols.maxItems
+            MaxItemsCommands              = $InstallerSchema.definitions.Commands.maxItems
+            MaxItemsSuccessCodes          = $InstallerSchema.definitions.InstallerSuccessCodes.maxItems
+            MaxItemsInstallModes          = $InstallerSchema.definitions.InstallModes.maxItems
+            PackageLocaleMaxLength        = $LocaleSchema.properties.PackageLocale.maxLength
+            PublisherMaxLength            = $LocaleSchema.properties.Publisher.maxLength
+            PackageNameMaxLength          = $LocaleSchema.properties.PackageName.maxLength
+            MonikerMaxLength              = $LocaleSchema.definitions.Tag.maxLength
+            GenericUrl                    = $LocaleSchema.definitions.Url.pattern
+            GenericUrlMaxLength           = $LocaleSchema.definitions.Url.maxLength
+            AuthorMinLength               = $LocaleSchema.properties.Author.minLength
+            AuthorMaxLength               = $LocaleSchema.properties.Author.maxLength
+            LicenseMaxLength              = $LocaleSchema.properties.License.maxLength
+            CopyrightMinLength            = $LocaleSchema.properties.Copyright.minLength
+            CopyrightMaxLength            = $LocaleSchema.properties.Copyright.maxLength
+            TagsMaxItems                  = $LocaleSchema.properties.Tags.maxItems
+            ShortDescriptionMaxLength     = $LocaleSchema.properties.ShortDescription.maxLength
+            DescriptionMinLength          = $LocaleSchema.properties.Description.minLength
+            DescriptionMaxLength          = $LocaleSchema.properties.Description.maxLength
+            ValidInstallModes             = $InstallerSchema.definitions.InstallModes.items.enum
+            FileExtension                 = $InstallerSchema.definitions.FileExtensions.items.pattern
+            FileExtensionMaxLength        = $InstallerSchema.definitions.FileExtensions.items.maxLength
+            ReleaseNotesMinLength         = $LocaleSchema.properties.ReleaseNotes.MinLength
+            ReleaseNotesMaxLength         = $LocaleSchema.properties.ReleaseNotes.MaxLength
+            RelativeFilePathMinLength     = $InstallerSchema.Definitions.NestedInstallerFiles.items.properties.RelativeFilePath.minLength
+            RelativeFilePathMaxLength     = $InstallerSchema.Definitions.NestedInstallerFiles.items.properties.RelativeFilePath.maxLength
+            PortableCommandAliasMinLength = $InstallerSchema.Definitions.NestedInstallerFiles.items.properties.PortableCommandAlias.minLength
+            PortableCommandAliasMaxLength = $InstallerSchema.Definitions.NestedInstallerFiles.items.properties.PortableCommandAlias.maxLength
+            ArchiveInstallerTypes         = @('zip')
         }
     ) -Option Constant
 
@@ -1090,8 +1118,6 @@ Begin {
     #
     #####################################
     New-Variable -Name 'ScriptSettings' -Value $(Initialize-ScriptSettings) -Option AllScope -Force
-    if ($null -eq $ScriptLogging) { New-Variable -Name 'ScriptLogging' -Value $(Initialize-ScriptLogging) -Option AllScope }
-    $MyInvocation | Select-Object -Property MyCommand, BoundParameters, PSScriptRoot | Out-Log
     if ($IsDotSourced) { exit }
 }
 
@@ -1099,7 +1125,7 @@ Begin {
 # This section should only execute when the script contains an input object, since this is where the actual updating of manifests is performed
 Process {
     if ($PSBoundParameters.ContainsKey('InputObject')) {
-        $InputObject | Out-Log
+        $InputObject
         $_ValidationResult = Validate-InputObject $InputObject
         if ($_ValidationResult.StatusCode -eq $SuccessStatusCode) {
             switch ($InputObject.Action) {
@@ -1121,11 +1147,7 @@ Process {
                                 $SandboxScriptPath = Read-Host -Prompt 'SandboxTest.ps1' | TrimString
                             }
                         }
-                        if ($InputObject.DoValidation) {
-                            & $SandboxScriptPath -Manifest $_VersionFolder -SkipManifestValidation
-                        } else {
-                            & $SandboxScriptPath -Manifest $_VersionFolder
-                        }
+                        & $SandboxScriptPath -Manifest $_VersionFolder -SkipManifestValidation
                     } else {
                         $_DidSandboxTest = $false
                     }
@@ -1174,25 +1196,7 @@ Process {
                 }
                 # User is performing an automatic upgrade
                 'Auto' {
-                    $_VersionStructure = Get-VersionStructure $InputObject.PackageIdentifier $InputObject.PackageVersion
-                    if ($null -eq $_VersionStructure) {
-                        $_PackageStructure = Get-PackageStructure $InputObject.PackageIdentifier
-                        if ($_PackageStructure -and $_PackageStructure.PackageVersions.Length -gt 0) {
-                            $_VersionStructure = Get-VersionStructure $InputObject.PackageIdentifier $_PackageStructure.PackageVersions[$_PackageStructure.PackageVersions.Length - 1]
-                        } else {
-                            $_VersionStructure.ManifestType = 'None'
-                        }
-                    }
-                    Write-Host -ForegroundColor 'Yellow' "Found Package Version $(Split-Path $_VersionStructure.VersionFolder -Leaf)"
-                    switch ($_VersionStructure.ManifestType) {
-                        'MultiManifest' { $_Manifests = Import-MultiManifest $_VersionStructure }
-                        'Singleton' { $_Manifests = Import-SingletonManifest $_VersionStructure }
-                        default {
-                            "The manifest type of $($InputObject.PackageIdentifier) $($InputObject.PackageVersion) could not be determined" | Out-Log
-                            Write-Host -ForegroundColor 'Red' "Error when processing $($InputObject.PackageIdentifier) $($InputObject.PackageVersion)"
-                            return
-                        }
-                    }
+                    $_Manifests = Get-ExistingManifestData $InputObject.PackageIdentifier $InputObject.PackageVersion
                     # The manifests should now be loaded and are ready for processing
                     $_KnownInstallers = @{}
                     foreach ($_Installer in $_Manifests.Installer.Installers) {
@@ -1269,6 +1273,7 @@ End {
             Write-MulticolorOutput $ModeChoiceMenu
             Write-Host -NoNewline 'Selection: '
             $_KeyCode = Read-KeyPress
+            Write-Host
         } Else {
             $_KeyCode = 'D' + $Mode
         }
@@ -1301,12 +1306,19 @@ End {
                 # TODO Confirm user wishes to delete a manifest
                 if ($PSBoundParameters.ContainsKey('PackageIdentifier')) { $OutputObject['PackageIdentifier'] = $PackageIdentifier }
                 if ($PSBoundParameters.ContainsKey('PackageVersion')) { $OutputObject['PackageVersion'] = $PackageVersion }
-                $_ValidationResult = Validate-PackageVersionExists $OutputObject.PackageIdentifier $OutputObject.PackageVersion
-                while ($_ValidationResult.StatusCode -ne $SuccessStatusCode) {
-                    Write-Host -ForegroundColor 'Red' $_ValidationResult.ErrorString()
-                    $OutputObject['PackageIdentifier'] = Request-PackageIdentifier
-                    $OutputObject['PackageVersion'] = Request-PackageVersion
-                    $_ValidationResult = Validate-PackageVersionExists $OutputObject.PackageIdentifier $OutputObject.PackageVersion
+                # Request Package Identifier and Version if they haven't been provided already
+                if (!$OutputObject.PackageIdentifier) { $OutputObject['PackageIdentifier'] = Request-PackageIdentifier }
+                if (!$OutputObject.PackageVersion) { $OutputObject['PackageVersion'] = Request-PackageVersion }
+                $_ExistingManifestData = Get-ExistingManifestData $OutputObject.PackageIdentifier $OutputObject.PackageVersion
+                # If the package exists, check if the version was found and loaded properly
+                if ($_ExistingManifestData) {
+                    # If there is existing data, the version manifest is assumed to always exist
+                    $OutputObject['PackageIdentifier'] = $_ExistingManifestData.Version.PackageIdentifier
+                    if (!$_ExistingManifestData.Version.PackageVersion -eq $OutputObject.PackageVersion) {
+                        throw [System.NullReferenceException]::New('The specified package version could not be found')
+                    }
+                } else {
+                    throw [System.NullReferenceException]::New('No existing version of the package could be found')
                 }
                 # TODO Prompt for removal reason
             }
@@ -1327,21 +1339,105 @@ End {
                 # Request Package Identifier and Version if they haven't been provided already
                 if (!$OutputObject.PackageIdentifier) { $OutputObject['PackageIdentifier'] = Request-PackageIdentifier }
                 if (!$OutputObject.PackageVersion) { $OutputObject['PackageVersion'] = Request-PackageVersion }
-                # Check if the package exists to determine how the recursion gets handled
-                $_ValidationResult = Validate-PackageVersionExists $OutputObject.PackageIdentifier $OutputObject.PackageVersion
-                if ($_ValidationResult.StatusCode -eq $SuccessStatusCode) {
-                    # Recursion creates new manifests by default; If the package exists, switch to modification mode
-                    $OutputObject['Action'] = 'Modify'
+                $_ExistingManifestData = Get-ExistingManifestData $OutputObject.PackageIdentifier $OutputObject.PackageVersion
+                # If the package exists, check if the version was found and loaded properly
+                if ($_ExistingManifestData) {
+                    # If there is existing data, the version manifest is assumed to always exist
+                    $OutputObject['PackageIdentifier'] = $_ExistingManifestData.Version.PackageIdentifier
+                    if ($_ExistingManifestData.Version.PackageVersion -eq $OutputObject.PackageVersion) {
+                        # Recursion creates new manifests by default. If the version exists, switch to modification
+                        $OutputObject['Action'] = 'Modify'
+                    }
                 }
             }
             'Quick' {
+                # Quick is mostly the same as create, but it requires there to be an existing version of the package
+                $OutputObject = @{
+                    PackageIdentifier = ''
+                    PackageVersion    = ''
+                    Action            = 'Create'
+                    DoValidation      = $false
+                    DoSandboxTest     = $false
+                    PullRequest       = @{
+                        AutoSubmit = 'ask'
+                    }
+                }
+                if ($PSBoundParameters.ContainsKey('PackageIdentifier')) { $OutputObject['PackageIdentifier'] = $PackageIdentifier }
+                if ($PSBoundParameters.ContainsKey('PackageVersion')) { $OutputObject['PackageVersion'] = $PackageVersion }
+                # Request Package Identifier and Version if they haven't been provided already
+                if (!$OutputObject.PackageIdentifier) { $OutputObject['PackageIdentifier'] = Request-PackageIdentifier }
+                if (!$OutputObject.PackageVersion) { $OutputObject['PackageVersion'] = Request-PackageVersion }
+                $_ExistingManifestData = Get-ExistingManifestData $OutputObject.PackageIdentifier $OutputObject.PackageVersion
+                # If the package exists, check if the version was found and loaded properly
+                if ($_ExistingManifestData) {
+                    # If there is existing data, the version manifest is assumed to always exist
+                    $OutputObject['PackageIdentifier'] = $_ExistingManifestData.Version.PackageIdentifier
+                    if ($_ExistingManifestData.Version.PackageVersion -eq $OutputObject.PackageVersion) {
+                        # Recursion creates new manifests by default. If the version exists, switch to modification
+                        $OutputObject['Action'] = 'Modify'
+                    }
+                } else {
+                    throw [System.NullReferenceException]::New('No existing version of the package could be found')
+                }
                 # Go through update of package URLs / ReleaseDate then auto update
             }
             'Metadata' {
-                # Go through update of Metadata only
+                # Metadata updates require an exact version to be provided
+                $OutputObject = @{
+                    PackageIdentifier = ''
+                    PackageVersion    = ''
+                    Action            = 'Modify'
+                    DoValidation      = $false
+                    DoSandboxTest     = $false
+                    PullRequest       = @{
+                        AutoSubmit = 'ask'
+                    }
+                }
+                if ($PSBoundParameters.ContainsKey('PackageIdentifier')) { $OutputObject['PackageIdentifier'] = $PackageIdentifier }
+                if ($PSBoundParameters.ContainsKey('PackageVersion')) { $OutputObject['PackageVersion'] = $PackageVersion }
+                # Request Package Identifier and Version if they haven't been provided already
+                if (!$OutputObject.PackageIdentifier) { $OutputObject['PackageIdentifier'] = Request-PackageIdentifier }
+                if (!$OutputObject.PackageVersion) { $OutputObject['PackageVersion'] = Request-PackageVersion }
+                $_ExistingManifestData = Get-ExistingManifestData $OutputObject.PackageIdentifier $OutputObject.PackageVersion
+                # If the package exists, check if the version was found and loaded properly
+                if ($_ExistingManifestData) {
+                    # If there is existing data, the version manifest is assumed to always exist
+                    $OutputObject['PackageIdentifier'] = $_ExistingManifestData.Version.PackageIdentifier
+                    if (!$_ExistingManifestData.Version.PackageVersion -eq $OutputObject.PackageVersion) {
+                        throw [System.NullReferenceException]::New('The specified package version could not be found')
+                    }
+                } else {
+                    throw [System.NullReferenceException]::New('No existing version of the package could be found')
+                }
             }
             'Locale' {
-                # Create or update a locale
+                # Locale updates require an exact version to be provided
+                $OutputObject = @{
+                    PackageIdentifier = ''
+                    PackageVersion    = ''
+                    Action            = 'Modify'
+                    DoValidation      = $false
+                    DoSandboxTest     = $false
+                    PullRequest       = @{
+                        AutoSubmit = 'ask'
+                    }
+                }
+                if ($PSBoundParameters.ContainsKey('PackageIdentifier')) { $OutputObject['PackageIdentifier'] = $PackageIdentifier }
+                if ($PSBoundParameters.ContainsKey('PackageVersion')) { $OutputObject['PackageVersion'] = $PackageVersion }
+                # Request Package Identifier and Version if they haven't been provided already
+                if (!$OutputObject.PackageIdentifier) { $OutputObject['PackageIdentifier'] = Request-PackageIdentifier }
+                if (!$OutputObject.PackageVersion) { $OutputObject['PackageVersion'] = Request-PackageVersion }
+                $_ExistingManifestData = Get-ExistingManifestData $OutputObject.PackageIdentifier $OutputObject.PackageVersion
+                # If the package exists, check if the version was found and loaded properly
+                if ($_ExistingManifestData) {
+                    # If there is existing data, the version manifest is assumed to always exist
+                    $OutputObject['PackageIdentifier'] = $_ExistingManifestData.Version.PackageIdentifier
+                    if (!$_ExistingManifestData.Version.PackageVersion -eq $OutputObject.PackageVersion) {
+                        throw [System.NullReferenceException]::New('The specified package version could not be found')
+                    }
+                } else {
+                    throw [System.NullReferenceException]::New('No existing version of the package could be found')
+                }
             }
             'Auto' {
                 # Auto update
@@ -1352,9 +1448,5 @@ End {
             $PassedObject = @{'InputObject' = $OutputObject }
             & $PSCommandPath @PassedObject
         }
-    }
-    if ($ScriptLogging.LogFile) {
-        $_LogContents = Get-Content $ScriptLogging.LogFile
-        $_LogContents | ForEach-Object { $_.Trim() } | Set-Content $ScriptLogging.LogFile
     }
 }
