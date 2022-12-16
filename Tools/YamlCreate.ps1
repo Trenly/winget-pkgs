@@ -13,7 +13,9 @@ Param
   [Parameter(Mandatory = $false)]
   [string] $PackageVersion,
   [Parameter(Mandatory = $false)]
-  [string] $Mode
+  [string] $Mode,
+  [Parameter(Mandatory = $false)]
+  [PSCustomObject] $InputObject
 )
 $ProgressPreference = 'SilentlyContinue'
 
@@ -782,6 +784,18 @@ Function Read-NestedInstaller {
     $_Installer['NestedInstallerFiles'] = $_NestedInstallerFiles
   }
   return $_Installer
+}
+
+function Test-InputObject {
+    Param (
+        [Parameter(Mandatory = $true, Position = 0)]
+        [PSCustomObject] $InputObject
+    )
+
+    if ($null -eq $InputObject.PackageIdentifier) { return 'Package Identifier is required' }
+    if ($null -eq $InputObject.PackageVersion) { return 'Package Version is required' }
+    if ($null -eq $InputObject.InstallerUrls) { return 'Installer URLS are required' }
+    return $null
 }
 
 # Prompts the user to enter installer values
@@ -2252,7 +2266,7 @@ function Remove-ManifestVersion {
 # Initialize the return value to be a success
 $script:_returnValue = [ReturnValue]::new(200)
 
-$script:UsingAdvancedOption = ($ScriptSettings.EnableDeveloperOptions -eq 'true') -and ($AutoUpgrade)
+$script:UsingAdvancedOption = ($ScriptSettings.EnableDeveloperOptions -eq 'true') -and ($AutoUpgrade -or $PSBoundParameters.ContainsKey('InputObject'))
 
 if (!$script:UsingAdvancedOption) {
   # Request the user to choose an operation mode
@@ -2301,7 +2315,17 @@ if (!$script:UsingAdvancedOption) {
     }
   }
 } else {
-  if ($AutoUpgrade) { $script:Option = 'Auto' }
+    if ($AutoUpgrade) { $script:Option = 'Auto' }
+    if ($PSBoundParameters.ContainsKey('InputObject')) {
+        $_IsInvalid = Test-InputObject -InputObject $InputObject
+        if ( $null -ne $_IsInvalid ) {
+            throw "$_IsInvalid"
+        } else {
+            $script:PackageIdentifier = $InputObject.PackageIdentifier
+            $script:PackageVersion = $InputObject.PackageVersion
+        }
+        $script:Option = 'FromObject'
+    }
 }
 
 # Confirm the user undertands the implications of using the quick update mode
@@ -2452,16 +2476,16 @@ if (-not (Test-Path -Path "$AppFolder\..")) {
 
 # Try getting the last version of the package and the old manifests to be updated
 if (!$LastVersion) {
-  try {
-    $script:LastVersion = Split-Path (Split-Path (Get-ChildItem -Path "$AppFolder\..\" -Recurse -Depth 1 -File -Filter '*.yaml' -ErrorAction SilentlyContinue).FullName ) -Leaf | Sort-Object $ToNatural | Select-Object -Last 1
-    $script:ExistingVersions = Split-Path (Split-Path (Get-ChildItem -Path "$AppFolder\..\" -Recurse -Depth 1 -File -Filter '*.yaml' -ErrorAction SilentlyContinue).FullName ) -Leaf | Sort-Object $ToNatural | Select-Object -Unique
-    if ($script:Option -eq 'Auto' -and $PackageVersion -in $script:ExistingVersions) { $LastVersion = $PackageVersion }
-    Write-Host -ForegroundColor 'DarkYellow' -Object "Found Existing Version: $LastVersion"
-    $script:OldManifests = Get-ChildItem -Path "$AppFolder\..\$LastVersion"
-  } catch {
-    # Take no action here, we just want to catch the exceptions as a precaution
-    Out-Null
-  }
+    try {
+        $script:LastVersion = Split-Path (Split-Path (Get-ChildItem -Path "$AppFolder\..\" -Recurse -Depth 1 -File -Filter '*.yaml' -ErrorAction SilentlyContinue).FullName ) -Leaf | Sort-Object $ToNatural | Select-Object -Last 1
+        $script:ExistingVersions = Split-Path (Split-Path (Get-ChildItem -Path "$AppFolder\..\" -Recurse -Depth 1 -File -Filter '*.yaml' -ErrorAction SilentlyContinue).FullName ) -Leaf | Sort-Object $ToNatural | Select-Object -Unique
+        if ($script:Option -in @('Auto'; 'FromObject') -and $PackageVersion -in $script:ExistingVersions) { $LastVersion = $PackageVersion }
+        Write-Host -ForegroundColor 'DarkYellow' -Object "Found Existing Version: $LastVersion"
+        $script:OldManifests = Get-ChildItem -Path "$AppFolder\..\$LastVersion"
+    } catch {
+        # Take no action here, we just want to catch the exceptions as a precaution
+        Out-Null
+    }
 }
 
 # If the old manifests exist, find the default locale
@@ -2509,57 +2533,57 @@ if ($OldManifests.Name -eq "$PackageIdentifier.installer.yaml" -and $OldManifest
   $script:OldLocaleManifest = ConvertFrom-Yaml -Yaml ($(Get-Content -Path $(Resolve-Path "$AppFolder\..\$LastVersion\$PackageIdentifier.locale.$PackageLocale.yaml") -Encoding UTF8) -join "`n") -Ordered
   $script:OldVersionManifest = ConvertFrom-Yaml -Yaml ($(Get-Content -Path $(Resolve-Path "$AppFolder\..\$LastVersion\$PackageIdentifier.yaml") -Encoding UTF8) -join "`n") -Ordered
 } elseif ($OldManifests.Name -eq "$PackageIdentifier.yaml") {
-  if ($script:Option -eq 'NewLocale') { throw [ManifestException]::new('MultiManifest Required') }
-  $script:OldManifestType = 'MultiManifest'
-  $script:OldSingletonManifest = ConvertFrom-Yaml -Yaml ($(Get-Content -Path $(Resolve-Path "$AppFolder\..\$LastVersion\$PackageIdentifier.yaml") -Encoding UTF8) -join "`n") -Ordered
-  $PackageLocale = $script:OldSingletonManifest.PackageLocale
-  # Create new empty manifests
-  $script:OldInstallerManifest = [ordered]@{}
-  $script:OldLocaleManifest = [ordered]@{}
-  $script:OldVersionManifest = [ordered]@{}
-  # Parse version keys to version manifest
-  foreach ($_Key in $($OldSingletonManifest.Keys | Where-Object { $_ -in $VersionProperties })) {
-    $script:OldVersionManifest[$_Key] = $script:OldSingletonManifest.$_Key
-  }
-  $script:OldVersionManifest['ManifestType'] = 'version'
-  #Parse locale keys to locale manifest
-  foreach ($_Key in $($OldSingletonManifest.Keys | Where-Object { $_ -in $LocaleProperties })) {
-    $script:OldLocaleManifest[$_Key] = $script:OldSingletonManifest.$_Key
-  }
-  $script:OldLocaleManifest['ManifestType'] = 'defaultLocale'
-  #Parse installer keys to installer manifest
-  foreach ($_Key in $($OldSingletonManifest.Keys | Where-Object { $_ -in $InstallerProperties })) {
-    $script:OldInstallerManifest[$_Key] = $script:OldSingletonManifest.$_Key
-  }
-  $script:OldInstallerManifest['ManifestType'] = 'installer'
-  # Move Manifest Level Keys to installer Level
-  $_KeysToMove = $InstallerEntryProperties | Where-Object { $_ -in $InstallerProperties }
-  foreach ($_Key in $_KeysToMove) {
-    if ($_Key -in $script:OldInstallerManifest.Keys) {
-      # Handle Installer switches separately
-      if ($_Key -eq 'InstallerSwitches') {
-        $_SwitchKeysToMove = $script:OldInstallerManifest.$_Key.Keys
-        foreach ($_SwitchKey in $_SwitchKeysToMove) {
-          # If the InstallerSwitches key doesn't exist, we need to create it, otherwise, preserve switches that were already there
-          foreach ($_Installer in $script:OldInstallerManifest['Installers']) {
-            if ('InstallerSwitches' -notin $_Installer.Keys) { $_Installer['InstallerSwitches'] = @{} }
-            $_Installer.InstallerSwitches["$_SwitchKey"] = $script:OldInstallerManifest.$_Key.$_SwitchKey
-          }
-        }
-        $script:OldInstallerManifest.Remove($_Key)
-        continue
-      } else {
-        foreach ($_Installer in $script:OldInstallerManifest['Installers']) {
-          if ($_Key -eq 'InstallModes') { $script:InstallModes = [string]$script:OldInstallerManifest.$_Key }
-          if ($_Key -notin $_Installer.Keys) {
-            $_Installer[$_Key] = $script:OldInstallerManifest.$_Key
-          }
-        }
-      }
-      New-Variable -Name $_Key -Value $($script:OldInstallerManifest.$_Key -join ', ') -Scope Script -Force
-      $script:OldInstallerManifest.Remove($_Key)
+    if ($script:Option -in @('NewLocale'; 'FromObject')) { throw [ManifestException]::new('MultiManifest Required') }
+    $script:OldManifestType = 'MultiManifest'
+    $script:OldSingletonManifest = ConvertFrom-Yaml -Yaml ($(Get-Content -Path $(Resolve-Path "$AppFolder\..\$LastVersion\$PackageIdentifier.yaml") -Encoding UTF8) -join "`n") -Ordered
+    $PackageLocale = $script:OldSingletonManifest.PackageLocale
+    # Create new empty manifests
+    $script:OldInstallerManifest = [ordered]@{}
+    $script:OldLocaleManifest = [ordered]@{}
+    $script:OldVersionManifest = [ordered]@{}
+    # Parse version keys to version manifest
+    foreach ($_Key in $($OldSingletonManifest.Keys | Where-Object { $_ -in $VersionProperties })) {
+        $script:OldVersionManifest[$_Key] = $script:OldSingletonManifest.$_Key
     }
-  }
+    $script:OldVersionManifest['ManifestType'] = 'version'
+    #Parse locale keys to locale manifest
+    foreach ($_Key in $($OldSingletonManifest.Keys | Where-Object { $_ -in $LocaleProperties })) {
+        $script:OldLocaleManifest[$_Key] = $script:OldSingletonManifest.$_Key
+    }
+    $script:OldLocaleManifest['ManifestType'] = 'defaultLocale'
+    #Parse installer keys to installer manifest
+    foreach ($_Key in $($OldSingletonManifest.Keys | Where-Object { $_ -in $InstallerProperties })) {
+        $script:OldInstallerManifest[$_Key] = $script:OldSingletonManifest.$_Key
+    }
+    $script:OldInstallerManifest['ManifestType'] = 'installer'
+    # Move Manifest Level Keys to installer Level
+    $_KeysToMove = $InstallerEntryProperties | Where-Object { $_ -in $InstallerProperties }
+    foreach ($_Key in $_KeysToMove) {
+        if ($_Key -in $script:OldInstallerManifest.Keys) {
+            # Handle Installer switches separately
+            if ($_Key -eq 'InstallerSwitches') {
+                $_SwitchKeysToMove = $script:OldInstallerManifest.$_Key.Keys
+                foreach ($_SwitchKey in $_SwitchKeysToMove) {
+                    # If the InstallerSwitches key doesn't exist, we need to create it, otherwise, preserve switches that were already there
+                    foreach ($_Installer in $script:OldInstallerManifest['Installers']) {
+                        if ('InstallerSwitches' -notin $_Installer.Keys) { $_Installer['InstallerSwitches'] = @{} }
+                        $_Installer.InstallerSwitches["$_SwitchKey"] = $script:OldInstallerManifest.$_Key.$_SwitchKey
+                    }
+                }
+                $script:OldInstallerManifest.Remove($_Key)
+                continue
+            } else {
+                foreach ($_Installer in $script:OldInstallerManifest['Installers']) {
+                    if ($_Key -eq 'InstallModes') { $script:InstallModes = [string]$script:OldInstallerManifest.$_Key }
+                    if ($_Key -notin $_Installer.Keys) {
+                        $_Installer[$_Key] = $script:OldInstallerManifest.$_Key
+                    }
+                }
+            }
+            New-Variable -Name $_Key -Value $($script:OldInstallerManifest.$_Key -join ', ') -Scope Script -Force
+            $script:OldInstallerManifest.Remove($_Key)
+        }
+    }
 } else {
   if ($script:Option -ne 'New') { throw [ManifestException]::new("Version $LastVersion does not contain the required manifests") }
   $script:OldManifestType = 'None'
@@ -2664,6 +2688,118 @@ Switch ($script:Option) {
 
     $AppFolder = Remove-ManifestVersion $AppFolder
   }
+
+    'FromObject' {
+        # Update the manifest with URLs that are already there
+        Write-Host $NewLine
+        Write-Host 'Parsing Input Data...' -ForegroundColor Blue
+
+        if ($InputObject.InstallerUrls.Count -ne $script:OldInstallerManifest.Installers.Count) { Throw 'Installer counts not equal' }
+        $NewManifestFiles = Get-ChildItem $(Resolve-Path "$AppFolder/../$LastVersion/") -Filter '*.yaml'
+        $NewInstallerManifestPath = Join-Path -Path $AppFolder -ChildPath "$PackageIdentifier.installer.yaml"
+        $NewInstallerManifest = Get-Content -Path ($NewManifestFiles | Where-Object { $_.Name -match "$PackageIdentifier.installer.yaml" }).FullName | ConvertFrom-Yaml -Ordered
+
+        $NewVersionManifestPath = Join-Path -Path $AppFolder -ChildPath "$PackageIdentifier.yaml"
+        $NewVersionManifest = Get-Content -Path ($NewManifestFiles | Where-Object { $_.FullName -match "$PackageIdentifier.yaml" }).FullName | ConvertFrom-Yaml -Ordered
+
+        for ( $i = 0; $i -lt $NewInstallerManifest.Installers.Count; $i++) {
+            $NewInstallerManifest.Installers[$i].InstallerUrl = $InputObject.InstallerUrls[$i]
+        }
+        $InputKeys = ($InputObject | Get-Member | Where-Object { $_.MemberType -eq 'NoteProperty' }).Name
+        foreach ($_Key in $InstallerProperties) { if ($InputKeys -contains $_Key) { $NewInstallerManifest[$_Key] = $InputObject.$_Key } }
+        foreach ($_Key in $VersionProperties) { if ($InputKeys -contains $_Key) { $NewVersionManifest[$_Key] = $InputObject.$_Key } }
+
+        ## This is duplicated code, will try and reduce it later ##
+        Write-Host 'Updating Manifest Information. This may take a while...' -ForegroundColor Blue
+        foreach ($_Installer in $NewInstallerManifest.Installers) {
+            try {
+                $script:dest = Get-InstallerFile -URI $_Installer.InstallerUrl -PackageIdentifier $PackageIdentifier -PackageVersion $PackageVersion
+            } catch {
+                # Here we also want to pass any exceptions through for potential debugging
+                throw [System.Net.WebException]::new('The file could not be downloaded. Try running the script again', $_.Exception)
+            } finally {
+                # Get the Sha256
+                $_Installer['InstallerSha256'] = (Get-FileHash -Path $script:dest -Algorithm SHA256).Hash
+                # Update the product code, if a new one exists
+                # If a new product code doesn't exist, and the installer isn't an `.exe` file, remove the product code if it exists
+                $MSIProductCode = ([string](Get-MSIProperty -MSIPath $script:dest -Parameter 'ProductCode') | Select-String -Pattern '{[A-Z0-9]{8}-([A-Z0-9]{4}-){3}[A-Z0-9]{12}}').Matches.Value
+                if (Test-String -not $MSIProductCode -IsNull) {
+                    $_Installer['ProductCode'] = $MSIProductCode
+                } elseif ( ($_Installer.Keys -contains 'ProductCode') -and ($script:dest -notmatch '.exe$')) {
+                    $_Installer.Remove('ProductCode')
+                }
+                # Check that MSI's aren't actually WIX
+                if ($_Installer['InstallerType'] -eq 'msi') {
+                    $DetectedType = Get-PathInstallerType $script:dest
+                    if ($DetectedType -in @('msi'; 'wix')) { $_Installer['InstallerType'] = $DetectedType }
+                }
+                # If the installer is msix or appx, try getting the new SignatureSha256
+                # If the new SignatureSha256 can't be found, remove it if it exists
+                if ($_Installer.InstallerType -in @('msix', 'appx')) {
+                    if (Get-Command 'winget.exe' -ErrorAction SilentlyContinue) { $NewSignatureSha256 = winget hash -m $script:dest | Select-String -Pattern 'SignatureSha256:' | ConvertFrom-String; if ($NewSignatureSha256.P2) { $NewSignatureSha256 = $NewSignatureSha256.P2.ToUpper() } }
+                }
+                if (Test-String -not $NewSignatureSha256 -IsNull) {
+                    $_Installer['SignatureSha256'] = $NewSignatureSha256
+                } elseif ($_Installer.Keys -contains 'SignatureSha256') {
+                    $_Installer.Remove('SignatureSha256')
+                }
+                # If the installer is msix or appx, try getting the new package family name
+                # If the new package family name can't be found, remove it if it exists
+                if ($script:dest -match '\.(msix|appx)(bundle){0,1}$') {
+                    try {
+                        Add-AppxPackage -Path $script:dest
+                        $InstalledPkg = Get-AppxPackage | Select-Object -Last 1 | Select-Object PackageFamilyName, PackageFullName
+                        $PackageFamilyName = $InstalledPkg.PackageFamilyName
+                        Remove-AppxPackage $InstalledPkg.PackageFullName
+                    } catch {
+                        # Take no action here, we just want to catch the exceptions as a precaution
+                        Out-Null
+                    } finally {
+                        if (Test-String -not $PackageFamilyName -IsNull) {
+                            $_Installer['PackageFamilyName'] = $PackageFamilyName
+                        } elseif ($_Installer.Keys -contains 'PackageFamilyName') {
+                            $_Installer.Remove('PackageFamilyName')
+                        }
+                    }
+                }
+                # Remove the downloaded files
+                Remove-Item -Path $script:dest
+            }
+        }
+        ## End of duplicated code
+
+        New-Item -ItemType Directory -Path $AppFolder -Force | Out-Null
+        $NewInstallerManifest = Restore-YamlKeyOrder -InputObject $NewInstallerManifest -SortOrder $InstallerProperties -NoComments
+        ConvertTo-Yaml $NewInstallerManifest > $NewInstallerManifestPath
+        $(Get-Content $NewInstallerManifestPath -Encoding UTF8) -replace "(.*)$([char]0x2370)", "# `$1" | Out-File -FilePath $NewInstallerManifestPath -Force
+        $MyRawString = Get-Content -Raw $NewInstallerManifestPath | TrimString
+        [System.IO.File]::WriteAllLines($NewInstallerManifestPath, $MyRawString, $Utf8NoBomEncoding)
+
+        $NewVersionManifest = Restore-YamlKeyOrder -InputObject $NewVersionManifest -SortOrder $VersionProperties
+        ConvertTo-Yaml $NewVersionManifest > $NewVersionManifestPath
+        $(Get-Content $NewVersionManifestPath -Encoding UTF8) -replace "(.*)$([char]0x2370)", "# `$1" | Out-File -FilePath $NewVersionManifestPath -Force
+        $MyRawString = Get-Content -Raw $NewVersionManifestPath | TrimString
+        [System.IO.File]::WriteAllLines($NewVersionManifestPath, $MyRawString, $Utf8NoBomEncoding)
+
+        $NewLocaleFiles = $NewManifestFiles | Where-Object { $_.FullName -match "$PackageIdentifier.locale.*.yaml" }
+        if ($InputKeys -contains 'Locales') { $InputLocales = ($InputObject.Locales | Get-Member | Where-Object { $_.MemberType -eq 'NoteProperty' }).Name }
+        Write-Host $InputLocales
+        foreach ($_LocaleFile in $NewLocaleFiles) {
+            $NewLocalePath = Join-Path -Path $AppFolder -ChildPath $_LocaleFile.Name
+            $NewLocaleManifest = Get-Content -Path $_LocaleFile.FullName | ConvertFrom-Yaml -Ordered
+            foreach ($_Key in $LocaleProperties) { if ($InputKeys -contains $_Key) { $NewLocaleManifest[$_Key] = $InputObject.$_Key } }
+            if ($InputLocales -and $InputLocales -contains $NewLocaleManifest.PackageLocale ) {
+                $InputLocaleKeys = ($InputObject.Locales.$($NewLocaleManifest.PackageLocale) | Get-Member | Where-Object { $_.MemberType -eq 'NoteProperty' }).Name
+                foreach ($_Key in $LocaleProperties) { if ($InputLocaleKeys -contains $_Key) { $NewLocaleManifest[$_Key] = $InputObject.Locales.$($NewLocaleManifest.PackageLocale).$_Key } }
+            }
+            $NewLocaleManifest = Restore-YamlKeyOrder -InputObject $NewLocaleManifest -SortOrder $LocaleProperties
+            ConvertTo-Yaml $NewLocaleManifest > $NewLocalePath
+            $(Get-Content $NewLocalePath -Encoding UTF8) -replace "(.*)$([char]0x2370)", "# `$1" | Out-File -FilePath $NewLocalePath -Force
+            $MyRawString = Get-Content -Raw $NewLocalePath | TrimString
+            [System.IO.File]::WriteAllLines($NewLocalePath, $MyRawString, $Utf8NoBomEncoding)
+        }
+        # Upgrade SHAs etc
+    }
 
   'Auto' {
     # Set new package version
