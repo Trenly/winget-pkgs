@@ -17,7 +17,7 @@ The following optional arguments are supported:
 | **-Script** | Post-installation script to run in the Sandbox |
 | **-MapFolder** | The folder to map in Sandbox. Default is the current directory |
 | **-WinGetVersion** | Specify version of WinGet to use in Sandbox |
-| **-Prerelease** | Test the manifest with the latest preview release of WinGet |
+| **-Prerelease** | Allow preview release versions of WinGet |
 | **-EnableExperimentalFeatures** | Enable WinGet experimental features |
 | **-SkipManifestValidation** | Skip `winget validate -m <manifest>` if you have already validated the manifest |
 
@@ -35,7 +35,7 @@ Test manifest on the latest preview release of WinGet
 
 Test manifest on a specified version of WinGet
 ```raw
-.\SandboxTest.ps1 <path-to-manifest> -WinGetVersion 1.5 -Script {Write-Host 'The script has finished'}
+.\SandboxTest.ps1 <path-to-manifest> -WinGetVersion 1.4.2011 -Prerelease -Script {Write-Host 'The script has finished'}
 ```
 
 Install a package from the repository in Sandbox 
