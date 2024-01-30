@@ -157,3 +157,38 @@ function Find-WinGetPackageIdentifier {
   $findCommand.Dispose()
   return $ids
 }
+
+function Find-WinGetPackageVersions {
+  [CmdletBinding()]
+  param (
+    [Parameter()]
+    [ValidateNotNullOrEmpty()]
+    [String] $Query,
+    [Parameter()]
+    [ValidateSet('CaseInsensitive', 'Exact')]
+    [String] $MatchType = 'CaseInsensitive',
+    [Parameter()]
+    [ValidateNotNull()]
+    [System.Data.SQLite.SQLiteConnection] $Connection = $global:WinGetSQLiteConnection
+  )
+
+  $findCommand = $Connection.CreateCommand()
+  $findCommand.CommandType = [System.Data.CommandType]::Text
+  $findCommand.CommandText = 'SELECT versions.version FROM manifest LEFT JOIN versions on versions.rowid = manifest.version LEFT JOIN ids on ids.rowid = manifest.id WHERE '
+  switch ($MatchType) {
+    'Exact' { $findCommand.CommandText += "ids.id = '$Query'" }
+    Default {  $findCommand.CommandText += "ids.id like '$Query'" }
+  }
+  $reader = $findCommand.ExecuteReader()
+  $reader.GetValues() | Out-Null
+  $versions = @()
+  while ($reader.HasRows) {
+    if ($reader.Read()) {
+      $versions += $reader['version']
+    }
+  }
+  $reader.Close()
+  $reader.Dispose()
+  $findCommand.Dispose()
+  return $versions
+}
