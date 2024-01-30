@@ -121,3 +121,39 @@ function Update-WinGetDatabase {
   Expand-WinGetSourceFile | Out-Null
   Mount-WinGetDatabase
 }
+
+function Find-WinGetPackageIdentifier {
+  [CmdletBinding()]
+  param (
+    [Parameter()]
+    [ValidateNotNullOrEmpty()]
+    [String] $Query,
+    [Parameter()]
+    [ValidateSet('Substring', 'CaseInsensitive', 'Exact')]
+    [String] $MatchType = 'Substring',
+    [Parameter()]
+    [ValidateNotNull()]
+    [System.Data.SQLite.SQLiteConnection] $Connection = $global:WinGetSQLiteConnection
+  )
+
+  $findCommand = $Connection.CreateCommand()
+  $findCommand.CommandType = [System.Data.CommandType]::Text
+  $findCommand.CommandText = 'SELECT * FROM ids WHERE '
+  switch ($MatchOption) {
+    'CaseInsensitive' { $findCommand.CommandText += "id like '$Query'" }
+    'Exact' { $findCommand.CommandText += "id = '$Query'" }
+    Default { $findCommand.CommandText += "id like '%$Query%'" }
+  }
+  $reader = $findCommand.ExecuteReader()
+  $reader.GetValues() | Out-Null
+  $ids = @()
+  while ($reader.HasRows) {
+    if ($reader.Read()) {
+      $ids += $reader['id']
+    }
+  }
+  $reader.Close()
+  $reader.Dispose()
+  $findCommand.Dispose()
+  return $ids
+}
