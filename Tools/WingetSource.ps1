@@ -139,7 +139,7 @@ function Find-WinGetPackageIdentifier {
   $findCommand = $Connection.CreateCommand()
   $findCommand.CommandType = [System.Data.CommandType]::Text
   $findCommand.CommandText = 'SELECT * FROM ids WHERE '
-  switch ($MatchOption) {
+  switch ($MatchType) {
     'CaseInsensitive' { $findCommand.CommandText += "id like '$Query'" }
     'Exact' { $findCommand.CommandText += "id = '$Query'" }
     Default { $findCommand.CommandText += "id like '%$Query%'" }
