@@ -177,7 +177,7 @@ function Find-WinGetPackageVersions {
   $findCommand.CommandText = 'SELECT versions.version FROM manifest LEFT JOIN versions on versions.rowid = manifest.version LEFT JOIN ids on ids.rowid = manifest.id WHERE '
   switch ($MatchType) {
     'Exact' { $findCommand.CommandText += "ids.id = '$Query'" }
-    Default {  $findCommand.CommandText += "ids.id like '$Query'" }
+    Default { $findCommand.CommandText += "ids.id like '$Query'" }
   }
   $reader = $findCommand.ExecuteReader()
   $reader.GetValues() | Out-Null
@@ -191,4 +191,138 @@ function Find-WinGetPackageVersions {
   $reader.Dispose()
   $findCommand.Dispose()
   return $versions
+}
+
+function Find-FirstPathPart {
+  param (
+    [Parameter()]
+    [ValidateNotNullOrEmpty()]
+    [String] $Query,
+    [Parameter()]
+    [ValidateNotNullOrEmpty()]
+    [String] $Version,
+    [Parameter()]
+    [ValidateSet('CaseInsensitive', 'Exact')]
+    [String] $MatchType = 'CaseInsensitive',
+    [Parameter()]
+    [ValidateNotNull()]
+    [System.Data.SQLite.SQLiteConnection] $Connection = $global:WinGetSQLiteConnection
+  )
+
+  $findCommand = $Connection.CreateCommand()
+  $findCommand.CommandType = [System.Data.CommandType]::Text
+  $findCommand.CommandText = "SELECT pathparts.pathpart, pathparts.parent FROM manifest LEFT JOIN versions on versions.rowid = manifest.version LEFT JOIN ids on ids.rowid = manifest.id LEFT JOIN pathparts on pathparts.rowid = manifest.pathpart WHERE versions.version = '$Version' AND "
+  switch ($MatchType) {
+    'Exact' { $findCommand.CommandText += "ids.id = '$Query'" }
+    Default { $findCommand.CommandText += "ids.id like '$Query'" }
+  }
+  $reader = $findCommand.ExecuteReader()
+  $reader.GetValues() | Out-Null
+  $pathparts = @()
+  while ($reader.HasRows) {
+    if ($reader.Read()) {
+      $pathparts += @{
+        parent = $reader['parent']
+        part   = $reader['pathpart']
+      }
+    }
+  }
+  $reader.Close()
+  $reader.Dispose()
+  $findCommand.Dispose()
+  return $pathparts
+}
+
+function Find-ParentPathPart {
+  param (
+    [Parameter()]
+    [ValidateNotNullOrEmpty()]
+    [String] $Query,
+    [Parameter()]
+    [ValidateNotNull()]
+    [System.Data.SQLite.SQLiteConnection] $Connection = $global:WinGetSQLiteConnection
+  )
+
+  $findCommand = $Connection.CreateCommand()
+  $findCommand.CommandType = [System.Data.CommandType]::Text
+  $findCommand.CommandText = "SELECT * FROM pathparts WHERE rowid = '$Query'"
+  $reader = $findCommand.ExecuteReader()
+  $reader.GetValues() | Out-Null
+  $parents = @()
+  while ($reader.HasRows) {
+    if ($reader.Read()) {
+      $parents += @{
+        parent = $reader['parent']
+        part   = $reader['pathpart']
+      }
+    }
+  }
+  $reader.Close()
+  $reader.Dispose()
+  $findCommand.Dispose()
+  return $parents
+}
+
+function Get-WinGetManifestPath {
+  [CmdletBinding()]
+  param (
+    [Parameter()]
+    [ValidateNotNullOrEmpty()]
+    [String] $Query,
+    [Parameter()]
+    [ValidateNotNullOrEmpty()]
+    [String] $Version,
+    [Parameter()]
+    [ValidateSet('CaseInsensitive', 'Exact')]
+    [String] $MatchType = 'CaseInsensitive',
+    [Parameter()]
+    [ValidateNotNull()]
+    [System.Data.SQLite.SQLiteConnection] $Connection = $global:WinGetSQLiteConnection
+  )
+
+  $pathParts = @(Find-FirstPathPart @PSBoundParameters)
+  do {
+    $pathParts += @(Find-ParentPathPart -Query $pathParts[-1]['parent'] -Connection $Connection)
+  } while ($pathParts[-1]['part'] -ne 'manifests')
+  $parts = $pathParts.part
+  [array]::Reverse($parts)
+  return "$($parts -join '/')"
+}
+
+function Get-WinGetManifestURL {
+  [CmdletBinding()]
+  param (
+    [Parameter()]
+    [ValidateNotNullOrEmpty()]
+    [String] $Query,
+    [Parameter()]
+    [ValidateNotNullOrEmpty()]
+    [String] $Version,
+    [Parameter()]
+    [ValidateSet('CaseInsensitive', 'Exact')]
+    [String] $MatchType = 'CaseInsensitive',
+    [Parameter()]
+    [ValidateNotNull()]
+    [System.Data.SQLite.SQLiteConnection] $Connection = $global:WinGetSQLiteConnection
+  )
+  return "https://cdn.winget.microsoft.com/cache/$(Get-WinGetManifestPath @PSBoundParameters)"
+}
+
+function Get-WinGetManifestContent {
+  [CmdletBinding()]
+  param (
+    [Parameter()]
+    [ValidateNotNullOrEmpty()]
+    [String] $Query,
+    [Parameter()]
+    [ValidateNotNullOrEmpty()]
+    [String] $Version,
+    [Parameter()]
+    [ValidateSet('CaseInsensitive', 'Exact')]
+    [String] $MatchType = 'CaseInsensitive',
+    [Parameter()]
+    [ValidateNotNull()]
+    [System.Data.SQLite.SQLiteConnection] $Connection = $global:WinGetSQLiteConnection
+  )
+  return [System.Text.Encoding]::UTF8.GetString($(Invoke-WebRequest $(Get-WinGetManifestURL @PSBoundParameters) -UseBasicParsing).Content)
 }
