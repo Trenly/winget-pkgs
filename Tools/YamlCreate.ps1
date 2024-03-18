@@ -564,8 +564,7 @@ Function Get-MSIProperty {
     [System.GC]::WaitForPendingFinalizers()
     return $outputObject
   } catch {
-    Write-Error -Message $_.ToString()
-    break
+    throw $_.ToString()
   }
 }
 
@@ -748,6 +747,25 @@ Function Get-ExeType {
   $reader.Dispose()
   $fileStream.Dispose()
   return $exeType
+}
+
+Function Get-KnownInstallDir {
+  Param
+  (
+    [Parameter(Mandatory = $true)]
+    [String] $Path
+  )
+
+  $_Switches = @{}
+  $_Switches['AdvancedInstaller'] = 'APPDIR="<INSTALLPATH>"'
+
+  try {
+    $_Switches['Wix'] = [string]((Get-MSIProperty -MSIPath $Path -Parameter 'WIXUI_INSTALLDIR')[-1]) + "=<INSTALLPATH>"
+  } catch {
+    $_Switches['Wix'] = $null
+  }
+
+  return $_Switches
 }
 
 Function Get-UserSavePreference {
@@ -1257,6 +1275,19 @@ Function Read-InstallerEntry {
       $script:_returnValue = [ReturnValue]::LengthError(1, $Patterns.CustomSwitchMaxLength)
     }
   } until ($script:_returnValue.StatusCode -eq [ReturnValue]::Success().StatusCode)
+
+  # Add Location switch if known
+  if ($_Installer['InstallerType'] -in @('wix', 'msi')) {
+    $_KnownLocations = Get-KnownInstallDir($script:dest)
+    switch ($_Installer.InstallerType) {
+      'wix' {
+        if ($_KnownLocations['Wix']) { $_Switches['InstallLocation'] = $_KnownLocations['Wix'] }
+      }
+      Default {
+        # Intentionally do nothing
+      }
+    }
+  }
 
   if ($_Switches.Keys.Count -gt 0) { $_Installer['InstallerSwitches'] = $_Switches }
 
