@@ -1,5 +1,5 @@
-# Created with WinGet Releaser v2 using Komac v1.4.1
-# yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.4.0.schema.json
+# Created with YamlCreate.ps1 v2.4.3 $debug=AUSU.CRLF.7-4-6.Win32NT
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.9.0.schema.json
 
 PackageIdentifier: VSCodium.VSCodium
 PackageVersion: 1.77.3.23102
@@ -39,4 +39,4 @@ Installers:
   InstallerUrl: https://github.com/VSCodium/vscodium/releases/download/1.77.3.23102/VSCodiumSetup-arm64-1.77.3.23102.exe
   InstallerSha256: B75704F05240CD81F03FD24791376CCC82FBE567A813A0A11D178E0FEB86E80D
 ManifestType: installer
-ManifestVersion: 1.4.0
+ManifestVersion: 1.9.0
