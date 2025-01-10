@@ -1,5 +1,5 @@
-# Created using wingetcreate 1.5.7.0
-# yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.5.0.schema.json
+# Created with YamlCreate.ps1 v2.4.3 $debug=AUSU.CRLF.7-4-6.Win32NT
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.9.0.schema.json
 
 PackageIdentifier: Microsoft.WindowsTerminal.Preview
 PackageVersion: 1.20.10303.0
@@ -28,4 +28,4 @@ Installers:
   InstallerSha256: CBB260C42BEF15FFBD7DC7FA777A742886DF528DEAB2CE718C86DFCAE3A145CA
   SignatureSha256: F2B23D912B347AEC4CC5A217690B8B02468C8C41A9E8CD24DC0B5819F92E14A3
 ManifestType: installer
-ManifestVersion: 1.5.0
+ManifestVersion: 1.9.0
