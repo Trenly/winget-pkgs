@@ -295,7 +295,7 @@ if (!$SkipManifestValidation -and ![String]::IsNullOrWhiteSpace($Manifest)) {
         Invoke-CleanExit -ExitCode 3
     }
     Write-Information "--> Validating Manifest"
-    $validateCommandOutput = 
+    $validateCommandOutput =
         & {
             # Store current output encoding setting
             $prevOutEnc = [Console]::OutputEncoding
@@ -306,7 +306,7 @@ if (!$SkipManifestValidation -and ![String]::IsNullOrWhiteSpace($Manifest)) {
 
             # Reset the encoding to the previous values
             [Console]::OutputEncoding = $prevOutEnc
-        }    
+        }
         switch ($LASTEXITCODE) {
         '-1978335191' {
             ($validateCommandOutput | Select-Object -Skip 1 -SkipLast 1) | Write-Information # Skip the first line and the empty last line
@@ -329,7 +329,7 @@ Write-Verbose "Fetching release details from $script:ReleasesApiUrl; Filters: {P
 $script:WinGetReleaseDetails = Get-Release
 if (!$script:WinGetReleaseDetails) {
     Write-Error -Category ObjectNotFound 'No WinGet releases found matching criteria' -ErrorAction Continue
-    Invoke-CleanExit -ExitCode 1
+    Invoke-CleanExit -ExitCode 100
 }
 if (!$script:WinGetReleaseDetails.assets) {
     Write-Error -Category ResourceUnavailable 'Could not fetch WinGet CLI release assets' -ErrorAction Continue
