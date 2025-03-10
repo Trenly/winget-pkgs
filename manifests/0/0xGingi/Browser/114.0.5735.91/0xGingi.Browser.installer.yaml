@@ -10,6 +10,6 @@ Installers:
   InstallerSha256: 035990DFDF30E185CA8A5E83061E59FDCA76E051A99507A0303B69F871CCBF91
   InstallerSwitches:
     Silent: /SILENT
-    SilentWithProgress: /SILENT
+    SilentWithProgress: /SILENT s
 ManifestType: installer
 ManifestVersion: 1.9.0
