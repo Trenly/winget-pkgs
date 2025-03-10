@@ -1,0 +1,37 @@
+name: PSScriptAnalyzer
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '**/*.ps1'
+
+permissions:
+  contents: read  # Needed to check out the code
+  pull-requests: read  # Needed to read pull request details
+
+jobs:
+  analyze:
+    runs-on: windows-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+    - name: Install PSScriptAnalyzer
+      run: |
+        Install-Module -Name PSScriptAnalyzer -Force -SkipPublisherCheck -Scope CurrentUser
+    - name: Run PSScriptAnalyzer
+      run: |
+        # Run PSScriptAnalyzer on all PowerShell scripts
+        $results = Get-ChildItem -Recurse -Filter *.ps1 | ForEach-Object {
+          $result = Invoke-ScriptAnalyzer -Path $_.FullName -Recurse
+          $result | Where-Object { $_.Severity -in @('Error') }
+        }
+
+        # If items are found, exit with a non-zero exit code to fail the job
+        if ($results.Count -gt 0) {
+          Write-Host "Found script issues (errors)."
+          exit 1  # Exit with a non-zero status to fail the job
+        } else {
+          Write-Host "No script issues found."
+        }
