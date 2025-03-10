@@ -3,7 +3,7 @@
 #Title: PRWatcher v0.8.2
 #Created: 2/15/2023
 #Updated: 6/27/2023
-#Notes: Streamlines WinGet-pkgs manifest PR moderator approval by watching the clipboard - copy a PR title to your clipboard, and Watch-PRTitles attempts to parse the PackageIdentifier and version number, gathers the version from WinGet, and gives feedback in your Powershell console. Also outputs valid titles to a logging file. Freeing moderators to focus on approving and helping. 
+#Notes: Streamlines WinGet-pkgs manifest PR moderator approval by watching the clipboard - copy a PR title to your clipboard, and Watch-PRTitles attempts to parse the PackageIdentifier and version number, gathers the version from WinGet, and gives feedback in your Powershell console. Also outputs valid titles to a logging file. Freeing moderators to focus on approving and helping.
 #Update log:
 #0.8 Update PackageIdentifier and PackageVersion detection by starting with the manifest file.
 #0.8.1 Update WinGet version in Create-Sandbox.
@@ -31,7 +31,7 @@ Function Watch-PRTitles {
 	}
 	Write-Host "Loaded $($AuthList.count) Auth file entries."
 	while($true){
-		$clip2 = (Get-Clipboard) 
+		$clip2 = (Get-Clipboard)
 		$clip = $clip2 | select-string "[#][0-9]{5,6}$";
 		#$clip = ((Get-Clipboard) -join "") -replace "PackageVersion:"," version" | select-string -NotMatch "^[c][:]";
 		if ($clip) {
@@ -49,9 +49,9 @@ Function Watch-PRTitles {
 				} else {
 					$title = $title -split " "
 				}
-				#Split the title by spaces. Try extracting the version location as the next item after the word "version", and if that fails, use the 2nd to the last item, then 3rd to last, and 4th to last. For some reason almost everyone puts the version number as the last item, and GitHub appends the PR number. 
-				$prVerLoc =($title | Select-String "version").linenumber 
-				#Version is on the line before the line number, and this set indexes with 1 - but the following array indexes with 0, so the value is automatically transformed by the index mismatch. 
+				#Split the title by spaces. Try extracting the version location as the next item after the word "version", and if that fails, use the 2nd to the last item, then 3rd to last, and 4th to last. For some reason almost everyone puts the version number as the last item, and GitHub appends the PR number.
+				$prVerLoc =($title | Select-String "version").linenumber
+				#Version is on the line before the line number, and this set indexes with 1 - but the following array indexes with 0, so the value is automatically transformed by the index mismatch.
 				try {
 					[System.Version]$prVersion = (($clip2 | select-string "PackageVersion")[0] -split ": ")[1] -replace "'","" -replace '"',''
 				} catch {
@@ -90,7 +90,7 @@ Function Watch-PRTitles {
 				$validColor = "green"
 				$invalidColor = "red"
 				$cautionColor = "yellow"
-				
+
 				Switch ($Chromatic) {
 					#Color schemes, to accomodate needs and also add variety.
 						"Default" {
@@ -1177,13 +1177,13 @@ Function Watch-PRTitles {
 							$cautionColor = "Yellow"
 						}
 					}; #end Switch Chromatic
-				
+
 				#Get the PackageIdentifier out of the PR title, and alert if it matches the auth list.
 				$PackageIdentifier = ""
 				try {
 					$PackageIdentifier = (($clip2 | select-string "PackageIdentifier")[0] -split ": ")[1]
 				} catch {
-					$PackageIdentifier = (Get-CleanClip $clip); 
+					$PackageIdentifier = (Get-CleanClip $clip);
 				}
 				$AuthMatch = $AuthList.PackageIdentifier -match $PackageIdentifier
 				if ($AuthMatch) {
@@ -1202,9 +1202,9 @@ Function Watch-PRTitles {
 					Write-Host -nonewline -f $strictColor "$AuthAccount"
 					Write-Host " = = = = = = "
 				}
-				
-				$WinGetOutput = Search-WinGetManifest $PackageIdentifier 
-				
+
+				$WinGetOutput = Search-WinGetManifest $PackageIdentifier
+
 				$wgLine = ($WinGetOutput | Select-String " $PackageIdentifier ")
 				try {
 					try {
@@ -1215,13 +1215,13 @@ Function Watch-PRTitles {
 				} catch {
 					$ManifestVersion = ""
 				}
-				
+
 				$titlejoin = ($title -join " ")
 				if (($titlejoin -match "Automatic deletion") -OR ($titlejoin -match "Remove")) {
 					$validColor,$invalidColor = $invalidColor,$validColor #Swapping variable values.
 					$copyClip = $true
 				}
-				
+
 				if ($PackageIdentifier -eq "Added") {
 					Write-Host -f $invalidColor "$timevar Error reading package identifier"
 					$noRecord = $true
@@ -1307,20 +1307,20 @@ Function Get-CleanClip {
 
 	$out =  ($out -split " ")[0]
 	#Write-Debug "$i time: $out";$i++
-	$out	
+	$out
 }
 
 #Minimize output for automation
 Function Search-WinGetManifest ($term) {
 	$out = WinGet search $term --disable-interactivity  | where {$_ -notmatch "Γûê"}
-	return $out 
+	return $out
 }
 
 #Terminates any current sandbox and makes a new one.
 Function Create-Sandbox {
 	param(
 		[string]$PRNumber = (Get-Clipboard)
-	) 
+	)
 	$FirstLetter = $PRNumber[0]
 	if ($FirstLetter -eq "#") {
 		[string]$PRNumber = $PRNumber[1..$PRNumber.length] -join ""
