@@ -23,7 +23,7 @@
 
 #Requires -Version 7
 
-Param
+param
 (
   [Parameter(Mandatory = $false)]
   [string] $PackageIdentifier,
@@ -297,6 +297,77 @@ function Get-ManifestsFolder {
   }
   # If those fail, use the present working directory
   return Join-Path -Path $PWD -ChildPath $script:ManfiestsFolderName
+}
+
+####
+# Description: Checks if a file is an MSI installer
+# Inputs: Path to File
+# Outputs: Boolean. True if file if an MSI installer, false otherwise
+# Note: This function does not differentiate between MSI installer types. Any specific packagers like WIX still result in an MSI installer.
+#       Use this function with care, as it may return overly broad results.
+####
+function Test-IsMsi {
+  param
+  (
+    [Parameter(Mandatory = $true)]
+    [String] $Path
+  )
+
+  $MsiTables = Get-MSITable -Path $Path -ErrorAction SilentlyContinue
+  if ($MsiTables) { return $true }
+  # If the table names can't be parsed, it is not an MSI
+  return $false
+}
+
+####
+# Description: Checks if a file is a WIX installer
+# Inputs: Path to File
+# Outputs: Boolean. True if file if a WIX installer, false otherwise
+####
+function Test-IsWix {
+  param
+  (
+    [Parameter(Mandatory = $true)]
+    [String] $Path
+  )
+
+  $MsiTables = Get-MSITable -Path $Path -ErrorAction SilentlyContinue
+  if (!$MsiTables) { return $false } # If the table names can't be parsed, it is not an MSI and cannot be WIX
+  if ($MsiTables.Where({$_.Table -match 'wix'})) { return $true } # If any of the table names match wix
+  if (Get-MSIProperty -Path $Path -Property '*wix*' -ErrorAction SilentlyContinue) { return $true } # If any of the keys in the property table match wix
+  # TODO: Also Check the Metadata of the file
+}
+
+####
+# Description: Checks if a file is a Nullsoft installer
+# Inputs: Path to File
+# Outputs: Boolean. True if file if a Nullsoft installer, false otherwise
+####
+function Test-IsNullsoft {
+  param
+  (
+    [Parameter(Mandatory = $true)]
+    [String] $Path
+  )
+  # The first 224 bytes of most Nullsoft installers are the same. This reference string is just the Base64 encoding of the bytes
+  $referenceBytes = 'TVqQAAMAAAAEAAAA//8AALgAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA2AAAAA4fug4AtAnNIbgBTM0hVGhpcyBwcm9ncmFtIGNhbm5vdCBiZSBydW4gaW4gRE9TIG1vZGUuDQ0KJAAAAAAAAACtMQiB6VBm0ulQZtLpUGbSKl850utQZtLpUGfSTFBm0ipfO9LmUGbSvXNW0uNQZtIuVmDS6FBm0lJpY2jpUGbSAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAUEUAAEwBBQA='
+  return [Convert]::ToBase64String($(Get-Content -Path $Path -AsByteStream -TotalCount 224)) -ceq $referenceBytes
+}
+
+####
+# Description: Checks if a file is an Inno installer
+# Inputs: Path to File
+# Outputs: Boolean. True if file if an Inno installer, false otherwise
+####
+function Test-IsInno {
+  param
+  (
+    [Parameter(Mandatory = $true)]
+    [String] $Path
+  )
+  # The first 264 bytes of most Inno installers are the same. This reference string is just the Base64 encoding of the bytes
+  $referenceBytes = 'TVpQAAIAAAAEAA8A//8AALgAAAAAAAAAQAAaAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAALoQAA4ftAnNIbgBTM0hkJBUaGlzIHByb2dyYW0gbXVzdCBiZSBydW4gdW5kZXIgV2luMzINCiQ3AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFBFAABMAQoA'
+  return [Convert]::ToBase64String($(Get-Content -Path $Path -AsByteStream -TotalCount 264)) -ceq $referenceBytes
 }
 
 # Versions
