@@ -425,6 +425,53 @@ function Test-IsInno {
 }
 
 ####
+# Description: Checks if a file is a Burn installer
+# Inputs: Path to File
+# Outputs: Boolean. True if file is an Burn installer, false otherwise
+####
+function Test-IsBurn {
+  param
+  (
+    [Parameter(Mandatory = $true)]
+    [String] $Path
+  )
+  # The first 64 bytes of the file contain the DOS header. The first two bytes are the "MZ" signature, and the 60th byte contains the offset to the PE header.
+  $DOSHeader = Get-Content -Path $Path -AsByteStream -TotalCount 64 -WarningAction 'SilentlyContinue'
+
+  if ([Convert]::ToHexString($DOSHeader[0..1]) -cne '4D5A') { return $false } # The MZ signature is invalid
+  $PEOffsetBytes = if ([BitConverter]::IsLittleEndian) { $DOSHeader[60..64] } else { $DOSHeader[64..60] }
+  $PEOffset = [BitConverter]::ToInt32($PEOffsetBytes, 0)
+
+  # Read 4 bytes past the PE header offset to get the PE Signature
+  $PESignature = Get-Content -Path $Path -AsByteStream -TotalCount $($PEOffset + 4) -WarningAction 'SilentlyContinue' | Select-Object -Skip $PEOffset
+  if ([Convert]::ToHexString($PESignature) -cne '50450000') { return $false } # The PE header is invalid
+
+  # Read the PE Header, skipping the signature
+  $PEHeaderBytes = Get-Content -Path $Path -AsByteStream -TotalCount $($PEOffset + 24) -WarningAction 'SilentlyContinue' | Select-Object -Skip $($PEOffset + 4)
+  # The first two bits of the header inform how long the header will be, 20 bits or 24 bits, depending on the architecture
+  $PEHeaderSize = if ([Convert]::ToHexString($PEHeaderBytes[1..0]) -ceq '014C') { 20 } else { 24 }
+  $PEHeaderBytes = $PEHeaderBytes[0..$($PEHeaderSize-1)]
+  # Get the number of sections from the header
+  $PESectionBytes = if ([BitConverter]::IsLittleEndian) { $PEHeaderBytes[2..3] } else { $PEHeaderBytes[3..2] }
+  $PESections = [BitConverter]::ToInt16($PESectionBytes, 0)
+  # Get the size of the optional header
+  $OptionalHeaderBytes = if ([BitConverter]::IsLittleEndian) { $PEHeaderBytes[$($PEHeaderSize-4)..$($PEHeaderSize-3)] } else { $PEHeaderBytes[$($PEHeaderSize-3)..$($PEHeaderSize-4)] }
+  $OptionalHeaderSize = [BitConverter]::ToInt16($OptionalHeaderBytes, 0)
+  # Read all the sections
+  $SectionOffset = $PEOffset + $PEHeaderSize + $OptionalHeaderSize + 4 # add in the 4 for the PE header signature
+  $SectionContents = Get-Content -Path $Path -AsByteStream -TotalCount $($SectionOffset + (40*$PESections)) -WarningAction 'SilentlyContinue' | Select-Object -Skip $SectionOffset
+  foreach ($Section in 0..$PESections) {
+    $SectionStart = ($Section * 40)
+    # The first 8 bytes of each section are the header
+    $SectionHeader = $SectionContents[$SectionStart..$($SectionStart+7)]
+    # If the header is `.wixburn` then the installer is a burn installer
+    if ([Convert]::ToHexString($SectionHeader) -ceq '2E7769786275726E') { return $true }
+  }
+
+  return $false
+}
+
+####
 # Description: Attempts to identify the type of installer from a file path
 # Inputs: Path to File
 # Outputs: Null if unknown type. String if known type
@@ -443,6 +490,7 @@ Function Resolve-InstallerType {
   if (Test-IsZip -Path $Path) { return 'zip' }
   if (Test-IsNullsoft -Path $Path) { return 'nullsoft' }
   if (Test-IsInno -Path $Path) { return 'inno' }
+  if (Test-IsBurn -Path $Path) { return 'burn' }
   return $null
 }
 
