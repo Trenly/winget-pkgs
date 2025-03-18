@@ -178,7 +178,7 @@ function Initialize-ScriptRepository {
   ($script:OriginalRemoteUpstreamUri = $(git remote get-url upstream)) *> $null
   # If the `upstream` remote exists, set it to the upstream remote that is needed for the script
   if ($script:OriginalRemoteUpstreamUri) {
-    Write-Verbose "${script:vtForegroundYellow}Upstream already exists with URI (${script:vtForegroundBlue}${script:vtUnderline}${script:OriginalRemoteUpstreamUri}${script:vtNotUnderline}${script:vtForegroundYellow}). Temporarily setting ${script:vtForegroundBlue}${script:vtUnderline}${script:WinGetUpstreamUri}${script:vtNotUnderline}${script:vtForegroundYellow} as remote upstream${script:vtDefault}"
+    Write-Verbose "Upstream already exists with URI (${script:OriginalRemoteUpstreamUri}). Temporarily setting ${script:WinGetUpstreamUri} as remote upstream"
     git remote set-url upstream $script:WinGetUpstreamUri
   } else {
     # Otherwise, permanently set the remote
