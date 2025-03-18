@@ -92,6 +92,7 @@ function Invoke-CleanExit {
   if ($script:OriginalRemoteUpstreamUri) { git remote set-url upstream $script:OriginalRemoteUpstreamUri } # This should be null or the original Uri
   [Threading.Thread]::CurrentThread.CurrentUICulture = $script:OriginalUICulture
   [Threading.Thread]::CurrentThread.CurrentCulture = $script:OriginalCulture
+  $global:ProgressPreference = $script:OriginalGlobalProgressPreference
   $ProgressPreference = $script:OriginalProgressPreference
   $InformationPreference = $script:OriginalInformationPreference
   $ErrorActionPreference = $script:OriginalErrorActionPreference
@@ -139,7 +140,8 @@ function Initialize-Folder {
 # Outputs: Nullable Virtual Terminal Sequence String
 ####
 filter Initialize-VirtualTerminalSequence {
-  if ($script:vtSupported) {"$([char]0x001B)[${_}m"
+  if ($script:vtSupported) {
+    "$([char]0x001B)[${_}m"
     return "$([char]0x001B)[${_}m"
   }
 }
@@ -300,9 +302,59 @@ function Get-ManifestsFolder {
 }
 
 ####
+# Description: Checks if a file is a Zip archive
+# Inputs: Path to File
+# Outputs: Boolean. True if file is a zip file, false otherwise
+# Note: This function does not differentiate between other Zipped installer types. Any specific types like MSIX still result in an Zip file.
+#       Use this function with care, as it may return overly broad results.
+####
+function Test-IsZip {
+  param
+  (
+    [Parameter(Mandatory = $true)]
+    [String] $Path
+  )
+
+  # The first 4 bytes of zip files are the same. This reference string is just the Base64 encoding of the bytes
+  $referenceBytes = 'UEsDBA=='
+  return [Convert]::ToBase64String($(Get-Content -Path $Path -AsByteStream -TotalCount 4 -WarningAction 'SilentlyContinue')) -ceq $referenceBytes
+}
+
+####
+# Description: Checks if a file is a Zip archive
+# Inputs: Path to File
+# Outputs: Boolean. True if file is a zip file, false otherwise
+# Note: This function does not differentiate between other Zipped installer types. Any specific types like MSIX still result in an Zip file.
+#       Use this function with care, as it may return overly broad results.
+####
+function Test-IsMsix {
+  param
+  (
+    [Parameter(Mandatory = $true)]
+    [String] $Path
+  )
+  if (!(Test-IsZip -Path $Path)) { return $false } # MSIX are really just a special type of Zip file
+  Write-Debug 'Extracting file contents as a zip archive'
+  $FileObject = Get-Item -Path $Path
+  $temporaryFilePath = Join-Path -Path $env:TEMP -ChildPath "$($FileObject.BaseName).zip" # Expand-Archive only works if the file is a zip file
+  $expandedArchivePath = Join-Path -Path $env:TEMP -ChildPath $(New-Guid)
+  Copy-Item -Path $Path -Destination $temporaryFilePath
+  Expand-Archive -Path $temporaryFilePath -DestinationPath $expandedArchivePath
+  Write-Debug 'Marking extracted files for cleanup'
+  $script:CleanupPaths += @($temporaryFilePath; $expandedArchivePath)
+
+  # There are a few different indicators that a package can be installed with MSIX technology, look for any of these file names
+  $msixIndicators = @('AppxSignature.p7x'; 'AppxManifest.xml'; 'AppxBundleManifest.xml')
+  foreach ($filename in $msixIndicators) {
+    if (Get-ChildItem -Path $expandedArchivePath -Recurse -Depth 3 -Filter $filename) { return $true } # If any of the files is found, it is an msix
+  }
+  return $false
+}
+
+####
 # Description: Checks if a file is an MSI installer
 # Inputs: Path to File
-# Outputs: Boolean. True if file if an MSI installer, false otherwise
+# Outputs: Boolean. True if file is an MSI installer, false otherwise
 # Note: This function does not differentiate between MSI installer types. Any specific packagers like WIX still result in an MSI installer.
 #       Use this function with care, as it may return overly broad results.
 ####
@@ -322,7 +374,7 @@ function Test-IsMsi {
 ####
 # Description: Checks if a file is a WIX installer
 # Inputs: Path to File
-# Outputs: Boolean. True if file if a WIX installer, false otherwise
+# Outputs: Boolean. True if file is a WIX installer, false otherwise
 ####
 function Test-IsWix {
   param
@@ -333,7 +385,7 @@ function Test-IsWix {
 
   $MsiTables = Get-MSITable -Path $Path -ErrorAction SilentlyContinue
   if (!$MsiTables) { return $false } # If the table names can't be parsed, it is not an MSI and cannot be WIX
-  if ($MsiTables.Where({$_.Table -match 'wix'})) { return $true } # If any of the table names match wix
+  if ($MsiTables.Where({ $_.Table -match 'wix' })) { return $true } # If any of the table names match wix
   if (Get-MSIProperty -Path $Path -Property '*wix*' -ErrorAction SilentlyContinue) { return $true } # If any of the keys in the property table match wix
   # TODO: Also Check the Metadata of the file
 }
@@ -341,7 +393,7 @@ function Test-IsWix {
 ####
 # Description: Checks if a file is a Nullsoft installer
 # Inputs: Path to File
-# Outputs: Boolean. True if file if a Nullsoft installer, false otherwise
+# Outputs: Boolean. True if file is a Nullsoft installer, false otherwise
 ####
 function Test-IsNullsoft {
   param
@@ -351,13 +403,14 @@ function Test-IsNullsoft {
   )
   # The first 224 bytes of most Nullsoft installers are the same. This reference string is just the Base64 encoding of the bytes
   $referenceBytes = 'TVqQAAMAAAAEAAAA//8AALgAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA2AAAAA4fug4AtAnNIbgBTM0hVGhpcyBwcm9ncmFtIGNhbm5vdCBiZSBydW4gaW4gRE9TIG1vZGUuDQ0KJAAAAAAAAACtMQiB6VBm0ulQZtLpUGbSKl850utQZtLpUGfSTFBm0ipfO9LmUGbSvXNW0uNQZtIuVmDS6FBm0lJpY2jpUGbSAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAUEUAAEwBBQA='
-  return [Convert]::ToBase64String($(Get-Content -Path $Path -AsByteStream -TotalCount 224)) -ceq $referenceBytes
+  return [Convert]::ToBase64String($(Get-Content -Path $Path -AsByteStream -TotalCount 224 -WarningAction 'SilentlyContinue')) -ceq $referenceBytes
+  # TODO: Improve detection - doesn't seem fully accurate
 }
 
 ####
 # Description: Checks if a file is an Inno installer
 # Inputs: Path to File
-# Outputs: Boolean. True if file if an Inno installer, false otherwise
+# Outputs: Boolean. True if file is an Inno installer, false otherwise
 ####
 function Test-IsInno {
   param
@@ -367,7 +420,30 @@ function Test-IsInno {
   )
   # The first 264 bytes of most Inno installers are the same. This reference string is just the Base64 encoding of the bytes
   $referenceBytes = 'TVpQAAIAAAAEAA8A//8AALgAAAAAAAAAQAAaAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAALoQAA4ftAnNIbgBTM0hkJBUaGlzIHByb2dyYW0gbXVzdCBiZSBydW4gdW5kZXIgV2luMzINCiQ3AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFBFAABMAQoA'
-  return [Convert]::ToBase64String($(Get-Content -Path $Path -AsByteStream -TotalCount 264)) -ceq $referenceBytes
+  return [Convert]::ToBase64String($(Get-Content -Path $Path -AsByteStream -TotalCount 264 -WarningAction 'SilentlyContinue')) -ceq $referenceBytes
+  # TODO: Improve detection - doesn't seem fully accurate
+}
+
+####
+# Description: Attempts to identify the type of installer from a file path
+# Inputs: Path to File
+# Outputs: Null if unknown type. String if known type
+####
+Function Resolve-InstallerType {
+  param
+  (
+    [Parameter(Mandatory = $true)]
+    [String] $Path
+  )
+
+  # Ordering is important here due to the specificity achievable by each of the detection methods
+  if (Test-IsWix -Path $Path) { return 'wix' }
+  if (Test-IsMsi -Path $Path) { return 'msi' }
+  if (Test-IsMsix -Path $Path) { return 'msix' }
+  if (Test-IsZip -Path $Path) { return 'zip' }
+  if (Test-IsNullsoft -Path $Path) { return 'nullsoft' }
+  if (Test-IsInno -Path $Path) { return 'inno' }
+  return $null
 }
 
 # Versions
@@ -387,6 +463,9 @@ $script:SandboxIsPresent = Get-Command 'WindowsSandbox' -ErrorAction SilentlyCon
 
 # Settings Storage
 Write-Debug 'Storing current settings'
+# Progress preference has to be set globally for Expand-Archive
+# https://github.com/PowerShell/Microsoft.PowerShell.Archive/issues/77#issuecomment-601947496
+$script:OriginalGlobalProgressPreference = $global:ProgressPreference
 $script:OriginalProgressPreference = $ProgressPreference
 $script:OriginalInformationPreference = $InformationPreference
 $script:OriginalErrorActionPreference = $ErrorActionPreference
@@ -461,6 +540,7 @@ $script:CleanupPaths = @()
 Write-Debug 'Setting required termininal properties'
 [Threading.Thread]::CurrentThread.CurrentUICulture = 'en-US'
 [Threading.Thread]::CurrentThread.CurrentCulture = 'en-US'
+$global:ProgressPreference = 'SilentlyContinue'
 $ProgressPreference = 'SilentlyContinue'
 $InformationPreference = 'Continue'
 $ErrorActionPreference = 'Continue'
