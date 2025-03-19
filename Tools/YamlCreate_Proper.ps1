@@ -22,6 +22,8 @@
 #>
 
 #Requires -Version 7
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '', Scope = 'Function', Target = 'Get-OffsetBytes',
+  Justification = 'Ths function both consumes and outputs an array of bytes. The pluralized name is required to adequately describe the functions purpose')]
 
 param
 (
@@ -172,7 +174,8 @@ function Initialize-ScriptRepository {
   # `git rev-parse` will indicate the base of the repository, which will be used for determining the location of manifest files
   try {
     $script:RepositoryBase = (Resolve-Path $(git rev-parse --show-toplevel)).Path
-  } catch {
+  }
+  catch {
     Write-Error 'This script must be run from inside a clone of the winget-pkgs repository' -ErrorAction Stop
   }
 
@@ -182,7 +185,8 @@ function Initialize-ScriptRepository {
   if ($script:OriginalRemoteUpstreamUri) {
     Write-Verbose "Upstream already exists with URI (${script:OriginalRemoteUpstreamUri}). Temporarily setting ${script:WinGetUpstreamUri} as remote upstream"
     git remote set-url upstream $script:WinGetUpstreamUri
-  } else {
+  }
+  else {
     # Otherwise, permanently set the remote
     Write-Information "${script:vtForegroundYellow}Upstream does not exist. Permanently adding ${script:vtForegroundBlue}${script:vtUnderline}${script:WinGetUpstreamUri}${script:vtNotUnderline}${script:vtForegroundYellow} as remote upstream${script:vtDefault}"
     git remote add upstream $script:WinGetUpstreamUri
@@ -215,7 +219,8 @@ function Get-RemoteContent {
   try {
     $downloadTask = $script:HttpClient.GetByteArrayAsync($URL)
     [System.IO.File]::WriteAllBytes($localfile.FullName, $downloadTask.Result)
-  } catch {
+  }
+  catch {
     # If the download fails, write a zero-byte file anyways
     $null | Out-File $localFile.FullName
   }
@@ -254,7 +259,8 @@ function Initialize-Module {
       Write-Debug 'NuGet Package Provider was not found, it will be installed'
       # This might fail if the user is not an administrator, so catch the errors
       Install-PackageProvider -Name NuGet -MinimumVersion $script:NuGetMinimumVersion.ToString() -Force -Scope CurrentUser
-    } catch {
+    }
+    catch {
       Write-Error 'Could not install the NuGet package provider which is required to install script dependencies.' -ErrorAction Continue
       Write-Error "You may be able to resolve this by running: Install-PackageProvider -Name NuGet -MinimumVersion $($script:NuGetMinimumVersion.ToString())"
     }
@@ -264,11 +270,13 @@ function Initialize-Module {
   if ($installedModules) {
     # If the module is installed, attempt to upgrade it
     Write-Debug "Found $Name in installed modules"
-  } else {
+  }
+  else {
     # If the module is not installed, attempt to install it
     try {
       Install-Module -Name $Name -Force -Repository PSGallery -Scope CurrentUser
-    } catch {
+    }
+    catch {
       Write-Error "$Name was unable to be installed successfully"
     }
   }
@@ -277,7 +285,8 @@ function Initialize-Module {
     if (!(Get-Module -Name $Name)) {
       Import-Module $Name
     }
-  } catch {
+  }
+  catch {
     Write-Error "$Name was found in available modules, but could not be imported"
   }
 }
