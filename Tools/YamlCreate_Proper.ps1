@@ -407,7 +407,7 @@ function Get-PESectionTable {
     $NumberOfLineNumbers = [BitConverter]::ToInt16($NumberOfLineNumbersBytes, 0)
 
     # Build the object
-    $SectionEntry = @{
+    $SectionEntry = [PSCustomObject]@{
       SectionName                 = $SectionName
       SecitonNameBytes            = $SectionNameBytes
       VirtualSize                 = $VirtualSize
