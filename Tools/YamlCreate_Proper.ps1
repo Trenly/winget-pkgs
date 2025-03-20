@@ -348,9 +348,9 @@ function Get-PESectionTable {
   )
   # https://learn.microsoft.com/en-us/windows/win32/debug/pe-format
   # The first 64 bytes of the file contain the DOS header. The first two bytes are the "MZ" signature, and the 60th byte contains the offset to the PE header.
-  $DOSHeader = Get-Content -Path $Path -AsByteStream -TotalCount 64 -WarningAction 'SilentlyContinue'
+  $DOSHeader = Get-Content -Path $Path -Encoding byte -TotalCount 64
   $MZSignature = Get-OffsetBytes -ByteArray $DOSHeader -Offset 0 -Length 2
-  if ([Convert]::ToHexString($MZSignature) -cne '4D5A') { return $null } # The MZ signature is invalid
+  if (Compare-Object -ReferenceObject $([byte[]](77,90)) -DifferenceObject $MZSignature ) { return $null } # The MZ signature is invalid
   $PESignatureOffsetBytes = Get-OffsetBytes -ByteArray $DOSHeader -Offset 60 -Length 4
   $PESignatureOffset = [BitConverter]::ToInt32($PESignatureOffsetBytes, 0)
 
@@ -360,9 +360,9 @@ function Get-PESectionTable {
   $SectionTableEntrySize = 40 # Bytes
 
   # Read 24 bytes past the PE header offset to get the PE Signature and COFF header
-  $RawBytes = Get-Content -Path $Path -AsByteStream -TotalCount $($PESignatureOffset + $PESignatureSize + $COFFHeaderSize) -WarningAction 'SilentlyContinue'
+  $RawBytes = Get-Content -Path $Path -Encoding byte -TotalCount $($PESignatureOffset + $PESignatureSize + $COFFHeaderSize)
   $PESignature = Get-OffsetBytes -ByteArray $RawBytes -Offset $PESignatureOffset -Length $PESignatureSize
-  if ([Convert]::ToHexString($PESignature) -cne '50450000') { return $null } # The PE header is invalid if it is not 'PE\0\0'
+  if (Compare-Object -ReferenceObject $([byte[]](80,69,0,0)) -DifferenceObject $PESignature ) { return $null } # The PE header is invalid if it is not 'PE\0\0'
 
   # Parse out information from the header
   $COFFHeaderBytes = Get-OffsetBytes -ByteArray $RawBytes -Offset $($PESignatureOffset + $PESignatureSize) -Length $COFFHeaderSize
@@ -384,7 +384,7 @@ function Get-PESectionTable {
   # Read the section table from the file
   $SectionTableStart = $PESignatureOffset + $PESignatureSize + $COFFHeaderSize + $OptionalHeaderSize
   $SectionTableLength = $NumberOfSections * $SectionTableEntrySize
-  $RawBytes = Get-Content -Path $Path -AsByteStream -TotalCount $($SectionTableStart + $SectionTableLength) -WarningAction 'SilentlyContinue'
+  $RawBytes = Get-Content -Path $Path -Encoding byte -TotalCount $($SectionTableStart + $SectionTableLength)
   $SectionTableContents = Get-OffsetBytes -ByteArray $RawBytes -Offset $SectionTableStart -Length $SectionTableLength
 
   $SectionData = @();
@@ -452,7 +452,7 @@ function Test-IsZip {
 
   # The first 4 bytes of zip files are the same. This reference string is just the Base64 encoding of the bytes
   $referenceBytes = 'UEsDBA=='
-  return [Convert]::ToBase64String($(Get-Content -Path $Path -AsByteStream -TotalCount 4 -WarningAction 'SilentlyContinue')) -ceq $referenceBytes
+  return [Convert]::ToBase64String($(Get-Content -Path $Path -Encoding byte -TotalCount 4 -WarningAction)) -ceq $referenceBytes
 }
 
 ####
@@ -540,12 +540,12 @@ function Test-IsNullsoft {
   $LastSection = $SectionTable | Sort-Object -Property RawDataOffset -Descending | Select-Object -First 1
   $PEOverlayOffset = $LastSection.RawDataOffset + $LastSection.SizeOfRawData
   # Get the first 8 bytes of the PE Overlay
-  $RawBytes = Get-Content -Path $Path -AsByteStream -TotalCount $($PEOverlayOffset + 8) -WarningAction 'SilentlyContinue'
+  $RawBytes = Get-Content -Path $Path -Encoding byte -TotalCount $($PEOverlayOffset + 8)
   $PresumedHeaderBytes = Get-OffsetBytes -ByteArray $RawBytes -Offset $($PEOverlayOffset + 4) -Length 4 -LittleEndian $true
-  $PresumedNullosftHeader = [Convert]::ToHexString($PresumedHeaderBytes)
 
-  if ($PresumedNullosftHeader -ceq 'DEADBEEF') { return $true }
-  if ($PresumedNullosftHeader -ceq 'DEADBEED') { return $true }
+  # DEADBEEF -or- DEADBEED
+  if (Compare-Object -ReferenceObject $([byte[]](222,173,190,239)) -DifferenceObject $PresumedHeaderBytes ) { return $true }
+  if (Compare-Object -ReferenceObject $([byte[]](222,173,190,237)) -DifferenceObject $PresumedHeaderBytes ) { return $true }
   return $false
 }
 
@@ -568,7 +568,7 @@ function Test-IsInno {
   if (!$ResourceSectionDetails) { return $false } # If there is no resource section, the file cannot be inno
 
   # https://learn.microsoft.com/en-us/windows/win32/debug/pe-format#the-rsrc-section
-  $RawBytes = Get-Content -Path $Path -AsByteStream -TotalCount $($ResourceSectionDetails.RawDataOffset + $ResourceSectionDetails.SizeOfRawData) -WarningAction 'SilentlyContinue'
+  $RawBytes = Get-Content -Path $Path -Encoding byte -TotalCount $($ResourceSectionDetails.RawDataOffset + $ResourceSectionDetails.SizeOfRawData)
   $ResourceSectionData = Get-OffsetBytes -ByteArray $RawBytes -Offset $ResourceSectionDetails.RawDataOffset -Length $ResourceSectionDetails.SizeOfRawData
 
   $ResourceDirectoryTableSize = 16
@@ -630,7 +630,7 @@ function Test-IsInno {
   return $resources
   # The first 264 bytes of most Inno installers are the same. This reference string is just the Base64 encoding of the bytes
   $referenceBytes = 'TVpQAAIAAAAEAA8A//8AALgAAAAAAAAAQAAaAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAALoQAA4ftAnNIbgBTM0hkJBUaGlzIHByb2dyYW0gbXVzdCBiZSBydW4gdW5kZXIgV2luMzINCiQ3AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFBFAABMAQoA'
-  return [Convert]::ToBase64String($(Get-Content -Path $Path -AsByteStream -TotalCount 264 -WarningAction 'SilentlyContinue')) -ceq $referenceBytes
+  return [Convert]::ToBase64String($(Get-Content -Path $Path -Encoding byte -TotalCount 264)) -ceq $referenceBytes
   # TODO: Improve detection - doesn't seem fully accurate
 }
 
