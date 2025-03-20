@@ -174,8 +174,7 @@ function Initialize-ScriptRepository {
   # `git rev-parse` will indicate the base of the repository, which will be used for determining the location of manifest files
   try {
     $script:RepositoryBase = (Resolve-Path $(git rev-parse --show-toplevel)).Path
-  }
-  catch {
+  } catch {
     Write-Error 'This script must be run from inside a clone of the winget-pkgs repository' -ErrorAction Stop
   }
 
@@ -185,8 +184,7 @@ function Initialize-ScriptRepository {
   if ($script:OriginalRemoteUpstreamUri) {
     Write-Verbose "Upstream already exists with URI (${script:OriginalRemoteUpstreamUri}). Temporarily setting ${script:WinGetUpstreamUri} as remote upstream"
     git remote set-url upstream $script:WinGetUpstreamUri
-  }
-  else {
+  } else {
     # Otherwise, permanently set the remote
     Write-Information "${script:vtForegroundYellow}Upstream does not exist. Permanently adding ${script:vtForegroundBlue}${script:vtUnderline}${script:WinGetUpstreamUri}${script:vtNotUnderline}${script:vtForegroundYellow} as remote upstream${script:vtDefault}"
     git remote add upstream $script:WinGetUpstreamUri
@@ -219,8 +217,7 @@ function Get-RemoteContent {
   try {
     $downloadTask = $script:HttpClient.GetByteArrayAsync($URL)
     [System.IO.File]::WriteAllBytes($localfile.FullName, $downloadTask.Result)
-  }
-  catch {
+  } catch {
     # If the download fails, write a zero-byte file anyways
     $null | Out-File $localFile.FullName
   }
@@ -259,8 +256,7 @@ function Initialize-Module {
       Write-Debug 'NuGet Package Provider was not found, it will be installed'
       # This might fail if the user is not an administrator, so catch the errors
       Install-PackageProvider -Name NuGet -MinimumVersion $script:NuGetMinimumVersion.ToString() -Force -Scope CurrentUser
-    }
-    catch {
+    } catch {
       Write-Error 'Could not install the NuGet package provider which is required to install script dependencies.' -ErrorAction Continue
       Write-Error "You may be able to resolve this by running: Install-PackageProvider -Name NuGet -MinimumVersion $($script:NuGetMinimumVersion.ToString())"
     }
@@ -270,13 +266,11 @@ function Initialize-Module {
   if ($installedModules) {
     # If the module is installed, attempt to upgrade it
     Write-Debug "Found $Name in installed modules"
-  }
-  else {
+  } else {
     # If the module is not installed, attempt to install it
     try {
       Install-Module -Name $Name -Force -Repository PSGallery -Scope CurrentUser
-    }
-    catch {
+    } catch {
       Write-Error "$Name was unable to be installed successfully"
     }
   }
@@ -285,8 +279,7 @@ function Initialize-Module {
     if (!(Get-Module -Name $Name)) {
       Import-Module $Name
     }
-  }
-  catch {
+  } catch {
     Write-Error "$Name was found in available modules, but could not be imported"
   }
 }
@@ -348,9 +341,9 @@ function Get-PESectionTable {
   )
   # https://learn.microsoft.com/en-us/windows/win32/debug/pe-format
   # The first 64 bytes of the file contain the DOS header. The first two bytes are the "MZ" signature, and the 60th byte contains the offset to the PE header.
-  $DOSHeader = Get-Content -Path $Path -Encoding byte -TotalCount 64
+  $DOSHeader = Get-Content -Path $Path -AsByteStream -TotalCount 64 -WarningAction 'SilentlyContinue'
   $MZSignature = Get-OffsetBytes -ByteArray $DOSHeader -Offset 0 -Length 2
-  if (Compare-Object -ReferenceObject $([byte[]](77,90)) -DifferenceObject $MZSignature ) { return $null } # The MZ signature is invalid
+  if (Compare-Object -ReferenceObject $([byte[]](77, 90)) -DifferenceObject $MZSignature ) { return $null } # The MZ signature is invalid
   $PESignatureOffsetBytes = Get-OffsetBytes -ByteArray $DOSHeader -Offset 60 -Length 4
   $PESignatureOffset = [BitConverter]::ToInt32($PESignatureOffsetBytes, 0)
 
@@ -360,9 +353,9 @@ function Get-PESectionTable {
   $SectionTableEntrySize = 40 # Bytes
 
   # Read 24 bytes past the PE header offset to get the PE Signature and COFF header
-  $RawBytes = Get-Content -Path $Path -Encoding byte -TotalCount $($PESignatureOffset + $PESignatureSize + $COFFHeaderSize)
+  $RawBytes = Get-Content -Path $Path -AsByteStream -TotalCount $($PESignatureOffset + $PESignatureSize + $COFFHeaderSize) -WarningAction 'SilentlyContinue'
   $PESignature = Get-OffsetBytes -ByteArray $RawBytes -Offset $PESignatureOffset -Length $PESignatureSize
-  if (Compare-Object -ReferenceObject $([byte[]](80,69,0,0)) -DifferenceObject $PESignature ) { return $null } # The PE header is invalid if it is not 'PE\0\0'
+  if (Compare-Object -ReferenceObject $([byte[]](80, 69, 0, 0)) -DifferenceObject $PESignature ) { return $null } # The PE header is invalid if it is not 'PE\0\0'
 
   # Parse out information from the header
   $COFFHeaderBytes = Get-OffsetBytes -ByteArray $RawBytes -Offset $($PESignatureOffset + $PESignatureSize) -Length $COFFHeaderSize
@@ -384,7 +377,7 @@ function Get-PESectionTable {
   # Read the section table from the file
   $SectionTableStart = $PESignatureOffset + $PESignatureSize + $COFFHeaderSize + $OptionalHeaderSize
   $SectionTableLength = $NumberOfSections * $SectionTableEntrySize
-  $RawBytes = Get-Content -Path $Path -Encoding byte -TotalCount $($SectionTableStart + $SectionTableLength)
+  $RawBytes = Get-Content -Path $Path -AsByteStream -TotalCount $($SectionTableStart + $SectionTableLength) -WarningAction 'SilentlyContinue'
   $SectionTableContents = Get-OffsetBytes -ByteArray $RawBytes -Offset $SectionTableStart -Length $SectionTableLength
 
   $SectionData = @();
@@ -450,9 +443,10 @@ function Test-IsZip {
     [String] $Path
   )
 
-  # The first 4 bytes of zip files are the same. This reference string is just the Base64 encoding of the bytes
-  $referenceBytes = 'UEsDBA=='
-  return [Convert]::ToBase64String($(Get-Content -Path $Path -Encoding byte -TotalCount 4 -WarningAction)) -ceq $referenceBytes
+  # The first 4 bytes of zip files are the same.
+  # It isn't worth setting up a FileStream and BinaryReader here since only the first 4 bytes are being checked
+  $ZipHeader = Get-Content -Path $Path -AsByteStream -TotalCount 4 -WarningAction 'SilentlyContinue'
+  return $null -eq $(Compare-Object -ReferenceObject $([byte[]](80, 75, 3, 4)) -DifferenceObject $ZipHeader)
 }
 
 ####
@@ -529,7 +523,6 @@ function Test-IsWix {
 # Outputs: Boolean. True if file is a Nullsoft installer, false otherwise
 ####
 function Test-IsNullsoft {
-  # TODO: Switch to using FileReader to be able to seek through the file instead of reading from the start
   param
   (
     [Parameter(Mandatory = $true)]
@@ -539,13 +532,28 @@ function Test-IsNullsoft {
   if (!$SectionTable) { return $false } # If the section table is null, it is not an EXE and therefore not nullsoft
   $LastSection = $SectionTable | Sort-Object -Property RawDataOffset -Descending | Select-Object -First 1
   $PEOverlayOffset = $LastSection.RawDataOffset + $LastSection.SizeOfRawData
-  # Get the first 8 bytes of the PE Overlay
-  $RawBytes = Get-Content -Path $Path -Encoding byte -TotalCount $($PEOverlayOffset + 8)
-  $PresumedHeaderBytes = Get-OffsetBytes -ByteArray $RawBytes -Offset $($PEOverlayOffset + 4) -Length 4 -LittleEndian $true
+
+  try {
+    # Set up a file reader
+    $fileStream = [System.IO.FileStream]::new($Path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read)
+    $binaryReader = [System.IO.BinaryReader]::new($fileStream)
+    # Read 8 bytes after the offset
+    $fileStream.Seek($PEOverlayOffset, [System.IO.SeekOrigin]::Begin) | Out-Null
+    $RawBytes = $binaryReader.ReadBytes(8)
+  } catch {
+    # Set to null as a precaution
+    $RawBytes = $null
+  } finally {
+    if ($binaryReader) { $binaryReader.Close() }
+    if ($fileStream) { $fileStream.Close() }
+  }
+  if (!$RawBytes) { return $false } # The bytes couldn't be read
+  # From the first 8 bytes, get the Nullsoft header bytes
+  $PresumedHeaderBytes = Get-OffsetBytes -ByteArray $RawBytes -Offset 4 -Length 4 -LittleEndian $true
 
   # DEADBEEF -or- DEADBEED
-  if (Compare-Object -ReferenceObject $([byte[]](222,173,190,239)) -DifferenceObject $PresumedHeaderBytes ) { return $true }
-  if (Compare-Object -ReferenceObject $([byte[]](222,173,190,237)) -DifferenceObject $PresumedHeaderBytes ) { return $true }
+  if (!(Compare-Object -ReferenceObject $([byte[]](222, 173, 190, 239)) -DifferenceObject $PresumedHeaderBytes)) { return $true }
+  if (!(Compare-Object -ReferenceObject $([byte[]](222, 173, 190, 237)) -DifferenceObject $PresumedHeaderBytes)) { return $true }
   return $false
 }
 
@@ -568,7 +576,7 @@ function Test-IsInno {
   if (!$ResourceSectionDetails) { return $false } # If there is no resource section, the file cannot be inno
 
   # https://learn.microsoft.com/en-us/windows/win32/debug/pe-format#the-rsrc-section
-  $RawBytes = Get-Content -Path $Path -Encoding byte -TotalCount $($ResourceSectionDetails.RawDataOffset + $ResourceSectionDetails.SizeOfRawData)
+  $RawBytes = Get-Content -Path $Path -AsByteStream -TotalCount $($ResourceSectionDetails.RawDataOffset + $ResourceSectionDetails.SizeOfRawData)
   $ResourceSectionData = Get-OffsetBytes -ByteArray $RawBytes -Offset $ResourceSectionDetails.RawDataOffset -Length $ResourceSectionDetails.SizeOfRawData
 
   $ResourceDirectoryTableSize = 16
@@ -630,7 +638,7 @@ function Test-IsInno {
   return $resources
   # The first 264 bytes of most Inno installers are the same. This reference string is just the Base64 encoding of the bytes
   $referenceBytes = 'TVpQAAIAAAAEAA8A//8AALgAAAAAAAAAQAAaAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAALoQAA4ftAnNIbgBTM0hkJBUaGlzIHByb2dyYW0gbXVzdCBiZSBydW4gdW5kZXIgV2luMzINCiQ3AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFBFAABMAQoA'
-  return [Convert]::ToBase64String($(Get-Content -Path $Path -Encoding byte -TotalCount 264)) -ceq $referenceBytes
+  return [Convert]::ToBase64String($(Get-Content -Path $Path -AsByteStream -TotalCount 264)) -ceq $referenceBytes
   # TODO: Improve detection - doesn't seem fully accurate
 }
 
