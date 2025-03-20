@@ -456,11 +456,9 @@ function Test-IsZip {
 }
 
 ####
-# Description: Checks if a file is a Zip archive
+# Description: Checks if a file is an MSIX or APPX archive
 # Inputs: Path to File
-# Outputs: Boolean. True if file is a zip file, false otherwise
-# Note: This function does not differentiate between other Zipped installer types. Any specific types like MSIX still result in an Zip file.
-#       Use this function with care, as it may return overly broad results.
+# Outputs: Boolean. True if file is a MSIX or APPX file, false otherwise
 ####
 function Test-IsMsix {
   param
@@ -620,11 +618,11 @@ function Test-IsInno {
     $EntryDataOffset = [BitConverter]::ToInt32($EntryDataOffsetBytes, 0)
 
     $ResourceEntry = [PSCustomObject]@{
-      Name = $EntryIdentifierAsName
-      Id = $EntryIdentifierAsId
-      DataOffset = $EntryDataOffset
+      Name             = $EntryIdentifierAsName
+      Id               = $EntryIdentifierAsId
+      DataOffset       = $EntryDataOffset
       IdenfitiferBytes = $EntryIdentifierBytes
-      DataOffsetBytes = $EntryDataOffsetBytes
+      DataOffsetBytes  = $EntryDataOffsetBytes
     }
     $resources += $ResourceEntry
   }
