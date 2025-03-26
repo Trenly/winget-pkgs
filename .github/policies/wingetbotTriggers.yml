@@ -15,7 +15,7 @@ configuration:
               pattern: Publish\s+pipeline\s+succeeded
               isRegex: True
           - isActivitySender:
-              user: wingetbot
+              user: wingetbot[bot]
               issueAuthor: False
         then:
           - addLabel:
@@ -24,7 +24,7 @@ configuration:
         if:
           - payloadType: Pull_Request
           - isActivitySender:
-              user: wingetbot
+              user: wingetbot[bot]
               issueAuthor: False
           - filesMatchPattern:
               pattern: DevOpsPipelineDefinitions/*
@@ -57,7 +57,7 @@ configuration:
           - isAction:
               action: Opened
           - isActivitySender:
-              user: wingetbot
+              user: wingetbot[bot]
           - filesMatchPattern:
                 pattern: ^.*\.validation
           - not:
@@ -74,7 +74,7 @@ configuration:
         if:
           - payloadType: Pull_Request
           - isActivitySender:
-              user: wingetbot
+              user: wingetbot[bot]
           - isOpen
           - labelAdded:
               label: Validation-Merge-Conflict
@@ -92,7 +92,7 @@ configuration:
           - isPullRequest
           - isOpen
           - isAssignedToUser:
-              user: wingetbot
+              user: wingetbot[bot]
           - not: # If it already has been labeled needing attention, don't re-trigger
               hasLabel:
                 label: Needs-Attention

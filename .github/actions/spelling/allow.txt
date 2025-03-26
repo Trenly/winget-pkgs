@@ -60,6 +60,7 @@ vscode
 website
 winget
 wingetbot
+wingetbot[bot]
 wingetcreate
 workflows
 yml
