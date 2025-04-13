@@ -586,83 +586,15 @@ function Test-IsNullsoft {
 # Outputs: Boolean. True if file is an Inno installer, false otherwise
 ####
 function Test-IsInno {
-  # TODO: Switch to using FileReader to be able to seek through the file instead of reading from the start
   param
   (
     [Parameter(Mandatory = $true)]
     [String] $Path
   )
 
-  $SectionTable = Get-PESectionTable -Path $Path
-  if (!$SectionTable) { return $false } # If the section table is null, it is not an EXE and therefore not nullsoft
-  $ResourceSectionDetails = $SectionTable | Where-Object { $_.SectionName -eq '.rsrc' }
-  if (!$ResourceSectionDetails) { return $false } # If there is no resource section, the file cannot be inno
-
-  # https://learn.microsoft.com/en-us/windows/win32/debug/pe-format#the-rsrc-section
-  $RawBytes = Get-Content -Path $Path -AsByteStream -TotalCount $($ResourceSectionDetails.RawDataOffset + $ResourceSectionDetails.SizeOfRawData)
-  $ResourceSectionData = Get-OffsetBytes -ByteArray $RawBytes -Offset $ResourceSectionDetails.RawDataOffset -Length $ResourceSectionDetails.SizeOfRawData
-
-  $ResourceDirectoryTableSize = 16
-  $ResourceEntrySize = 8
-  # The resource directory is at the start of the .rsrc section
-  $ResourceDirectoryHeader = Get-OffsetBytes -ByteArray $ResourceSectionData -Offset 0 -Length $ResourceDirectoryTableSize
-
-  # Parse out the header information
-  $ResourceCharacteristicsBytes = Get-OffsetBytes -ByteArray $ResourceDirectoryHeader -Offset 0 -Length 4
-  $TimeDateStampBytes = Get-OffsetBytes -ByteArray $ResourceDirectoryHeader -Offset 4 -Length 4
-  $MajorVersionBytes = Get-OffsetBytes -ByteArray $ResourceDirectoryHeader -Offset 8 -Length 2
-  $MinorVersionBytes = Get-OffsetBytes -ByteArray $ResourceDirectoryHeader -Offset 10 -Length 2
-  $NumberOfNameEntriesBytes = Get-OffsetBytes -ByteArray $ResourceDirectoryHeader -Offset 12 -Length 2
-  $NumberOfIdEntriesBytes = Get-OffsetBytes -ByteArray $ResourceDirectoryHeader -Offset 14 -Length 2
-
-  # Convert to real numbers
-  $ResourceTimeDateStamp = [BitConverter]::ToInt32($TimeDateStampBytes, 0)
-  $MajorVersion = [BitConverter]::ToInt16($MajorVersionBytes, 0)
-  $MinorVersion = [BitConverter]::ToInt16($MinorVersionBytes, 0)
-  $NumberOfNameEntries = [BitConverter]::ToInt16($NumberOfNameEntriesBytes, 0)
-  $NumberOfIdEntries = [BitConverter]::ToInt16($NumberOfIdEntriesBytes, 0)
-
-  # return [PSCustomObject]@{
-  #   Characteristics = $ResourceCharacteristicsBytes
-  #   TimeDateStamp = $ResourceTimeDateStamp
-  #   MajorVersion = $MajorVersion
-  #   MinorVersion = $MinorVersion
-  #   NamedEntries = $NumberOfNameEntries
-  #   IdEntries = $NumberOfIdEntries
-  # }
-
-
-  # Get all of the resources at the first level
-  $RootEntryCount = $NumberOfNameEntries + $NumberOfIdEntries
-  $resources = @()
-  foreach ($Entry in 0..$($RootEntryCount - 1)) {
-    $EntryOffset = $ResourceDirectoryTableSize + ($ResourceEntrySize * $Entry)
-    $EntryData = Get-OffsetBytes -ByteArray $ResourceSectionData -Offset $EntryOffset -Length $ResourceEntrySize
-
-    # Parse raw data
-    $EntryIdentifierBytes = Get-OffsetBytes -ByteArray $EntryData -Offset 0 -Length 4
-    $EntryDataOffsetBytes = Get-OffsetBytes -ByteArray $EntryData -Offset 4 -Length 4
-
-    # Convert to real values
-    $EntryIdentifierAsName = [Text.Encoding]::UTF8.GetString($EntryIdentifierBytes)
-    $EntryIdentifierAsId = [BitConverter]::ToInt32($EntryIdentifierBytes, 0)
-    $EntryDataOffset = [BitConverter]::ToInt32($EntryDataOffsetBytes, 0)
-
-    $ResourceEntry = [PSCustomObject]@{
-      Name             = $EntryIdentifierAsName
-      Id               = $EntryIdentifierAsId
-      DataOffset       = $EntryDataOffset
-      IdenfitiferBytes = $EntryIdentifierBytes
-      DataOffsetBytes  = $EntryDataOffsetBytes
-    }
-    $resources += $ResourceEntry
-  }
-
-  return $resources
-  # The first 264 bytes of most Inno installers are the same. This reference string is just the Base64 encoding of the bytes
-  $referenceBytes = 'TVpQAAIAAAAEAA8A//8AALgAAAAAAAAAQAAaAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAALoQAA4ftAnNIbgBTM0hkJBUaGlzIHByb2dyYW0gbXVzdCBiZSBydW4gdW5kZXIgV2luMzINCiQ3AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFBFAABMAQoA'
-  return [Convert]::ToBase64String($(Get-Content -Path $Path -AsByteStream -TotalCount 264)) -ceq $referenceBytes
-  # TODO: Improve detection - doesn't seem fully accurate
+  $Resources = Get-Win32ModuleResource -Path $Path -ResourceType -DontLoadResource -ErrorAction SilentlyContinue
+  if ($Resources.Name -contains '#11111') { return $true } # If the resource name is #11111, it is an Inno installer
+  return $false
 }
 
 ####
@@ -834,8 +766,9 @@ Initialize-ScriptRepository
 #### End of Early Exiting Main-Functions
 
 #### Set up script dependencies
-Initialize-Module -Name 'powershell-yaml'
-Initialize-Module -Name 'MSI'
+Initialize-Module -Name 'powershell-yaml' # Used for parsing YAML files
+Initialize-Module -Name 'MSI' # Used for fetching MSI Properties
+Initialize-Module -Name 'NtObjectManager' # Used for checking installer type inno
 #### End of script dependencies
 
 #### These variables are initialized late to prevent fetching file contents if -Help or -Settings was used
