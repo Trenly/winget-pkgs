@@ -73,6 +73,10 @@ Installers:
   Architecture: x64
   InstallerUrl: https://www.rarlab.com/rar/winrar-x64-711ca.exe
   InstallerSha256: 86A4808CCBFA16F86D2C91136AE51624773DD41AC90D31398BFEB28E10BD41FD
+- InstallerLocale: zh-Hans
+  Architecture: x64
+  InstallerUrl: https://www.rarlab.com/rar/winrar-x64-711sc.exe
+  InstallerSha256: 81B35D975334C6B931E60FB9631A5196609E41AB9DFA434338FD843D5BB8AEEE
 - InstallerLocale: zh-Hant
   Architecture: x64
   InstallerUrl: https://www.rarlab.com/rar/winrar-x64-711tc.exe
@@ -81,6 +85,14 @@ Installers:
   Architecture: x64
   InstallerUrl: https://www.rarlab.com/rar/winrar-x64-711cro.exe
   InstallerSha256: 1390E7893AF6B581F4CC81873CDD6CED4DB95145374E12B21C11BA57A4E45336
+- InstallerLocale: cs
+  Architecture: x64
+  InstallerUrl: https://www.rarlab.com/rar/winrar-x64-711cz.exe
+  InstallerSha256: 0F31DE51F4F392855338FDA926E71981AD655C1455A6B4C21455ED61A0130519
+- InstallerLocale: da
+  Architecture: x64
+  InstallerUrl: https://www.rarlab.com/rar/winrar-x64-711dk.exe
+  InstallerSha256: 2CD62849E58F0DEBA7E52943546C03FDA32376B0F9A3D8714E773767870B3717
 - InstallerLocale: nl
   Architecture: x64
   InstallerUrl: https://www.rarlab.com/rar/winrar-x64-711nl.exe
@@ -104,7 +116,7 @@ Installers:
 - InstallerLocale: el
   Architecture: x64
   InstallerUrl: https://www.rarlab.com/rar/winrar-x64-711el.exe
-  InstallerSha256: BBF39F73A865AE9D10481F917FD3A74D72966A9C371C5BB36651709E76CB2852
+  InstallerSha256: F1336723F72FE8915919DA5D8223232A052A15FED38ECCAB7F7649D380FF447D
 - InstallerLocale: hu
   Architecture: x64
   InstallerUrl: https://www.rarlab.com/rar/winrar-x64-711hu.exe
@@ -117,6 +129,10 @@ Installers:
   Architecture: x64
   InstallerUrl: https://www.rarlab.com/rar/winrar-x64-711it.exe
   InstallerSha256: 1CD01E170897882E3CBB7A040E756D77B4CFEE6FB8C4AB4457C573503BEB0BEB
+- InstallerLocale: ja
+  Architecture: x64
+  InstallerUrl: https://www.rarlab.com/rar/winrar-x64-711jp.exe
+  InstallerSha256: B822D90B27FA7C532E4A7FC30FA09F0DC603CB5924AB540F52B67E95033866FD
 - InstallerLocale: ko
   Architecture: x64
   InstallerUrl: https://www.rarlab.com/rar/winrar-x64-711kr.exe
@@ -125,6 +141,10 @@ Installers:
   Architecture: x64
   InstallerUrl: https://www.rarlab.com/rar/winrar-x64-711lt.exe
   InstallerSha256: 152A536A23EE3CED99CE27841DFD176989E1B8EA572E8446195AB6EB83E71CFA
+- InstallerLocale: mn-MN
+  Architecture: x64
+  InstallerUrl: https://www.rarlab.com/rar/winrar-x64-711mn.exe
+  InstallerSha256: A5EB593E40E856E266C9C6278B272C68A85D3FB4D01EC36C8C78C4CD065A94A5
 - InstallerLocale: pl
   Architecture: x64
   InstallerUrl: https://www.rarlab.com/rar/winrar-x64-711pl.exe
@@ -141,6 +161,14 @@ Installers:
   Architecture: x64
   InstallerUrl: https://www.rarlab.com/rar/winrar-x64-711ru.exe
   InstallerSha256: 12AD06D1041C95092B1D8A196EDB98D27E95B394775CA809EC405F251077DEE5
+- InstallerLocale: sk
+  Architecture: x64
+  InstallerUrl: https://www.rarlab.com/rar/winrar-x64-711sk.exe
+  InstallerSha256: D5BE5A069FB5B783B14091FD058ACE31BE188AD4E78BD62A5A2EC23AE2050F5C
+- InstallerLocale: sl
+  Architecture: x64
+  InstallerUrl: https://www.rarlab.com/rar/winrar-x64-711slv.exe
+  InstallerSha256: 3FD9CAC7E7E601EEB1A3212325E48E90767B9AA29A49B2042F5100F6A358B9A5
 - InstallerLocale: es
   Architecture: x64
   InstallerUrl: https://www.rarlab.com/rar/winrar-x64-711es.exe
