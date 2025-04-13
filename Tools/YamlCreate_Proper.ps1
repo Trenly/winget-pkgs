@@ -206,14 +206,31 @@ function Get-RemoteContent {
   )
   Write-Debug "Attempting to fetch content from $URL"
   # Check if the URL is valid before trying to download
-  $response = [String]::IsNullOrWhiteSpace($URL) ? @{StatusCode = 400 } : $(Invoke-WebRequest -Uri $URL -Method Head -ErrorAction SilentlyContinue) # If the URL is null, return a status code of 400
+  if ([String]::IsNullOrWhiteSpace($URL)) {
+    $response = @{StatusCode = 400 }
+  } else {
+    $response = Invoke-WebRequest -Uri $URL -Method Head -ErrorAction SilentlyContinue
+  }
+
   if ($response.StatusCode -ne 200) {
     Write-Debug "Fetching remote content from $URL returned status code $($response.StatusCode)"
     return $null
   }
-  $localFile = $OutputPath ? [System.IO.FileInfo]::new($OutputPath) : $(New-TemporaryFile) # If a path was specified, store it at that path; Otherwise use the temp folder
+
+  # If a path was specified, store it at that path; Otherwise use the temp folder
+  if ($OutputPath) {
+    $localFile = [System.IO.FileInfo]::new($OutputPath)
+  } else {
+    $localFile = New-TemporaryFile
+  }
+
   Write-Debug "Remote content will be stored at $($localFile.FullName)"
-  $script:CleanupPaths += $Raw ? @($localFile.FullName) : @() # Mark the file for cleanup when the script ends if the raw data was requested
+
+  # Mark the file for cleanup when the script ends if the raw data was requested
+  if ($Raw) {
+    $script:CleanupPaths += @($localFile.FullName)
+  }
+
   try {
     $downloadTask = $script:HttpClient.GetByteArrayAsync($URL)
     [System.IO.File]::WriteAllBytes($localfile.FullName, $downloadTask.Result)
@@ -221,7 +238,13 @@ function Get-RemoteContent {
     # If the download fails, write a zero-byte file anyways
     $null | Out-File $localFile.FullName
   }
-  return $Raw ? $(Get-Content -Path $localFile.FullName) : $localFile # If the raw content was requested, return the content, otherwise, return the FileInfo object
+
+  # If the raw content was requested, return the content, otherwise, return the FileInfo object
+  if ($Raw) {
+    return Get-Content -Path $localFile.FullName
+  } else {
+    return $localFile
+  }
 }
 
 ####
