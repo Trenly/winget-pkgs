@@ -267,8 +267,13 @@ function Get-Keypress {
 function Initialize-Module {
   param (
     [Parameter(Mandatory = $true)]
-    [String] $Name
+    [String] $Name,
+    [Parameter(Mandatory = $false)]
+    [String[]] $Cmdlet,
+    [Parameter(Mandatory = $false)]
+    [String[]] $Function
   )
+
   $NuGetVersion = (Get-PackageProvider).Where({ $_.Name -ceq 'NuGet' }).Version
   $installedModules = Get-Module -ListAvailable -Name $Name
 
@@ -300,7 +305,11 @@ function Initialize-Module {
   # Verify the module is installed and present
   try {
     if (!(Get-Module -Name $Name)) {
-      Import-Module $Name
+      $importParameters = @{Name = $Name; Scope = 'Local'} # Force the module to be imported into the local scope to avoid changing the global scope
+      if ($PSBoundParameters.ContainsKey('Cmdlet')) { $importParameters['Cmdlet'] = $Cmdlet }
+      if ($PSBoundParameters.ContainsKey('Function')) { $importParameters['Function'] = $Function }
+
+      Import-Module @importParameters
     }
   } catch {
     Write-Error "$Name was found in available modules, but could not be imported"
@@ -767,8 +776,8 @@ Initialize-ScriptRepository
 
 #### Set up script dependencies
 Initialize-Module -Name 'powershell-yaml' # Used for parsing YAML files
-Initialize-Module -Name 'MSI' # Used for fetching MSI Properties
-Initialize-Module -Name 'NtObjectManager' # Used for checking installer type inno
+Initialize-Module -Name 'MSI' -Cmdlet @('Get-MSITable';'Get-MSIProperty') # Used for fetching MSI Properties
+Initialize-Module -Name 'NtObjectManager' -Function @('Get-Win32ModuleResource';'Get-Win32ModuleManifest') # Used for checking installer type inno
 #### End of script dependencies
 
 #### These variables are initialized late to prevent fetching file contents if -Help or -Settings was used
