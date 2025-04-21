@@ -602,7 +602,7 @@ function Test-IsInno {
   )
 
   $Resources = Get-Win32ModuleResource -Path $Path -DontLoadResource -ErrorAction SilentlyContinue
-  if ($Resources.Name.Value -contains "#11111") { return $true } # If the resource name is #11111, it is an Inno installer
+  if ($Resources.Name.Value -contains '#11111') { return $true } # If the resource name is #11111, it is an Inno installer
   return $false
 }
 
