@@ -1,5 +1,5 @@
 # Created with YamlCreate.ps1 Dumplings Mod
-# yaml-language-server: $schema=https://aka.ms/winget-manifest.locale.1.9.0.schema.json
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.locale.1.10.0.schema.json
 
 PackageIdentifier: NetEase.DD
 PackageVersion: 1.0.0.1
@@ -19,7 +19,9 @@ Tags:
 ReleaseNotes: |-
   主要更新
 
-  - 🕹 战网客户端快捷切换按钮现已移至「启动游戏」按钮右侧
-  - 🚀 修复已知问题及体验优化
+  - ✨首页 UI 优化，切换游戏的入口更清晰了～
+  - 🎉插件库增量更新现在拓展至 WA 配置文件了，WA 配置安装更加自由。
+  - 🚩网页版插件库可以一键直达 DD 端内对应插件了
+  - 🚀修复已知问题及体验优化
 ManifestType: locale
-ManifestVersion: 1.9.0
+ManifestVersion: 1.10.0
