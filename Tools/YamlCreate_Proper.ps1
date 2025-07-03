@@ -32,6 +32,7 @@ param
   [Parameter(Mandatory = $false)]
   [string] $PackageVersion,
   [Parameter(Mandatory = $false)]
+  [ValidateRange(0, 5)]
   [int] $Mode,
   [switch] $Settings,
   [switch] $AutoUpgrade,
@@ -41,12 +42,13 @@ param
 )
 
 enum ScriptModes {
-  FullUpdate
-  QuickUpdateVersion
-  MetadataUpdate
-  NewLocale
-  RemoveManifest
-  MoveManifests
+  # Although there isn't a need to assign the values, it is done to ensure that the values are consistent with the script's logic
+  FullUpdate = 0
+  QuickUpdateVersion = 1
+  MetadataUpdate = 2
+  NewLocale = 3
+  RemoveManifest = 4
+  MoveManifests = 5
   AutomaticUpdate = [int]::MaxValue
 }
 
@@ -54,6 +56,14 @@ enum AlwaysNeverOption {
   Ask
   Never
   Always
+}
+
+enum ManifestType {
+  singleton
+  installer
+  locale
+  defaultLocale
+  version
 }
 
 ####
@@ -669,11 +679,11 @@ function Resolve-InstallerType {
   )
 
   # Ordering is important here due to the specificity achievable by each of the detection methods
+  # if (Test-IsFont -Path $Path) { return 'font' } # Font detection is not implemented yet
   if (Test-IsWix -Path $Path) { return 'wix' }
   if (Test-IsMsi -Path $Path) { return 'msi' }
   if (Test-IsMsix -Path $Path) { return 'msix' }
   if (Test-IsZip -Path $Path) { return 'zip' }
-  # if (Test-IsFont -Path $Path) { return 'font' } # Font detection is not implemented yet
   if (Test-IsNullsoft -Path $Path) { return 'nullsoft' }
   if (Test-IsInno -Path $Path) { return 'inno' }
   if (Test-IsBurn -Path $Path) { return 'burn' }
@@ -779,8 +789,9 @@ $ProgressPreference = 'SilentlyContinue'
 $InformationPreference = 'Continue'
 $ErrorActionPreference = 'Continue'
 $PSDefaultParameterValues = @{
-  '*:Encoding'           = 'UTF8'
-  'ConvertTo-Json:Depth' = '10'
+  '*:Encoding'               = 'UTF8'
+  'ConvertTo-Json:Depth'     = '10'
+  'ConvertFrom-Yaml:Ordered' = $true
 }
 $ofs = ', '
 if (!$isWindows) { $env:TEMP = '/tmp/' }
@@ -860,28 +871,48 @@ $script:DefaultLocaleSchema = $script:InstallerSchemaJSON | ConvertFrom-Json
 $script:LocaleSchema = $script:InstallerSchemaJSON | ConvertFrom-Json
 $script:VersionSchema = $script:InstallerSchemaJSON | ConvertFrom-Json
 $script:InstallerSchema = $script:InstallerSchemaJSON | ConvertFrom-Json
-$script:DefaultLocaleProperties = (ConvertTo-Yaml $script:DefaultLocaleSchema.properties | ConvertFrom-Yaml -Ordered).Keys
-$script:LocaleProperties = (ConvertTo-Yaml $script:LocaleSchema.properties | ConvertFrom-Yaml -Ordered).Keys
-$script:VersionProperties = (ConvertTo-Yaml $script:VersionSchema.properties | ConvertFrom-Yaml -Ordered).Keys
-$script:InstallerProperties = (ConvertTo-Yaml $script:InstallerSchema.properties | ConvertFrom-Yaml -Ordered).Keys
+$script:DefaultLocaleProperties = (ConvertTo-Yaml $script:DefaultLocaleSchema.properties | ConvertFrom-Yaml).Keys
+$script:LocaleProperties = (ConvertTo-Yaml $script:LocaleSchema.properties | ConvertFrom-Yaml).Keys
+$script:VersionProperties = (ConvertTo-Yaml $script:VersionSchema.properties | ConvertFrom-Yaml).Keys
+$script:InstallerProperties = (ConvertTo-Yaml $script:InstallerSchema.properties | ConvertFrom-Yaml).Keys
 
 # Extended Properties
 Write-Debug 'Parsing Extended Schema Properties'
-$script:InstallerSwitchProperties = (ConvertTo-Yaml $script:InstallerSchema.definitions.InstallerSwitches.properties | ConvertFrom-Yaml -Ordered).Keys
-$script:InstallerEntryProperties = (ConvertTo-Yaml $script:InstallerSchema.definitions.Installer.properties | ConvertFrom-Yaml -Ordered).Keys
-$script:InstallerDependencyProperties = (ConvertTo-Yaml $script:InstallerSchema.definitions.Dependencies.properties | ConvertFrom-Yaml -Ordered).Keys
-$script:AppsAndFeaturesEntryProperties = (ConvertTo-Yaml $script:InstallerSchema.definitions.AppsAndFeaturesEntry.properties | ConvertFrom-Yaml -Ordered).Keys
+$script:InstallerSwitchProperties = (ConvertTo-Yaml $script:InstallerSchema.definitions.InstallerSwitches.properties | ConvertFrom-Yaml).Keys
+$script:InstallerEntryProperties = (ConvertTo-Yaml $script:InstallerSchema.definitions.Installer.properties | ConvertFrom-Yaml).Keys
+$script:InstallerDependencyProperties = (ConvertTo-Yaml $script:InstallerSchema.definitions.Dependencies.properties | ConvertFrom-Yaml).Keys
+$script:AppsAndFeaturesEntryProperties = (ConvertTo-Yaml $script:InstallerSchema.definitions.AppsAndFeaturesEntry.properties | ConvertFrom-Yaml).Keys
 
 # Variables used through the script
 # These may or may not need to be initialized, but they are anyways just to be safe
 $script:UserSelectedMode = $null
 $script:ManifestsFolder = Get-ManifestsFolder
 $script:ExecutionMode = $null
+$script:PackageFolderExists = $false
+$script:PackageVersionExists = $false
 
 # Handle user selected mode
-if ($PSBoundParameters.ContainsKey('Mode')) {
+if ($PSBoundParameters.ContainsKey('Mode')) { $script:UserSelectedMode = [ScriptModes]::Parse([ScriptModes], $Mode, $true) }
+if ($AutoUpgrade) { $script:UserSelectedMode = [ScriptModes]::AutoUpgrade }
+# If the user selected mode is not set, prompt the user for a mode
 
-}
+# Handle provided package identifier
+# - If the package identifier is provided, check if it is a valid identifier
+# - If the package identifier is not provided, request it until a valid identifier is provided
+
+# Once the package identifier is provided, check if it already exists in the manifests folder
+
+# Handle provided package version
+# - If the package version is provided, check if it is a valid version
+# - If the package version is not provided, request it until a valid version is provided
+
+# Once the package version is provided, if the package identifier already exists, check if the version already exists
+
+# If the version already exists, load the existing manifest into memory
+# If it is a singleton
+# - Load the existing manifest into memory as a multi-manifest
+# - Write the multi-manifest to the manifests folder
+# - Remove the singleton manifest file
 
 Invoke-CleanExit -1
 
