@@ -487,6 +487,7 @@ function Test-IsZip {
 
   # The first 4 bytes of zip files are the same.
   # It isn't worth setting up a FileStream and BinaryReader here since only the first 4 bytes are being checked
+  # https://pkware.cachefly.net/webdocs/casestudies/APPNOTE.TXT section 4.3.7
   $ZipHeader = Get-Content -Path $Path -AsByteStream -TotalCount 4 -WarningAction 'SilentlyContinue'
   return $null -eq $(Compare-Object -ReferenceObject $([byte[]](80, 75, 3, 4)) -DifferenceObject $ZipHeader)
 }
@@ -659,7 +660,6 @@ function Test-IsFont {
     $TrueTypeCollectionSignature
   )
 
-  # The first 4 bytes of zip files are the same.
   # It isn't worth setting up a FileStream and BinaryReader here since only the first 4 bytes are being checked
   $FontHeader = Get-Content -Path $Path -AsByteStream -TotalCount 4 -WarningAction 'SilentlyContinue'
   return $($FontSignatures | ForEach-Object { !(Compare-Object -ReferenceObject $_ -DifferenceObject $FontHeader) }) -contains $true # If any of the signatures match, it is a font
