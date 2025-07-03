@@ -305,7 +305,7 @@ function Initialize-Module {
   # Verify the module is installed and present
   try {
     if (!(Get-Module -Name $Name)) {
-      $importParameters = @{Name = $Name; Scope = 'Local'} # Force the module to be imported into the local scope to avoid changing the global scope
+      $importParameters = @{Name = $Name; Scope = 'Local' } # Force the module to be imported into the local scope to avoid changing the global scope
       if ($PSBoundParameters.ContainsKey('Cmdlet')) { $importParameters['Cmdlet'] = $Cmdlet }
       if ($PSBoundParameters.ContainsKey('Function')) { $importParameters['Function'] = $Function }
 
@@ -625,11 +625,43 @@ function Test-IsBurn {
 }
 
 ####
+# Description: Checks if a file is a font which WinGet can install
+# Inputs: Path to File
+# Outputs: Boolean. True if file is a supported font, false otherwise
+# Note: Supported font formats are TTF, TTC, and OTF
+####
+function Test-IsFont {
+  param
+  (
+    [Parameter(Mandatory = $true)]
+    [String] $Path
+  )
+
+  # https://learn.microsoft.com/en-us/typography/opentype/spec/otff#organization-of-an-opentype-font
+  $TrueTypeFontSignature = [byte[]](0x00, 0x01, 0x00, 0x00) # The first 4 bytes of a TTF file
+  $OpenTypeFontSignature = [byte[]](0x4F, 0x54, 0x54, 0x4F) # The first 4 bytes of an OTF file
+  # https://learn.microsoft.com/en-us/typography/opentype/spec/otff#ttc-header
+  $TrueTypeCollectionSignature = [byte[]](0x74, 0x74, 0x63, 0x66) # The first 4 bytes of a TTC file
+
+  $FontSignatures = @(
+    $TrueTypeFontSignature,
+    $OpenTypeFontSignature,
+    $TrueTypeCollectionSignature
+  )
+
+  # The first 4 bytes of zip files are the same.
+  # It isn't worth setting up a FileStream and BinaryReader here since only the first 4 bytes are being checked
+  $FontHeader = Get-Content -Path $Path -AsByteStream -TotalCount 4 -WarningAction 'SilentlyContinue'
+  return $($FontSignatures | ForEach-Object { !(Compare-Object -ReferenceObject $_ -DifferenceObject $FontHeader) }) -contains $true # If any of the signatures match, it is a font
+
+}
+
+####
 # Description: Attempts to identify the type of installer from a file path
 # Inputs: Path to File
 # Outputs: Null if unknown type. String if known type
 ####
-Function Resolve-InstallerType {
+function Resolve-InstallerType {
   param
   (
     [Parameter(Mandatory = $true)]
@@ -641,6 +673,7 @@ Function Resolve-InstallerType {
   if (Test-IsMsi -Path $Path) { return 'msi' }
   if (Test-IsMsix -Path $Path) { return 'msix' }
   if (Test-IsZip -Path $Path) { return 'zip' }
+  # if (Test-IsFont -Path $Path) { return 'font' } # Font detection is not implemented yet
   if (Test-IsNullsoft -Path $Path) { return 'nullsoft' }
   if (Test-IsInno -Path $Path) { return 'inno' }
   if (Test-IsBurn -Path $Path) { return 'burn' }
@@ -776,8 +809,8 @@ Initialize-ScriptRepository
 
 #### Set up script dependencies
 Initialize-Module -Name 'powershell-yaml' # Used for parsing YAML files
-Initialize-Module -Name 'MSI' -Cmdlet @('Get-MSITable';'Get-MSIProperty') # Used for fetching MSI Properties
-Initialize-Module -Name 'NtObjectManager' -Function @('Get-Win32ModuleResource';'Get-Win32ModuleManifest') # Used for checking installer type inno
+Initialize-Module -Name 'MSI' -Cmdlet @('Get-MSITable'; 'Get-MSIProperty') # Used for fetching MSI Properties
+Initialize-Module -Name 'NtObjectManager' -Function @('Get-Win32ModuleResource'; 'Get-Win32ModuleManifest') # Used for checking installer type inno
 #### End of script dependencies
 
 #### These variables are initialized late to prevent fetching file contents if -Help or -Settings was used
