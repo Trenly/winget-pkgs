@@ -367,7 +367,6 @@ function Get-OffsetBytes {
   return $ByteArray[$Start..$End]
 }
 
-
 ####
 # Description: Gets the PE Section Table of a file
 # Inputs: Path to File
@@ -470,6 +469,8 @@ function Get-PESectionTable {
   return $SectionData
 }
 
+#TODO: Consider moving these functions to a separate file and dot-sourcing them in the main script
+
 ####
 # Description: Checks if a file is a Zip archive
 # Inputs: Path to File
@@ -486,6 +487,7 @@ function Test-IsZip {
 
   # The first 4 bytes of zip files are the same.
   # It isn't worth setting up a FileStream and BinaryReader here since only the first 4 bytes are being checked
+  # https://pkware.cachefly.net/webdocs/casestudies/APPNOTE.TXT section 4.3.7
   $ZipHeader = Get-Content -Path $Path -AsByteStream -TotalCount 4 -WarningAction 'SilentlyContinue'
   return $null -eq $(Compare-Object -ReferenceObject $([byte[]](80, 75, 3, 4)) -DifferenceObject $ZipHeader)
 }
@@ -658,7 +660,6 @@ function Test-IsFont {
     $TrueTypeCollectionSignature
   )
 
-  # The first 4 bytes of zip files are the same.
   # It isn't worth setting up a FileStream and BinaryReader here since only the first 4 bytes are being checked
   $FontHeader = Get-Content -Path $Path -AsByteStream -TotalCount 4 -WarningAction 'SilentlyContinue'
   return $($FontSignatures | ForEach-Object { !(Compare-Object -ReferenceObject $_ -DifferenceObject $FontHeader) }) -contains $true # If any of the signatures match, it is a font
@@ -889,25 +890,30 @@ $script:ManifestsFolder = Get-ManifestsFolder
 $script:ExecutionMode = $null
 $script:PackageFolderExists = $false
 $script:PackageVersionExists = $false
+$script:SelectedManifest = @{
+  'Identifier' = $null
+  'Version'    = $null
+  'Path'       = $null
+}
 
 # Handle user selected mode
 if ($PSBoundParameters.ContainsKey('Mode')) { $script:UserSelectedMode = [ScriptModes]::Parse([ScriptModes], $Mode, $true) }
 if ($AutoUpgrade) { $script:UserSelectedMode = [ScriptModes]::AutoUpgrade }
 # If the user selected mode is not set, prompt the user for a mode
 if (-not $script:UserSelectedMode) {
-  $lines = @(
-    ""
-    "${script:vtForegroundYellow}Please select a mode:"
-    "  ${script:vtForegroundWhite}1. ${script:vtForegroundCyan}Create a new manifest"
-    "  ${script:vtForegroundWhite}2. ${script:vtForegroundCyan}Quick create a new version of an existing manifest"
-    "  ${script:vtForegroundWhite}3. ${script:vtForegroundCyan}Update the metadata of an existing manifest"
-    "  ${script:vtForegroundWhite}4. ${script:vtForegroundCyan}Add a new locale to an existing manifest"
-    "  ${script:vtForegroundWhite}5. ${script:vtForegroundCyan}Remove a manifest"
-    "  ${script:vtForegroundWhite}6. ${script:vtForegroundCyan}Move a package to a new identifier"
-    "  ${script:vtForegroundWhite}Q. ${script:vtForegroundRed}Any key to quit${script:vtForegroundDefault}"
-    ""
-  )
-  $lines | ForEach-Object { Write-Information $_ }
+Write-Information @"
+${script:vtForegroundYellow}
+Please select a mode:
+  ${script:vtForegroundWhite}1. ${script:vtForegroundCyan}Create a new manifest
+  ${script:vtForegroundWhite}2. ${script:vtForegroundCyan}Quick create a new version of an existing manifest
+  ${script:vtForegroundWhite}3. ${script:vtForegroundCyan}Update the metadata of an existing manifest
+  ${script:vtForegroundWhite}4. ${script:vtForegroundCyan}Add a new locale to an existing manifest
+  ${script:vtForegroundWhite}5. ${script:vtForegroundCyan}Remove a manifest
+  ${script:vtForegroundWhite}6. ${script:vtForegroundCyan}Move a package to a new identifier
+  ${script:vtForegroundWhite}Q. ${script:vtForegroundRed}Any key to quit
+${script:vtForegroundDefault}
+"@
+  # TODO: Implement the menuing system
 }
 
 # Handle provided package identifier
