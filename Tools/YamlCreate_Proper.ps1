@@ -156,7 +156,7 @@ filter Initialize-VirtualTerminalSequence {
 filter Initialize-AlwaysNeverSetting {
   # Case insensitively convert strings to enum
   if ($_ -eq 'always') { return [AlwaysNeverOption]::Always }
-  if ($_ -eq 'never') { return [AlwaysNeverOption]::Always }
+  if ($_ -eq 'never') { return [AlwaysNeverOption]::Never }
   # If no match, return the default
   return [AlwaysNeverOption]::Ask
 }
@@ -778,7 +778,10 @@ $global:ProgressPreference = 'SilentlyContinue'
 $ProgressPreference = 'SilentlyContinue'
 $InformationPreference = 'Continue'
 $ErrorActionPreference = 'Continue'
-$PSDefaultParameterValues = @{ '*:Encoding' = 'UTF8'; 'ConvertTo-Json:Depth' = '10' }
+$PSDefaultParameterValues = @{
+  '*:Encoding'           = 'UTF8'
+  'ConvertTo-Json:Depth' = '10'
+}
 $ofs = ', '
 if (!$isWindows) { $env:TEMP = '/tmp/' }
 
