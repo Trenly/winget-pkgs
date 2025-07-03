@@ -367,7 +367,6 @@ function Get-OffsetBytes {
   return $ByteArray[$Start..$End]
 }
 
-
 ####
 # Description: Gets the PE Section Table of a file
 # Inputs: Path to File
@@ -469,6 +468,8 @@ function Get-PESectionTable {
 
   return $SectionData
 }
+
+#TODO: Consider moving these functions to a separate file and dot-sourcing them in the main script
 
 ####
 # Description: Checks if a file is a Zip archive
@@ -889,25 +890,30 @@ $script:ManifestsFolder = Get-ManifestsFolder
 $script:ExecutionMode = $null
 $script:PackageFolderExists = $false
 $script:PackageVersionExists = $false
+$script:SelectedManifest = @{
+  'Identifier' = $null
+  'Version'    = $null
+  'Path'       = $null
+}
 
 # Handle user selected mode
 if ($PSBoundParameters.ContainsKey('Mode')) { $script:UserSelectedMode = [ScriptModes]::Parse([ScriptModes], $Mode, $true) }
 if ($AutoUpgrade) { $script:UserSelectedMode = [ScriptModes]::AutoUpgrade }
 # If the user selected mode is not set, prompt the user for a mode
 if (-not $script:UserSelectedMode) {
-  $lines = @(
-    ""
-    "${script:vtForegroundYellow}Please select a mode:"
-    "  ${script:vtForegroundWhite}1. ${script:vtForegroundCyan}Create a new manifest"
-    "  ${script:vtForegroundWhite}2. ${script:vtForegroundCyan}Quick create a new version of an existing manifest"
-    "  ${script:vtForegroundWhite}3. ${script:vtForegroundCyan}Update the metadata of an existing manifest"
-    "  ${script:vtForegroundWhite}4. ${script:vtForegroundCyan}Add a new locale to an existing manifest"
-    "  ${script:vtForegroundWhite}5. ${script:vtForegroundCyan}Remove a manifest"
-    "  ${script:vtForegroundWhite}6. ${script:vtForegroundCyan}Move a package to a new identifier"
-    "  ${script:vtForegroundWhite}Q. ${script:vtForegroundRed}Any key to quit${script:vtForegroundDefault}"
-    ""
-  )
-  $lines | ForEach-Object { Write-Information $_ }
+Write-Information @"
+${script:vtForegroundYellow}
+Please select a mode:
+  ${script:vtForegroundWhite}1. ${script:vtForegroundCyan}Create a new manifest
+  ${script:vtForegroundWhite}2. ${script:vtForegroundCyan}Quick create a new version of an existing manifest
+  ${script:vtForegroundWhite}3. ${script:vtForegroundCyan}Update the metadata of an existing manifest
+  ${script:vtForegroundWhite}4. ${script:vtForegroundCyan}Add a new locale to an existing manifest
+  ${script:vtForegroundWhite}5. ${script:vtForegroundCyan}Remove a manifest
+  ${script:vtForegroundWhite}6. ${script:vtForegroundCyan}Move a package to a new identifier
+  ${script:vtForegroundWhite}Q. ${script:vtForegroundRed}Any key to quit
+${script:vtForegroundDefault}
+"@
+  # TODO: Implement the menuing system
 }
 
 # Handle provided package identifier
