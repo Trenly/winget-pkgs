@@ -32,7 +32,7 @@ param
   [Parameter(Mandatory = $false)]
   [string] $PackageVersion,
   [Parameter(Mandatory = $false)]
-  [ValidateRange(0, 5)]
+  [ValidateRange(1, 6)]
   [int] $Mode,
   [switch] $Settings,
   [switch] $AutoUpgrade,
@@ -42,13 +42,13 @@ param
 )
 
 enum ScriptModes {
-  # Although there isn't a need to assign the values, it is done to ensure that the values are consistent with the script's logic
-  FullUpdate = 0
-  QuickUpdateVersion = 1
-  MetadataUpdate = 2
-  NewLocale = 3
-  RemoveManifest = 4
-  MoveManifests = 5
+  FullUpdate = 1
+  QuickUpdateVersion = 2
+  MetadataUpdate = 3
+  NewLocale = 4
+  RemoveManifest = 5
+  MoveManifests = 6
+  CreateManifest # This is explicitly not assigned a value as it is an internal mode and is not user selectable
   AutomaticUpdate = [int]::MaxValue
 }
 
@@ -154,7 +154,6 @@ function Initialize-Folder {
 filter Initialize-VirtualTerminalSequence {
   if ($script:vtSupported) {
     "$([char]0x001B)[${_}m"
-    return "$([char]0x001B)[${_}m"
   }
 }
 
@@ -895,6 +894,21 @@ $script:PackageVersionExists = $false
 if ($PSBoundParameters.ContainsKey('Mode')) { $script:UserSelectedMode = [ScriptModes]::Parse([ScriptModes], $Mode, $true) }
 if ($AutoUpgrade) { $script:UserSelectedMode = [ScriptModes]::AutoUpgrade }
 # If the user selected mode is not set, prompt the user for a mode
+if (-not $script:UserSelectedMode) {
+  $lines = @(
+    ""
+    "${script:vtForegroundYellow}Please select a mode:"
+    "  ${script:vtForegroundWhite}1. ${script:vtForegroundCyan}Create a new manifest"
+    "  ${script:vtForegroundWhite}2. ${script:vtForegroundCyan}Quick create a new version of an existing manifest"
+    "  ${script:vtForegroundWhite}3. ${script:vtForegroundCyan}Update the metadata of an existing manifest"
+    "  ${script:vtForegroundWhite}4. ${script:vtForegroundCyan}Add a new locale to an existing manifest"
+    "  ${script:vtForegroundWhite}5. ${script:vtForegroundCyan}Remove a manifest"
+    "  ${script:vtForegroundWhite}6. ${script:vtForegroundCyan}Move a package to a new identifier"
+    "  ${script:vtForegroundWhite}Q. ${script:vtForegroundRed}Any key to quit${script:vtForegroundDefault}"
+    ""
+  )
+  $lines | ForEach-Object { Write-Information $_ }
+}
 
 # Handle provided package identifier
 # - If the package identifier is provided, check if it is a valid identifier
@@ -907,6 +921,8 @@ if ($AutoUpgrade) { $script:UserSelectedMode = [ScriptModes]::AutoUpgrade }
 # - If the package version is not provided, request it until a valid version is provided
 
 # Once the package version is provided, if the package identifier already exists, check if the version already exists
+
+# Set Execution Mode based upon the user selected mode and whether or not the manifest already exists
 
 # If the version already exists, load the existing manifest into memory
 # If it is a singleton
