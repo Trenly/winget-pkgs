@@ -614,6 +614,7 @@ function Test-IsInno {
   )
 
   $Resources = Get-Win32ModuleResource -Path $Path -ResourceType -DontLoadResource -ErrorAction SilentlyContinue
+  # https://github.com/jrsoftware/issrc/blob/main/Projects/Src/Shared.Struct.pas#L417
   if ($Resources.Name -contains '#11111') { return $true } # If the resource name is #11111, it is an Inno installer
   return $false
 }
@@ -632,6 +633,7 @@ function Test-IsBurn {
 
   $SectionTable = Get-PESectionTable -Path $Path
   if (!$SectionTable) { return $false } # If the section table is null, it is not an EXE and therefore not Burn
+  # https://github.com/wixtoolset/wix/blob/main/src/burn/engine/inc/engine.h#L8
   if ($SectionTable.SectionName -contains '.wixburn') { return $true }
   return $false
 }
