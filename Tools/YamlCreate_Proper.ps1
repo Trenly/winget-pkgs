@@ -23,7 +23,7 @@
 
 #Requires -Version 7
 [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '', Scope = 'Function', Target = 'Get-OffsetBytes',
-  Justification = 'Ths function both consumes and outputs an array of bytes. The pluralized name is required to adequately describe the functions purpose')]
+  Justification = 'This function both consumes and outputs an array of bytes. The pluralized name is required to adequately describe the functions purpose')]
 
 param
 (
@@ -111,6 +111,7 @@ function Invoke-CleanExit {
   $PSDefaultParameterValues = $script:OriginalDefaultParameters
   $ofs = $script:OriginalOfs
   $env:TEMP = $script:OriginalTempDirectory
+  $env:PSModulePath = $script:OriginalPSModulePath
 
   # Dispose of resources
   $script:HttpClient.Dispose()
@@ -144,17 +145,6 @@ function Initialize-Folder {
 
   # Make sure that the path was actually created
   return Test-Path -Path $FolderPath
-}
-
-####
-# Description: If Virtual Terminal is supported, convert the operation code to its virtual terminal sequence
-# Inputs: Integer. Operation Code
-# Outputs: Nullable Virtual Terminal Sequence String
-####
-filter Initialize-VirtualTerminalSequence {
-  if ($script:vtSupported) {
-    "$([char]0x001B)[${_}m"
-  }
 }
 
 ####
@@ -195,7 +185,7 @@ function Initialize-ScriptRepository {
     git remote set-url upstream $script:WinGetUpstreamUri
   } else {
     # Otherwise, permanently set the remote
-    Write-Information "${script:vtForegroundYellow}Upstream does not exist. Permanently adding ${script:vtForegroundBlue}${script:vtUnderline}${script:WinGetUpstreamUri}${script:vtNotUnderline}${script:vtForegroundYellow} as remote upstream${script:vtDefault}"
+    Write-Information "${vtForegroundYellow}Upstream does not exist. Permanently adding ${vtForegroundBlue}${vtUnderline}${script:WinGetUpstreamUri}${vtNotUnderline}${vtForegroundYellow} as remote upstream${vtDefault}"
     git remote add upstream $script:WinGetUpstreamUri
   }
 }
@@ -701,7 +691,6 @@ $script:NuGetMinimumVersion = [System.Version]::Parse('2.8.5.201')
 
 # Flags
 Write-Debug 'Checking for supported features'
-$script:vtSupported = (Get-Host).UI.SupportsVirtualTerminal
 $script:isInteractive = $null -ne (Get-Host).UI.RawUI
 $script:WinGetIsPresent = Get-Command 'winget' -ErrorAction SilentlyContinue
 $script:GitIsPresent = Get-Command 'git' -ErrorAction SilentlyContinue
@@ -722,50 +711,7 @@ $script:OriginalDefaultParameters = $PSDefaultParameterValues
 $script:OriginalOfs = $ofs
 $script:OriginalTempDirectory = $env:TEMP
 $script:OriginalRemoteUpstreamUri = $null # Initialized for later use
-
-# Virtual Terminal
-Write-Debug 'Initializing Virtual Terminal Sequences'
-$script:vtDefault = 0 | Initialize-VirtualTerminalSequence
-$script:vtBold = 1 | Initialize-VirtualTerminalSequence
-$script:vtNotBold = 22 | Initialize-VirtualTerminalSequence
-$script:vtUnderline = 4 | Initialize-VirtualTerminalSequence
-$script:vtNotUnderline = 24 | Initialize-VirtualTerminalSequence
-$script:vtNegative = 7 | Initialize-VirtualTerminalSequence
-$script:vtPositive = 27 | Initialize-VirtualTerminalSequence
-$script:vtForegroundBlack = 30 | Initialize-VirtualTerminalSequence
-$script:vtForegroundRed = 31 | Initialize-VirtualTerminalSequence
-$script:vtForegroundGreen = 32 | Initialize-VirtualTerminalSequence
-$script:vtForegroundYellow = 33 | Initialize-VirtualTerminalSequence
-$script:vtForegroundBlue = 34 | Initialize-VirtualTerminalSequence
-$script:vtForegroundMagenta = 35 | Initialize-VirtualTerminalSequence
-$script:vtForegroundCyan = 36 | Initialize-VirtualTerminalSequence
-$script:vtForegroundWhite = 37 | Initialize-VirtualTerminalSequence
-$script:vtForegroundDefault = 39 | Initialize-VirtualTerminalSequence
-$script:vtBackgroundBlack = 40 | Initialize-VirtualTerminalSequence
-$script:vtBackgroundRed = 41 | Initialize-VirtualTerminalSequence
-$script:vtBackgroundGreen = 42 | Initialize-VirtualTerminalSequence
-$script:vtBackgroundYellow = 43 | Initialize-VirtualTerminalSequence
-$script:vtBackgroundBlue = 44 | Initialize-VirtualTerminalSequence
-$script:vtBackgroundMagenta = 45 | Initialize-VirtualTerminalSequence
-$script:vtBackgroundCyan = 46 | Initialize-VirtualTerminalSequence
-$script:vtBackgroundWhite = 47 | Initialize-VirtualTerminalSequence
-$script:vtBackgroundDefault = 49 | Initialize-VirtualTerminalSequence
-$script:vtForegroundBrightBlack = 90 | Initialize-VirtualTerminalSequence
-$script:vtForegroundBrightRed = 91 | Initialize-VirtualTerminalSequence
-$script:vtForegroundBrightGreen = 92 | Initialize-VirtualTerminalSequence
-$script:vtForegroundBrightYellow = 93 | Initialize-VirtualTerminalSequence
-$script:vtForegroundBrightBlue = 94 | Initialize-VirtualTerminalSequence
-$script:vtForegroundBrightMagenta = 95 | Initialize-VirtualTerminalSequence
-$script:vtForegroundBrightCyan = 96 | Initialize-VirtualTerminalSequence
-$script:vtForegroundBrightWhite = 97 | Initialize-VirtualTerminalSequence
-$script:vtBackgroundBrightBlack = 100 | Initialize-VirtualTerminalSequence
-$script:vtBackgroundBrightRed = 101 | Initialize-VirtualTerminalSequence
-$script:vtBackgroundBrightGreen = 102 | Initialize-VirtualTerminalSequence
-$script:vtBackgroundBrightYellow = 103 | Initialize-VirtualTerminalSequence
-$script:vtBackgroundBrightBlue = 104 | Initialize-VirtualTerminalSequence
-$script:vtBackgroundBrightMagenta = 105 | Initialize-VirtualTerminalSequence
-$script:vtBackgroundBrightCyan = 106 | Initialize-VirtualTerminalSequence
-$script:vtBackgroundBrightWhite = 107 | Initialize-VirtualTerminalSequence
+$script:OriginalPSModulePath = $env:PSModulePath
 
 # Script Behavior
 Write-Debug 'Creating internal state'
@@ -799,11 +745,14 @@ $PSDefaultParameterValues = @{
 $ofs = ', '
 if (!$isWindows) { $env:TEMP = '/tmp/' }
 
+$env:PSModulePath = $env:PSModulePath + ';' + (Join-Path -Path $PSScriptRoot -ChildPath 'Modules') # Add the local modules to the PSModulePath
+Import-Module -Name 'VirtualTerminal' -Scope Local -Force -ErrorAction SilentlyContinue # Local module for VT codes
+
 #### Start of Early Exiting Main-Functions
 if ($help) {
-  Write-Information "${script:vtForegroundGreen}For full documentation of the script, see ${script:vtForegroundBlue}${script:vtUnderline}https://github.com/microsoft/winget-pkgs/tree/master/doc/tools/YamlCreate.md${script:vtNotUnderline}"
-  Write-Information "${script:vtForegroundYellow}Usage: ${script:vtForegroundWhite}.\YamlCreate.ps1 [-PackageIdentifier <identifier>] [-PackageVersion <version>] [-Mode <1-5>] [-Settings] [-SkipPRCheck]"
-  Write-Information "${script:vtDefault}"
+  Write-Information "${vtForegroundGreen}For full documentation of the script, see ${vtForegroundBlue}${vtUnderline}https://github.com/microsoft/winget-pkgs/tree/master/doc/tools/YamlCreate.md${vtNotUnderline}"
+  Write-Information "${vtForegroundYellow}Usage: ${vtForegroundWhite}.\YamlCreate.ps1 [-PackageIdentifier <identifier>] [-PackageVersion <version>] [-Mode <1-5>] [-Settings] [-SkipPRCheck]"
+  Write-Information "${vtDefault}"
   Invoke-CleanExit 0
 }
 
@@ -824,7 +773,7 @@ if (!$script:isInteractive) {
 Initialize-ScriptRepository
 #### End of Early Exiting Main-Functions
 
-#### Set up script dependencies
+#### Set up script dependencies that may need to be downloaded
 Initialize-Module -Name 'powershell-yaml' # Used for parsing YAML files
 Initialize-Module -Name 'MSI' -Cmdlet @('Get-MSITable'; 'Get-MSIProperty') # Used for fetching MSI Properties
 Initialize-Module -Name 'NtObjectManager' -Function @('Get-Win32ModuleResource'; 'Get-Win32ModuleManifest') # Used for checking installer type inno
@@ -904,17 +853,17 @@ if ($PSBoundParameters.ContainsKey('Mode')) { $script:UserSelectedMode = [Script
 if ($AutoUpgrade) { $script:UserSelectedMode = [ScriptModes]::AutoUpgrade }
 # If the user selected mode is not set, prompt the user for a mode
 if (-not $script:UserSelectedMode) {
-Write-Information @"
-${script:vtForegroundYellow}
+  Write-Information @"
+${vtForegroundYellow}
 Please select a mode:
-  ${script:vtForegroundWhite}1. ${script:vtForegroundCyan}Create a new manifest
-  ${script:vtForegroundWhite}2. ${script:vtForegroundCyan}Quick create a new version of an existing manifest
-  ${script:vtForegroundWhite}3. ${script:vtForegroundCyan}Update the metadata of an existing manifest
-  ${script:vtForegroundWhite}4. ${script:vtForegroundCyan}Add a new locale to an existing manifest
-  ${script:vtForegroundWhite}5. ${script:vtForegroundCyan}Remove a manifest
-  ${script:vtForegroundWhite}6. ${script:vtForegroundCyan}Move a package to a new identifier
-  ${script:vtForegroundWhite}Q. ${script:vtForegroundRed}Any key to quit
-${script:vtForegroundDefault}
+  ${vtForegroundWhite}1. ${vtForegroundCyan}Create a new manifest
+  ${vtForegroundWhite}2. ${vtForegroundCyan}Quick create a new version of an existing manifest
+  ${vtForegroundWhite}3. ${vtForegroundCyan}Update the metadata of an existing manifest
+  ${vtForegroundWhite}4. ${vtForegroundCyan}Add a new locale to an existing manifest
+  ${vtForegroundWhite}5. ${vtForegroundCyan}Remove a manifest
+  ${vtForegroundWhite}6. ${vtForegroundCyan}Move a package to a new identifier
+  ${vtForegroundWhite}Q. ${vtForegroundRed}Any key to quit
+${vtForegroundDefault}
 "@
   # TODO: Implement the menuing system
 }
