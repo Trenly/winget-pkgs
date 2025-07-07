@@ -451,7 +451,7 @@ function Get-PESectionTable {
     # Build the object
     $SectionEntry = [PSCustomObject]@{
       SectionName                 = $SectionName
-      SecitonNameBytes            = $SectionNameBytes
+      SectionNameBytes            = $SectionNameBytes
       VirtualSize                 = $VirtualSize
       VirtualAddressOffset        = $VirtualAddressOffset
       SizeOfRawData               = $SizeOfRawData
@@ -595,6 +595,7 @@ function Test-IsNullsoft {
   $PresumedHeaderBytes = Get-OffsetBytes -ByteArray $RawBytes -Offset 4 -Length 4 -LittleEndian $true
 
   # DEADBEEF -or- DEADBEED
+  # https://sourceforge.net/p/nsis/code/HEAD/tree/NSIS/branches/WIN64/Source/exehead/fileform.h#l222
   if (!(Compare-Object -ReferenceObject $([byte[]](222, 173, 190, 239)) -DifferenceObject $PresumedHeaderBytes)) { return $true }
   if (!(Compare-Object -ReferenceObject $([byte[]](222, 173, 190, 237)) -DifferenceObject $PresumedHeaderBytes)) { return $true }
   return $false
