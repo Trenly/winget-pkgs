@@ -164,7 +164,7 @@ function Test-IsMsix {
     Expand-Archive -Path $temporaryFilePath -DestinationPath $expandedArchivePath
 
     # There are a few different indicators that a package can be installed with MSIX technology, look for any of these file names
-    $msixIndicators = @('AppxSignature.p7x'; 'AppxManifest.xml'; 'AppxBundleManifest.xml')
+    $msixIndicators = @('AppxSignature.p7x'; 'AppxManifest.xml'; 'AppxBundleManifest.xml', 'AppxBlockMap.xml')
     $returnValue = $false
     foreach ($filename in $msixIndicators) {
         if (Get-ChildItem -Path $expandedArchivePath -Recurse -Depth 3 -Filter $filename) { $returnValue = $true } # If any of the files is found, it is an msix
@@ -270,9 +270,9 @@ function Test-IsInno {
         [String] $Path
     )
 
-    $Resources = Get-Win32ModuleResource -Path $Path -ResourceType -DontLoadResource -ErrorAction SilentlyContinue
+    $Resources = Get-Win32ModuleResource -Path $Path -DontLoadResource -ErrorAction SilentlyContinue
     # https://github.com/jrsoftware/issrc/blob/main/Projects/Src/Shared.Struct.pas#L417
-    if ($Resources.Name -contains '#11111') { return $true } # If the resource name is #11111, it is an Inno installer
+    if ($Resources.Name.Value -contains '#11111') { return $true } # If the resource name is #11111, it is an Inno installer
     return $false
 }
 
