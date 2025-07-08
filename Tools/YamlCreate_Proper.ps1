@@ -428,7 +428,7 @@ Initialize-ScriptRepository
 Initialize-Module -Name 'powershell-yaml' # Used for parsing YAML files
 Initialize-Module -Name 'MSI' -Cmdlet @('Get-MSITable'; 'Get-MSIProperty') # Used for fetching MSI Properties
 Initialize-Module -Name 'NtObjectManager' -Function @('Get-Win32ModuleResource'; 'Get-Win32ModuleManifest') # Used for checking installer type inno
-Import-Module -Name 'InstallerDetection' -Scope Local -Force -ErrorAction 'Continue' # Local module for detecting installer types
+Import-Module -Name 'YamlCreate.InstallerDetection' -Scope Local -Force -ErrorAction 'Continue' # Local module for detecting installer types
 #### End of script dependencies
 
 #### These variables are initialized late to prevent fetching file contents if -Help or -Settings was used
@@ -506,7 +506,7 @@ if ($AutoUpgrade) { $script:UserSelectedMode = [ScriptModes]::AutoUpgrade }
 # If the user selected mode is not set, prompt the user for a mode
 if (-not $script:UserSelectedMode) {
   Write-Information @"
-${vtForegroundYellow}
+${vtForegroundBrightYellow}
 Please select a mode:
   ${vtForegroundWhite}1. ${vtForegroundCyan}Create a new manifest
   ${vtForegroundWhite}2. ${vtForegroundCyan}Quick create a new version of an existing manifest
