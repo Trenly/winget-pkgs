@@ -9,7 +9,7 @@
 @{
 
     # Script module or binary module file associated with this manifest.
-    RootModule        = 'YamlCreate.psm1'
+    RootModule        = 'YamlCreate.Schemas.psm1'
 
     # Version number of this module.
     ModuleVersion     = '0.0.1'
@@ -18,7 +18,7 @@
     # CompatiblePSEditions = @()
 
     # ID used to uniquely identify this module
-    GUID              = '7e3c36ac-436b-41fa-a89d-1deb466096cc'
+    GUID              = '87fb9885-0af0-4542-90d6-2e2b2935c00d'
 
     # Author of this module
     Author            = 'Microsoft Open Source Community'
@@ -68,15 +68,12 @@
     # FormatsToProcess = @()
 
     # Modules to import as nested modules of the module specified in RootModule/ModuleToProcess
-    NestedModules = @(
-        # 'YamlCreate.InstallerDetection'
-        'YamlCreate.Menuing'
-        'YamlCreate.Schemas'
-    )
+    NestedModules = @()
 
     # Functions to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no functions to export.
     FunctionsToExport = @(
-        'Get-RemoteContent'
+        'Get-SchemaUrl'
+        'Get-SchemaJson'
     )
 
     # Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.
@@ -92,11 +89,7 @@
     # DscResourcesToExport = @()
 
     # List of all modules packaged with this module
-    ModuleList = @(
-        # 'YamlCreate.InstallerDetection'
-        'YamlCreate.Menuing'
-        'YamlCreate.Schemas'
-    )
+    ModuleList = @()
 
     # List of all files packaged with this module
     # FileList = @()
