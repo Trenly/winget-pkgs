@@ -64,9 +64,7 @@ Export-ModuleMember -Variable DefaultSchemaVersion
 
 # Import all sub-modules
 $script:moduleRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
-Write-Warning "Importing sub-modules from $script:moduleRoot"
 Get-ChildItem -Path $script:moduleRoot -Recurse -Depth 1 -Filter '*.psd1'| ForEach-Object {
-    Write-Warning "Checking $($_.Name)"
     if ($_.Name -eq 'YamlCreate.Schemas.psd1') {
         # Skip the main module manifest as it is already handled
         return

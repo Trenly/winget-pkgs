@@ -111,6 +111,10 @@ function Invoke-CleanExit {
   $ofs = $script:OriginalOfs
   $env:TEMP = $script:OriginalTempDirectory
   $env:PSModulePath = $script:OriginalPSModulePath
+  $global:DebugPreference = $script:OriginalGlobalDebugPreference
+  $DebugPreference = $script:OriginalDebugPreference
+  $global:VerbosePreference = $script:OriginalGlobalVerbosePreference
+  $VerbosePreference = $script:OriginalVerbosePreference
 
   # Exit
   Write-Debug "Exiting ($ExitCode)"
@@ -291,6 +295,10 @@ $script:OriginalOfs = $ofs
 $script:OriginalTempDirectory = $env:TEMP
 $script:OriginalRemoteUpstreamUri = $null # Initialized for later use
 $script:OriginalPSModulePath = $env:PSModulePath
+$script:OriginalGlobalDebugPreference = $global:DebugPreference
+$script:OriginalDebugPreference = $DebugPreference
+$script:OriginalGlobalVerbosePreference = $global:VerbosePreference
+$script:OriginalVerbosePreference = $VerbosePreference
 
 # Script Behavior
 Write-Debug 'Creating internal state'
@@ -323,6 +331,18 @@ $PSDefaultParameterValues = @{
 }
 $ofs = ', '
 if (!$isWindows) { $env:TEMP = '/tmp/' }
+
+# If the script was run with -Debug, set the default parameter for all commands to include -Debug
+if ($PSCmdlet.MyInvocation.BoundParameters["Debug"]) {
+  $global:DebugPreference = 'Continue'
+  $DebugPreference = 'Continue'
+}
+
+# If the script was run with -Verbose, set the default parameter for all commands to include -Verbose
+if ($PSCmdlet.MyInvocation.BoundParameters["Verbose"]) {
+  $global:VerbosePreference = 'Continue'
+  $VerbosePreference = 'Continue'
+}
 
 $env:PSModulePath = $env:PSModulePath + ';' + (Join-Path -Path $PSScriptRoot -ChildPath 'Modules') # Add the local modules to the PSModulePath
 Import-Module -Name 'VirtualTerminal' -Scope Global -Force -ErrorAction 'SilentlyContinue' # Local module for VT codes
@@ -377,27 +397,10 @@ $script:DeveloperSettingsEnabled = $script:UserSettings.EnableDeveloperOptions -
 # Schemas
 # If SchemaVersion is not provided, the module will use the default version which is set in the module itself
 Write-Verbose 'Fetching Manifest Schemas'
-$script:DefaultLocaleSchemaJSON = Get-SchemaJson -SchemaType 'defaultLocale' -SchemaVersion $script:UserSettings.OverrideManifestVersion
-$script:LocaleSchemaJSON = Get-SchemaJson -SchemaType 'locale' -SchemaVersion $script:UserSettings.OverrideManifestVersion
-$script:VersionSchemaJSON = Get-SchemaJson -SchemaType 'version' -SchemaVersion $script:UserSettings.OverrideManifestVersion
-$script:InstallerSchemaJSON = Get-SchemaJson -SchemaType 'installer' -SchemaVersion $script:UserSettings.OverrideManifestVersion
-
-Write-Verbose 'Parsing Schema Properties'
-$script:DefaultLocaleSchema = $script:InstallerSchemaJSON | ConvertFrom-Json
-$script:LocaleSchema = $script:InstallerSchemaJSON | ConvertFrom-Json
-$script:VersionSchema = $script:InstallerSchemaJSON | ConvertFrom-Json
-$script:InstallerSchema = $script:InstallerSchemaJSON | ConvertFrom-Json
-$script:DefaultLocaleProperties = (ConvertTo-Yaml $script:DefaultLocaleSchema.properties | ConvertFrom-Yaml).Keys
-$script:LocaleProperties = (ConvertTo-Yaml $script:LocaleSchema.properties | ConvertFrom-Yaml).Keys
-$script:VersionProperties = (ConvertTo-Yaml $script:VersionSchema.properties | ConvertFrom-Yaml).Keys
-$script:InstallerProperties = (ConvertTo-Yaml $script:InstallerSchema.properties | ConvertFrom-Yaml).Keys
-
-# Extended Properties
-Write-Debug 'Parsing Extended Schema Properties'
-$script:InstallerSwitchProperties = (ConvertTo-Yaml $script:InstallerSchema.definitions.InstallerSwitches.properties | ConvertFrom-Yaml).Keys
-$script:InstallerEntryProperties = (ConvertTo-Yaml $script:InstallerSchema.definitions.Installer.properties | ConvertFrom-Yaml).Keys
-$script:InstallerDependencyProperties = (ConvertTo-Yaml $script:InstallerSchema.definitions.Dependencies.properties | ConvertFrom-Yaml).Keys
-$script:AppsAndFeaturesEntryProperties = (ConvertTo-Yaml $script:InstallerSchema.definitions.AppsAndFeaturesEntry.properties | ConvertFrom-Yaml).Keys
+Initialize-VersionSchema -SchemaVersion $script:UserSettings.OverrideManifestVersion
+Initialize-InstallerSchema -SchemaVersion $script:UserSettings.OverrideManifestVersion
+Initialize-DefaultLocaleSchema -SchemaVersion $script:UserSettings.OverrideManifestVersion
+Initialize-LocaleSchema -SchemaVersion $script:UserSettings.OverrideManifestVersion
 
 # Variables used through the script
 # These may or may not need to be initialized, but they are anyways just to be safe
