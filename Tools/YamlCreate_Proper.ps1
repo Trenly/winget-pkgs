@@ -377,13 +377,9 @@ $script:DeveloperSettingsEnabled = $script:UserSettings.EnableDeveloperOptions -
 # Schemas
 # If SchemaVersion is not provided, the module will use the default version which is set in the module itself
 Write-Verbose 'Fetching Manifest Schemas'
-Write-Debug 'Fetching defaultLocale schema'
 $script:DefaultLocaleSchemaJSON = Get-SchemaJson -SchemaType 'defaultLocale' -SchemaVersion $script:UserSettings.OverrideManifestVersion
-Write-Debug 'Fetching locale schema'
 $script:LocaleSchemaJSON = Get-SchemaJson -SchemaType 'locale' -SchemaVersion $script:UserSettings.OverrideManifestVersion
-Write-Debug 'Fetching version schema'
 $script:VersionSchemaJSON = Get-SchemaJson -SchemaType 'version' -SchemaVersion $script:UserSettings.OverrideManifestVersion
-Write-Debug 'Fetching installer schema'
 $script:InstallerSchemaJSON = Get-SchemaJson -SchemaType 'installer' -SchemaVersion $script:UserSettings.OverrideManifestVersion
 
 Write-Verbose 'Parsing Schema Properties'
