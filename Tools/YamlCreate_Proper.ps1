@@ -112,9 +112,6 @@ function Invoke-CleanExit {
   $env:TEMP = $script:OriginalTempDirectory
   $env:PSModulePath = $script:OriginalPSModulePath
 
-  # Dispose of resources
-  $script:HttpClient.Dispose()
-
   # Exit
   Write-Debug "Exiting ($ExitCode)"
   exit $ExitCode
@@ -186,62 +183,6 @@ function Initialize-ScriptRepository {
     # Otherwise, permanently set the remote
     Write-Information "${vtForegroundYellow}Upstream does not exist. Permanently adding ${vtForegroundBlue}${vtUnderline}${script:WinGetUpstreamUri}${vtNotUnderline}${vtForegroundYellow} as remote upstream${vtDefault}"
     git remote add upstream $script:WinGetUpstreamUri
-  }
-}
-
-####
-# Description: Gets the content of a file from a URI
-# Inputs: Remote URI
-# Outputs: File Contents or FileInfo
-####
-function Get-RemoteContent {
-  param (
-    [Parameter(Mandatory = $true)]
-    [AllowEmptyString()]
-    [String] $URL,
-    [String] $OutputPath = '',
-    [switch] $Raw
-  )
-  Write-Debug "Attempting to fetch content from $URL"
-  # Check if the URL is valid before trying to download
-  if ([String]::IsNullOrWhiteSpace($URL)) {
-    $response = @{StatusCode = 400 }
-  } else {
-    $response = Invoke-WebRequest -Uri $URL -Method Head -ErrorAction SilentlyContinue
-  }
-
-  if ($response.StatusCode -ne 200) {
-    Write-Debug "Fetching remote content from $URL returned status code $($response.StatusCode)"
-    return $null
-  }
-
-  # If a path was specified, store it at that path; Otherwise use the temp folder
-  if ($OutputPath) {
-    $localFile = [System.IO.FileInfo]::new($OutputPath)
-  } else {
-    $localFile = New-TemporaryFile
-  }
-
-  Write-Debug "Remote content will be stored at $($localFile.FullName)"
-
-  # Mark the file for cleanup when the script ends if the raw data was requested
-  if ($Raw) {
-    $script:CleanupPaths += @($localFile.FullName)
-  }
-
-  try {
-    $downloadTask = $script:HttpClient.GetByteArrayAsync($URL)
-    [System.IO.File]::WriteAllBytes($localfile.FullName, $downloadTask.Result)
-  } catch {
-    # If the download fails, write a zero-byte file anyways
-    $null | Out-File $localFile.FullName
-  }
-
-  # If the raw content was requested, return the content, otherwise, return the FileInfo object
-  if ($Raw) {
-    return Get-Content -Path $localFile.FullName
-  } else {
-    return $localFile
   }
 }
 
@@ -324,7 +265,6 @@ function Get-ManifestsFolder {
 # Versions
 Write-Debug 'Setting required versions'
 $script:ScriptVersion = '3.0.0-alpha'
-$script:DefaultManifestVersion = '1.10.0'
 $script:NuGetMinimumVersion = [System.Version]::Parse('2.8.5.201')
 
 # Flags
@@ -365,7 +305,6 @@ $script:ManfiestsFolderName = 'manifests'
 # Misc
 $script:Utf8NoBomEncoding = New-Object System.Text.UTF8Encoding $False
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-$script:HttpClient = New-Object System.Net.Http.HttpClient
 $script:CleanupPaths = @()
 
 # Terminal Setup
@@ -434,30 +373,18 @@ $script:SuppressQuickUpdateWarning = $script:UserSettings.SuppressQuickUpdateWar
 $script:RequireExplicitMenuing = $script:UserSettings.ExplicitMenuOptions -eq 'true'
 $script:IdentifyBurnInstallers = $script:UserSettings.IdentifyBurnInstallers -eq 'true'
 $script:DeveloperSettingsEnabled = $script:UserSettings.EnableDeveloperOptions -eq 'true'
-$script:ManifestVersion = if ($script:Settings.OverrideManifestVersion) { $script:Settings.OverrideManifestVersion } else { $script:DefaultManifestVersion }
-$script:UseDirectSchemaLink = $env:GITHUB_ACTIONS -or (Invoke-WebRequest "https://aka.ms/winget-manifest.version.$script:ManifestVersion.schema.json" -UseBasicParsing).Content -match '<!doctype html>'
 
 # Schemas
-Write-Verbose "Determining URLs for Manifest Schemas (${script:ManifestVersion})"
-Write-Debug "Use Direct Schema Link: $script:UseDirectSchemaLink"
-$script:SchemaUrls = @{
-  version       = if ($useDirectSchemaLink) { "https://raw.githubusercontent.com/microsoft/winget-cli/master/schemas/JSON/manifests/v$script:ManifestVersion/manifest.version.$script:ManifestVersion.json" } else { "https://aka.ms/winget-manifest.version.$script:ManifestVersion.schema.json" }
-  defaultLocale = if ($useDirectSchemaLink) { "https://raw.githubusercontent.com/microsoft/winget-cli/master/schemas/JSON/manifests/v$script:ManifestVersion/manifest.defaultLocale.$script:ManifestVersion.json" } else { "https://aka.ms/winget-manifest.defaultLocale.$script:ManifestVersion.schema.json" }
-  locale        = if ($useDirectSchemaLink) { "https://raw.githubusercontent.com/microsoft/winget-cli/master/schemas/JSON/manifests/v$script:ManifestVersion/manifest.locale.$script:ManifestVersion.json" } else { "https://aka.ms/winget-manifest.locale.$script:ManifestVersion.schema.json" }
-  installer     = if ($useDirectSchemaLink) { "https://raw.githubusercontent.com/microsoft/winget-cli/master/schemas/JSON/manifests/v$script:ManifestVersion/manifest.installer.$script:ManifestVersion.json" } else { "https://aka.ms/winget-manifest.installer.$script:ManifestVersion.schema.json" }
-}
-Write-Debug @"
-Version: $($script:SchemaUrls.version)
-DefaultLocale: $($script:SchemaUrls.defaultLocale)
-Locale: $($script:SchemaUrls.locale)
-Installer: $($script:SchemaUrls.installer)
-"@
-
+# If SchemaVersion is not provided, the module will use the default version which is set in the module itself
 Write-Verbose 'Fetching Manifest Schemas'
-$script:DefaultLocaleSchemaJSON = Get-RemoteContent $script:SchemaUrls.defaultLocale -Raw
-$script:LocaleSchemaJSON = Get-RemoteContent $script:SchemaUrls.locale -Raw
-$script:VersionSchemaJSON = Get-RemoteContent $script:SchemaUrls.version -Raw
-$script:InstallerSchemaJSON = Get-RemoteContent $script:SchemaUrls.installer -Raw
+Write-Debug 'Fetching defaultLocale schema'
+$script:DefaultLocaleSchemaJSON = Get-SchemaJson -SchemaType 'defaultLocale' -SchemaVersion $script:UserSettings.OverrideManifestVersion
+Write-Debug 'Fetching locale schema'
+$script:LocaleSchemaJSON = Get-SchemaJson -SchemaType 'locale' -SchemaVersion $script:UserSettings.OverrideManifestVersion
+Write-Debug 'Fetching version schema'
+$script:VersionSchemaJSON = Get-SchemaJson -SchemaType 'version' -SchemaVersion $script:UserSettings.OverrideManifestVersion
+Write-Debug 'Fetching installer schema'
+$script:InstallerSchemaJSON = Get-SchemaJson -SchemaType 'installer' -SchemaVersion $script:UserSettings.OverrideManifestVersion
 
 Write-Verbose 'Parsing Schema Properties'
 $script:DefaultLocaleSchema = $script:InstallerSchemaJSON | ConvertFrom-Json
