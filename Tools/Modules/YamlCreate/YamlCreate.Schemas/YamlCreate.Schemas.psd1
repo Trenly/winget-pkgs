@@ -82,6 +82,8 @@
         'Initialize-VersionSchema'
         'Test-PackageIdentifier'
         'Request-PackageIdentifier'
+        'Test-PackageVersion'
+        'Request-PackageVersion'
         ## Installer Schema Functions
         'Initialize-InstallerSchema'
     )

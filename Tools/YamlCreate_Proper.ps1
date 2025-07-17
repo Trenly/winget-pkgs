@@ -410,9 +410,11 @@ $script:ExecutionMode = $null
 $script:PackageFolderExists = $false
 $script:PackageVersionExists = $false
 $script:SelectedManifest = @{
-  'Identifier' = $PackageIdentifier
-  'Version'    = $null
-  'Path'       = $null
+  'Identifier'    = $PackageIdentifier
+  'Version'       = $null
+  'Path'          = $null
+  'Exists'        = $false
+  'LatestVersion' = $null
 }
 
 # Handle user selected mode
@@ -449,27 +451,106 @@ ${vtForegroundDefault}
 # To determine the execution mode, we need to check if the manifest already exists, which we need the Identifier and Version for
 
 # Check that the package identifier is valid
-if (!(Test-PackageIdentifier -PackageIdentifier $PackageIdentifier -OutVariable ValidationResult).IsValid) {
+if (!(Test-PackageIdentifier -Value $PackageIdentifier -OutVariable ValidationResult).IsValid) {
   # If there was a validation error, print the error and request the package identifier, but only if the user provided an identifier
   if ($PackageIdentifier) { Write-Information "${vtForegroundRed}${validationResult}${vtForegroundDefault}" }
   # Requues the user to provide a valid package identifier
   $PackageIdentifier = Request-PackageIdentifier
 }
 
-# TODO: Normalize the package identifier to any segments already present in the manifests folder
+# Check that the package version is valid
+if (!(Test-PackageVersion -Value $PackageVersion -OutVariable ValidationResult).IsValid) {
+  # If there was a validation error, print the error and request the package identifier, but only if the user provided an identifier
+  if ($PackageVersion) { Write-Information "${vtForegroundRed}${validationResult}${vtForegroundDefault}" }
+  # Requues the user to provide a valid package identifier
+  $PackageVersion = Request-PackageVersion
+}
 
-# - If the package identifier is provided, check if it is a valid identifier
-# - If the package identifier is not provided, request it until a valid identifier is provided
+# Now that the package identifier and version are valid, we can check if the manifest already exists
+$IdentifierParts = $PackageIdentifier.Split('.')
+$manifestRoot = Join-Path -Path $script:ManifestsFolder -ChildPath $PackageIdentifier.ToLower()[0]
+for ($i = 0; $i -lt $IdentifierParts.Count; $i++) {
+  $part = $IdentifierParts[$i]
+  $existingFolder = Get-ChildItem -Path $manifestRoot -Filter $part -Directory | Select-Object -First 1
+  if ($existingFolder) {
+    $manifestRoot = Join-Path -Path $manifestRoot -ChildPath $existingFolder.Name
+    $IdentifierParts[$i] = $existingFolder.Name  # Update the array so the normalized identifier is correct
+  } else {
+    break # If the folder does not exist, we can stop checking as the rest of the identifier will not exist either
+  }
+}
 
-# Once the package identifier is provided, check if it already exists in the manifests folder
+# Set the selected manifest to the identifier and version provided by the user
+$script:SelectedManifest.Identifier = $IdentifierParts -join '.'
+$script:SelectedManifest.Version = $PackageVersion
+# The path to the manifest folder is composed in two stages to accommodate the leading character of the identifier
+$script:SelectedManifest.Path = Join-Path -Path $script:ManifestsFolder -ChildPath $PackageIdentifier.ToLower()[0]
+$script:SelectedManifest.Path = Join-Path -Path $script:SelectedManifest.Path -ChildPath ($IdentifierParts -join [System.IO.Path]::DirectorySeparatorChar)
+# We can now check if the specific manifest already exists
+$script:SelectedManifest.Exists = Test-Path -Path (Join-Path -Path $script:SelectedManifest.Path -ChildPath $PackageVersion)
+# We also need to check if there is a previous version of the manifest
+if (Test-Path $script:SelectedManifest.Path) {
+  # Get all the versions of the manifest that exist in the folder
+  $existingVersions = Get-ChildItem -Path $script:SelectedManifest.Path -Directory
+  # Filter out any directories that are subpackages
+  $existingVersions = $existingVersions | Where-Object { (Get-ChildItem -Path $_.FullName -Directory).Count -eq 0 }
+  $script:SelectedManifest.LatestVersion = $existingVersions | Sort-Object -Property Name -Descending | Select-Object -First 1 -ExpandProperty Name
+} else {
+  Write-Verbose "No previous versions of the manifest for $PackageIdentifier found"
+  $script:SelectedManifest.LatestVersion = $null
+}
 
-# Handle provided package version
-# - If the package version is provided, check if it is a valid version
-# - If the package version is not provided, request it until a valid version is provided
-
-# Once the package version is provided, if the package identifier already exists, check if the version already exists
+Write-Output $script:SelectedManifest
 
 # Set Execution Mode based upon the user selected mode and whether or not the manifest already exists
+switch ($script:UserSelectedMode) {
+  [ScriptModes]::FullUpdate {
+    $script:ExecutionMode = [ScriptModes]::FullUpdate
+    if (!$script:SelectedManifest.Exists) { $script:ExecutionMode = [ScriptModes]::CreateManifest }
+  }
+  [ScriptModes]::QuickUpdateVersion {
+    $script:ExecutionMode = [ScriptModes]::QuickUpdateVersion
+    if (!$script:SelectedManifest.Exists) {
+      Write-Error "The manifest for $PackageIdentifier version $PackageVersion does not exist. Please use the `-Mode 1` option to create a new manifest." -ErrorAction 'Continue'
+      Invoke-CleanExit -1
+    }
+  }
+  [ScriptModes]::MetadataUpdate {
+    $script:ExecutionMode = [ScriptModes]::MetadataUpdate
+    if (!$script:SelectedManifest.Exists) {
+      Write-Error "The manifest for $PackageIdentifier version $PackageVersion does not exist. Please use the `-Mode 1` option to create a new manifest." -ErrorAction 'Continue'
+      Invoke-CleanExit -1
+    }
+  }
+  [ScriptModes]::NewLocale {
+    $script:ExecutionMode = [ScriptModes]::NewLocale
+    if (!$script:SelectedManifest.Exists) {
+      Write-Error "The manifest for $PackageIdentifier version $PackageVersion does not exist. Please use the `-Mode 1` option to create a new manifest." -ErrorAction 'Continue'
+      Invoke-CleanExit -1
+    }
+  }
+  [ScriptModes]::RemoveManifest {
+    $script:ExecutionMode = [ScriptModes]::RemoveManifest
+    if (!$script:SelectedManifest.Exists) {
+      Write-Error "The manifest for $PackageIdentifier version $PackageVersion does not exist." -ErrorAction 'Continue'
+      Invoke-CleanExit -1
+    }
+  }
+  [ScriptModes]::MoveManifests {
+    $script:ExecutionMode = [ScriptModes]::MoveManifests
+    if (!$script:SelectedManifest.Exists) {
+      Write-Error 'This mode is not yet implemented' -ErrorAction 'Continue'
+      Invoke-CleanExit -2
+    }
+  }
+  [ScriptModes]::AutomaticUpdate {
+    # This is an internal mode that should not be used by the user
+    Write-Error 'This mode is not yet implemented' -ErrorAction 'Continue'
+    Invoke-CleanExit -2
+  }
+
+  default {}
+}
 
 # If the version already exists, load the existing manifest into memory
 # If it is a singleton

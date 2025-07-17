@@ -81,13 +81,17 @@
         ## YamlCreate.Schemas
         'Get-SchemaJson'
         'Get-SchemaUrl'
-        'Initialize-LocaleSchema'
-        'Initialize-DefaultLocaleSchema'
-        'Initialize-VersionSchema'
-        'Initialize-InstallerSchema'
         ### YamlCreate.Schemas.Version
+        'Initialize-VersionSchema'
         'Test-PackageIdentifier'
         'Request-PackageIdentifier'
+        'Test-PackageVersion'
+        'Request-PackageVersion'
+        ### YamlCreate.Schemas.Locale
+        'Initialize-LocaleSchema'
+        'Initialize-DefaultLocaleSchema'
+        ### YamlCreate.Schemas.Installer
+        'Initialize-InstallerSchema'
         ## YamlCreate.Menuing
         'Get-Keypress'
         'Resolve-Keypress'
