@@ -77,7 +77,6 @@
     # Functions to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no functions to export.
     FunctionsToExport = @(
         'Get-RemoteContent'
-        'Import-SubmoduleTree'
         ## Note: All functions from nested modules that are used in the script need to be exported at the top level
         # YamlCreate.Schemas
         'Get-SchemaJson'
