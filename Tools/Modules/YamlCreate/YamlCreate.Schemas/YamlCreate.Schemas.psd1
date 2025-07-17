@@ -75,9 +75,14 @@
         'Get-SchemaJson',
         'Get-SchemaUrl',
         # All functions from nested modules that are used need to be exported at the top level
+        ## Locale Schema Functions
         'Initialize-LocaleSchema'
         'Initialize-DefaultLocaleSchema'
+        ## Version Schema Functions
         'Initialize-VersionSchema'
+        'Test-PackageIdentifier'
+        'Request-PackageIdentifier'
+        ## Installer Schema Functions
         'Initialize-InstallerSchema'
     )
 

@@ -434,12 +434,18 @@ ${vtForegroundDefault}
 "@
   # TODO: Implement the menuing system
   $key = Resolve-Keypress -ValidKeys $($Numeric1 + $Numeric2 + $Numeric3 + $Numeric4 + $Numeric5 + $Numeric6) -DefaultKey ([ConsoleKey]::Q) -UseStrict $script:RequireExplicitMenuing
-  if ($key) {
-    Write-Information "Pressed key: $key"
-    Invoke-CleanExit 0
-  }
 
+  switch ($key) {
+    { $_ -eq [ConsoleKey]::D1 -or $_ -eq [ConsoleKey]::NumPad1 } {
+      $script:UserSelectedMode = [ScriptModes]::FullUpdate
+    }
+    Default {
+      Invoke-CleanExit 0
+    }
+  }
 }
+
+Request-PackageIdentifier
 
 # Handle provided package identifier
 # - If the package identifier is provided, check if it is a valid identifier

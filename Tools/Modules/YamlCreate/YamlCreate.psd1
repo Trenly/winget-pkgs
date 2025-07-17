@@ -77,18 +77,21 @@
     # Functions to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no functions to export.
     FunctionsToExport = @(
         'Get-RemoteContent'
-        ## Note: All functions from nested modules that are used in the script need to be exported at the top level
-        # YamlCreate.Schemas
+        # Note: All functions from nested modules that are used in the script need to be exported at the top level
+        ## YamlCreate.Schemas
         'Get-SchemaJson'
         'Get-SchemaUrl'
         'Initialize-LocaleSchema'
         'Initialize-DefaultLocaleSchema'
         'Initialize-VersionSchema'
         'Initialize-InstallerSchema'
-        # YamlCreate.Menuing
+        ### YamlCreate.Schemas.Version
+        'Test-PackageIdentifier'
+        'Request-PackageIdentifier'
+        ## YamlCreate.Menuing
         'Get-Keypress'
         'Resolve-Keypress'
-        # YamlCreate.InstallerDetection
+        ## YamlCreate.InstallerDetection
         'Get-OffsetBytes'
         'Get-PESectionTable'
         'Test-IsZip'
