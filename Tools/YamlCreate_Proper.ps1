@@ -333,13 +333,13 @@ $ofs = ', '
 if (!$isWindows) { $env:TEMP = '/tmp/' }
 
 # If the script was run with -Debug, set the default parameter for all commands to include -Debug
-if ($PSCmdlet.MyInvocation.BoundParameters["Debug"]) {
+if ($PSCmdlet.MyInvocation.BoundParameters['Debug']) {
   $global:DebugPreference = 'Continue'
   $DebugPreference = 'Continue'
 }
 
 # If the script was run with -Verbose, set the default parameter for all commands to include -Verbose
-if ($PSCmdlet.MyInvocation.BoundParameters["Verbose"]) {
+if ($PSCmdlet.MyInvocation.BoundParameters['Verbose']) {
   $global:VerbosePreference = 'Continue'
   $VerbosePreference = 'Continue'
 }
@@ -410,7 +410,7 @@ $script:ExecutionMode = $null
 $script:PackageFolderExists = $false
 $script:PackageVersionExists = $false
 $script:SelectedManifest = @{
-  'Identifier' = $null
+  'Identifier' = $PackageIdentifier
   'Version'    = $null
   'Path'       = $null
 }
@@ -436,18 +436,28 @@ ${vtForegroundDefault}
   $key = Resolve-Keypress -ValidKeys $($Numeric1 + $Numeric2 + $Numeric3 + $Numeric4 + $Numeric5 + $Numeric6) -DefaultKey ([ConsoleKey]::Q) -UseStrict $script:RequireExplicitMenuing
 
   switch ($key) {
-    { $_ -eq [ConsoleKey]::D1 -or $_ -eq [ConsoleKey]::NumPad1 } {
-      $script:UserSelectedMode = [ScriptModes]::FullUpdate
-    }
-    Default {
-      Invoke-CleanExit 0
-    }
+    { $_ -eq [ConsoleKey]::D1 -or $_ -eq [ConsoleKey]::NumPad1 } { $script:UserSelectedMode = [ScriptModes]::FullUpdate }
+    { $_ -eq [ConsoleKey]::D2 -or $_ -eq [ConsoleKey]::NumPad2 } { $script:UserSelectedMode = [ScriptModes]::QuickUpdateVersion }
+    { $_ -eq [ConsoleKey]::D3 -or $_ -eq [ConsoleKey]::NumPad3 } { $script:UserSelectedMode = [ScriptModes]::MetadataUpdate }
+    { $_ -eq [ConsoleKey]::D4 -or $_ -eq [ConsoleKey]::NumPad4 } { $script:UserSelectedMode = [ScriptModes]::NewLocale }
+    { $_ -eq [ConsoleKey]::D5 -or $_ -eq [ConsoleKey]::NumPad5 } { $script:UserSelectedMode = [ScriptModes]::RemoveManifest }
+    { $_ -eq [ConsoleKey]::D6 -or $_ -eq [ConsoleKey]::NumPad6 } { $script:UserSelectedMode = [ScriptModes]::MoveManifests }
+    default { Invoke-CleanExit 0 }
   }
 }
 
-Request-PackageIdentifier
+# To determine the execution mode, we need to check if the manifest already exists, which we need the Identifier and Version for
 
-# Handle provided package identifier
+# Check that the package identifier is valid
+if (!(Test-PackageIdentifier -PackageIdentifier $PackageIdentifier -OutVariable ValidationResult).IsValid) {
+  # If there was a validation error, print the error and request the package identifier, but only if the user provided an identifier
+  if ($PackageIdentifier) { Write-Information "${vtForegroundRed}${validationResult}${vtForegroundDefault}" }
+  # Requues the user to provide a valid package identifier
+  $PackageIdentifier = Request-PackageIdentifier
+}
+
+# TODO: Normalize the package identifier to any segments already present in the manifests folder
+
 # - If the package identifier is provided, check if it is a valid identifier
 # - If the package identifier is not provided, request it until a valid identifier is provided
 
