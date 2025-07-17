@@ -72,8 +72,13 @@
 
     # Functions to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no functions to export.
     FunctionsToExport = @(
-        'Get-SchemaUrl'
-        'Get-SchemaJson'
+        'Get-SchemaJson',
+        'Get-SchemaUrl',
+        # All functions from nested modules that are used need to be exported at the top level
+        'Initialize-LocaleSchema'
+        'Initialize-DefaultLocaleSchema'
+        'Initialize-VersionSchema'
+        'Initialize-InstallerSchema'
     )
 
     # Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.
@@ -89,7 +94,11 @@
     # DscResourcesToExport = @()
 
     # List of all modules packaged with this module
-    ModuleList = @()
+    ModuleList = @(
+        'YamlCreate.Schemas.Locale',
+        'YamlCreate.Schemas.Installer',
+        'YamlCreate.Schemas.Version'
+    )
 
     # List of all files packaged with this module
     # FileList = @()

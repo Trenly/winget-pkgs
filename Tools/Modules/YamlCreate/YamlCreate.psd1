@@ -69,7 +69,7 @@
 
     # Modules to import as nested modules of the module specified in RootModule/ModuleToProcess
     NestedModules = @(
-        # 'YamlCreate.InstallerDetection'
+        'YamlCreate.InstallerDetection'
         'YamlCreate.Menuing'
         'YamlCreate.Schemas'
     )
@@ -77,6 +77,30 @@
     # Functions to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no functions to export.
     FunctionsToExport = @(
         'Get-RemoteContent'
+        'Import-SubmoduleTree'
+        ## Note: All functions from nested modules that are used in the script need to be exported at the top level
+        # YamlCreate.Schemas
+        'Get-SchemaJson'
+        'Get-SchemaUrl'
+        'Initialize-LocaleSchema'
+        'Initialize-DefaultLocaleSchema'
+        'Initialize-VersionSchema'
+        'Initialize-InstallerSchema'
+        # YamlCreate.Menuing
+        'Get-Keypress'
+        'Resolve-Keypress'
+        # YamlCreate.InstallerDetection
+        'Get-OffsetBytes'
+        'Get-PESectionTable'
+        'Test-IsZip'
+        'Test-IsMsix'
+        'Test-IsMsi'
+        'Test-IsWix'
+        'Test-IsNullsoft'
+        'Test-IsInno'
+        'Test-IsBurn'
+        'Test-IsFont'
+        'Resolve-InstallerType'
     )
 
     # Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.

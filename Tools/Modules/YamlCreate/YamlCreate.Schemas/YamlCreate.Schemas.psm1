@@ -71,5 +71,15 @@ Get-ChildItem -Path $script:moduleRoot -Recurse -Depth 1 -Filter '*.psd1'| ForEa
     }
     $moduleFolder = Join-Path -Path $script:moduleRoot -ChildPath $_.Directory.Name
     $moduleFile = Join-Path -Path $moduleFolder -ChildPath $_.Name
-    Import-Module $moduleFile -Force -Scope Global -ErrorAction 'Stop'
+    Import-Module $moduleFile -Force -Scope Local -ErrorAction 'Stop'
+
+    # Because the module is imported to the local scope, we need to export the functions up to the calling scope
+    (Get-Module $_.BaseName).ExportedFunctions.Keys | ForEach-Object {
+        Export-ModuleMember -Function $_
+    }
+
+    # Because the module is imported to the local scope, we need to export the variables up to the calling scope
+    (Get-Module $_.BaseName).ExportedVariables.Keys | ForEach-Object {
+        Export-ModuleMember -Variable $_
+    }
 }

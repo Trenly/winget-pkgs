@@ -61,9 +61,21 @@ function Get-RemoteContent {
 
 Export-ModuleMember -Function Get-RemoteContent
 
+# # Import all sub-modules
+# $script:moduleRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
+
+# Get-ChildItem -Path $script:moduleRoot -Recurse -Depth 1 -Filter '*.psd1' | ForEach-Object {
+#   if ($_.Name -eq 'YamlCreate.psd1') {
+#     # Skip the main module manifest as it is already handled
+#     return
+#   }
+#   $moduleFolder = Join-Path -Path $script:moduleRoot -ChildPath $_.Directory.Name
+#   $moduleFile = Join-Path -Path $moduleFolder -ChildPath $_.Name
+#   Import-Module $moduleFile -Force -Scope Global -ErrorAction 'Stop'
+# }
+
 # Import all sub-modules
 $script:moduleRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
-
 Get-ChildItem -Path $script:moduleRoot -Recurse -Depth 1 -Filter '*.psd1' | ForEach-Object {
   if ($_.Name -eq 'YamlCreate.psd1') {
     # Skip the main module manifest as it is already handled
@@ -71,5 +83,15 @@ Get-ChildItem -Path $script:moduleRoot -Recurse -Depth 1 -Filter '*.psd1' | ForE
   }
   $moduleFolder = Join-Path -Path $script:moduleRoot -ChildPath $_.Directory.Name
   $moduleFile = Join-Path -Path $moduleFolder -ChildPath $_.Name
-  Import-Module $moduleFile -Force -Scope Global -ErrorAction 'Stop'
+  Import-Module $moduleFile -Force -Scope Local -ErrorAction 'Stop'
+
+  # Because the module is imported to the local scope, we need to export the functions up to the calling scope
+  (Get-Module $_.BaseName).ExportedFunctions.Keys | ForEach-Object {
+    Export-ModuleMember -Function $_
+  }
+
+  # Because the module is imported to the local scope, we need to export the variables up to the calling scope
+  (Get-Module $_.BaseName).ExportedVariables.Keys | ForEach-Object {
+    Export-ModuleMember -Variable $_
+  }
 }
