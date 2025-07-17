@@ -395,7 +395,7 @@ $script:IdentifyBurnInstallers = $script:UserSettings.IdentifyBurnInstallers -eq
 $script:DeveloperSettingsEnabled = $script:UserSettings.EnableDeveloperOptions -eq 'true'
 
 # Schemas
-# If SchemaVersion is not provided, the module will use the default version which is set in the module itself
+# If SchemaVersion is not provided, the module will use the default version which is set in the Schemas parent module
 Write-Verbose 'Fetching Manifest Schemas'
 Initialize-VersionSchema -SchemaVersion $script:UserSettings.OverrideManifestVersion
 Initialize-InstallerSchema -SchemaVersion $script:UserSettings.OverrideManifestVersion
