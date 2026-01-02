@@ -1,4 +1,12 @@
+---
+applyTo: "manifests/**/*"
+---
+
 # Copilot instructions: Validation-Executable-Error
+
+Mandatory requirement
+- These instructions are MANDATORY when a pull request is labeled `Validation-Executable-Error`.
+- Any automated agent, Copilot instance, or human-in-the-loop reviewer receiving a PR with this label MUST run the steps in this file and MUST NOT skip them. Failure to execute these instructions constitutes an incomplete validation for the PR.
 
 Purpose
 - When a pull request is labeled `Validation-Executable-Error`, a Copilot agent should evaluate the changed manifest files and determine whether any installer in the manifest is a portable installer. If so, the agent shall search for documentation about the submitted application and determine whether the application supports a version argument or a help argument. If no portable installers are present, the agent should do nothing.

@@ -111,12 +111,14 @@ When reviewing a PR:
 
 ## Special-case: `Validation-Executable-Error` label
 
-- If the pull request is labeled with `Validation-Executable-Error`, Copilot must still respect all repository constraints in this file (especially the prohibition on global `manifests/` searches), but it SHOULD also execute the additional instructions defined in `.github/instructions/validation-executable-error.instructions.md`.
+- If the pull request is labeled with `Validation-Executable-Error`, Copilot must still respect all repository constraints in this file (especially the prohibition on global `manifests/` searches), and it MUST execute the additional instructions defined in `.github/instructions/validation-executable-error.instructions.md`.
+- Execution of the `validation-executable-error` instructions is REQUIRED for any PR carrying the label and MUST NOT be skipped by automated agents or human reviewers.
 - In practice this means:
   - Continue to limit local searches to the package root and changed files within the PR.
   - If any changed manifest contains an installer with `InstallerType: portable` or `NestedInstallerType: portable`, follow the `validation-executable-error` instructions to search authoritative documentation (READMEs, project pages, release notes) for evidence of version/help CLI arguments.
-  - Post the findings exactly as required by `validation-executable-error.instructions.md` (the `YAML` code-block comment on the PR), using the manifest paths and evidence snippets gathered from allowed local and external documentation sources.
+  - Post the findings exactly as required by `validation-executable-error.instructions.md` (the required `YAML` code-block comment on the PR), using the manifest paths and evidence snippets gathered from allowed local and external documentation sources.
   - If no portable installers are detected in the changed manifests, do not perform additional discovery, but still follow the `validation-executable-error` instructions for producing the short YAML output indicating `no_portable_manifests: true`.
+  - If an agent is unable to perform the required checks (for example, due to network restrictions or missing credentials), it MUST create a GitHub comment on the PR explaining the failure and tagging a human maintainer for follow-up; the PR must be treated as not fully validated until the checks are completed by an agent or a human.
 
 
 ---
