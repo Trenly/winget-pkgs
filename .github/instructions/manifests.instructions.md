@@ -34,14 +34,14 @@ For example: `manifests/m/Microsoft/WindowsTerminal/1.0.1401.0/`
 
 ## Instruction Priority
 
-The instructions in the **Performance Rules**, **Allowed Local Searches**, and **Explicit Required Behavior** sections are **mandatory**.  
+The instructions in the **Performance Rules**, **Allowed Local Searches**, and **Explicit Required Behavior** sections are **mandatory**.
 They override all other information in this file.
 
 Copilot must always follow these rules when performing PR reviews, even if other documentation in this file describes general repository behavior.
 
 ## Performance Rules (Very Important)
 
-This repository contains a very large directory: `manifests/`.  
+This repository contains a very large directory: `manifests/`.
 Copilot must **never recursively scan or search the entire `manifests/` folder** during PR reviews.
 
 Large-scale searches cause severe performance issues and timeouts.
@@ -106,6 +106,18 @@ When reviewing a PR:
 - If broader repo context seems needed:
   - **Skip the global search** and exactly say: "Global search prevented by repository instructions."
   - Continue the review using only local context
+
+---
+
+## Special-case: `Validation-Executable-Error` label
+
+- If the pull request is labeled with `Validation-Executable-Error`, Copilot must still respect all repository constraints in this file (especially the prohibition on global `manifests/` searches), but it SHOULD also execute the additional instructions defined in `.github/instructions/validation-executable-error.instructions.md`.
+- In practice this means:
+  - Continue to limit local searches to the package root and changed files within the PR.
+  - If any changed manifest contains an installer with `InstallerType: portable` or `NestedInstallerType: portable`, follow the `validation-executable-error` instructions to search authoritative documentation (READMEs, project pages, release notes) for evidence of version/help CLI arguments.
+  - Post the findings exactly as required by `validation-executable-error.instructions.md` (the `YAML` code-block comment on the PR), using the manifest paths and evidence snippets gathered from allowed local and external documentation sources.
+  - If no portable installers are detected in the changed manifests, do not perform additional discovery, but still follow the `validation-executable-error` instructions for producing the short YAML output indicating `no_portable_manifests: true`.
+
 
 ---
 
