@@ -1385,7 +1385,9 @@ Function Update-InstallerEntry {
     [Parameter(Mandatory = $true)]
     [PSCustomObject] $Installer,
     [Parameter(Mandatory = $false)]
-    [switch] $ShowProgress
+    [switch] $ShowProgress,
+    [Parameter(Mandatory = $false)]
+    [switch] $Preserve
   )
 
   try {
@@ -1417,7 +1419,7 @@ Function Update-InstallerEntry {
   }
   if (Test-String -not $MSIProductCode -IsNull) {
     $Installer['ProductCode'] = $MSIProductCode
-  } elseif ( ($Installer.Keys -contains 'ProductCode') -and ((Get-EffectiveInstallerType $Installer) -in @('appx'; 'msi'; 'msix'; 'wix'; 'burn'))) {
+  } elseif ( ($Installer.Keys -contains 'ProductCode') -and ((Get-EffectiveInstallerType $Installer) -in @('appx'; 'msi'; 'msix'; 'wix'; 'burn')) -and !$Preserve) {
     $Installer.Remove('ProductCode')
   }
 
@@ -1429,7 +1431,7 @@ Function Update-InstallerEntry {
   }
   if (Test-String -not $NewSignatureSha256 -IsNull) {
     $Installer['SignatureSha256'] = $NewSignatureSha256
-  } elseif ($Installer.Keys -contains 'SignatureSha256') {
+  } elseif ($Installer.Keys -contains 'SignatureSha256' -and !$Preserve) {
     $Installer.Remove('SignatureSha256')
   }
 
@@ -1439,7 +1441,7 @@ Function Update-InstallerEntry {
     $PackageFamilyName = Get-PackageFamilyName $script:dest
     if (Test-String $PackageFamilyName -MatchPattern $Patterns.FamilyName) {
       $Installer['PackageFamilyName'] = $PackageFamilyName
-    } elseif ($Installer.Keys -contains 'PackageFamilyName') {
+    } elseif ($Installer.Keys -contains 'PackageFamilyName' -and !$Preserve) {
       $Installer.Remove('PackageFamilyName')
     }
   }
@@ -1496,7 +1498,7 @@ Function Read-QuickInstallerEntry {
     }
 
     if ($_NewInstaller.Keys -notcontains 'InstallerSha256') {
-      $_NewInstaller = Update-InstallerEntry -Installer $_NewInstaller -ShowProgress
+      $_NewInstaller = Update-InstallerEntry -Installer $_NewInstaller -ShowProgress -Preserve:$Preserve
     }
 
     # Force a re-check of the Nested Installer Paths in case they changed between versions
@@ -3091,7 +3093,7 @@ Switch ($script:Option) {
     foreach ($_Installer in $script:OldInstallerManifest.Installers) {
       $_Installer['InstallerUrl'] = [System.Web.HttpUtility]::UrlDecode($_Installer.InstallerUrl.Replace('+', '%2B'))
       $_Installer['InstallerUrl'] = $_Installer.InstallerUrl.Replace(' ', '%20')
-      $_Installer = Update-InstallerEntry -Installer $_Installer
+      $_Installer = Update-InstallerEntry -Installer $_Installer -Preserve:$Preserve
       $_NewInstallers += Restore-YamlKeyOrder $_Installer $InstallerEntryProperties -NoComments
     }
     # Write the new manifests
