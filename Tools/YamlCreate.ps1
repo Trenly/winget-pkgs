@@ -1372,6 +1372,88 @@ Function Read-InstallerEntry {
   }
 }
 
+# Downloads and processes an installer file to update installer metadata
+# Takes an installer hashtable, downloads the file from InstallerUrl, and updates:
+# - InstallerSha256
+# - InstallerType (if MSI/WIX/NULLSOFT/INNO/BURN detected)
+# - ProductCode (for MSI installers)
+# - SignatureSha256 (for MSIX/APPX installers)
+# - PackageFamilyName (for MSIX/APPX installers)
+# Returns the updated installer hashtable
+Function Update-InstallerEntry {
+  Param(
+    [Parameter(Mandatory = $true)]
+    [PSCustomObject] $Installer,
+    [Parameter(Mandatory = $false)]
+    [switch] $ShowProgress,
+    [Parameter(Mandatory = $false)]
+    [switch] $Preserve
+  )
+
+  try {
+    if ($ShowProgress) { Write-Host -ForegroundColor 'Green' 'Downloading Installer. . .' }
+    $script:dest = Get-InstallerFile -URI $Installer['InstallerUrl'] -PackageIdentifier $PackageIdentifier -PackageVersion $PackageVersion
+  } catch {
+    # Here we also want to pass any exceptions through for potential debugging
+    throw [System.Net.WebException]::new('The file could not be downloaded. Try running the script again', $_.Exception)
+  }
+
+  if ($ShowProgress) { Write-Host -ForegroundColor 'Green' "Installer Downloaded!`nProcessing installer data. . . " }
+
+  # Check that MSI's aren't actually WIX, and EXE's aren't NSIS, INNO or BURN
+  if ($Installer['InstallerType'] -in @('msi'; 'exe')) {
+    $DetectedType = Resolve-InstallerType $script:dest
+    if ($DetectedType -in @('msi'; 'wix'; 'nullsoft'; 'inno'; 'burn')) { $Installer['InstallerType'] = $DetectedType }
+  }
+
+  # Get the Sha256
+  $Installer['InstallerSha256'] = (Get-FileHash -Path $script:dest -Algorithm SHA256).Hash
+
+  # Update the product code, if a new one exists
+  # If a new product code doesn't exist, and the installer isn't an `.exe` file, remove the product code if it exists
+  $MSIProductCode = $null
+  if ([System.Environment]::OSVersion.Platform -match 'Win' -and ($script:dest).EndsWith('.msi')) {
+    $MSIProductCode = [string](Get-MSIProperty -Path $script:dest -Property 'ProductCode').Value
+  } elseif ([System.Environment]::OSVersion.Platform -match 'Unix' -and (Get-Item $script:dest).Name.EndsWith('.msi')) {
+    $MSIProductCode = ([string](file $script:dest) | Select-String -Pattern '{[A-Z0-9]{8}-([A-Z0-9]{4}-){3}[A-Z0-9]{12}}').Matches.Value
+  }
+  if (Test-String -not $MSIProductCode -IsNull) {
+    $Installer['ProductCode'] = $MSIProductCode
+  } elseif ( ($Installer.Keys -contains 'ProductCode') -and ((Get-EffectiveInstallerType $Installer) -in @('appx'; 'msi'; 'msix'; 'wix'; 'burn')) -and !$Preserve) {
+    $Installer.Remove('ProductCode')
+  }
+
+  # If the installer is msix or appx, try getting the new SignatureSha256
+  # If the new SignatureSha256 can't be found, remove it if it exists
+  $NewSignatureSha256 = $null
+  if ($Installer.InstallerType -in @('msix', 'appx')) {
+    if (Get-Command 'winget' -ErrorAction SilentlyContinue) { $NewSignatureSha256 = winget hash -m $script:dest | Select-String -Pattern 'SignatureSha256:' | ConvertFrom-String; if ($NewSignatureSha256.P2) { $NewSignatureSha256 = $NewSignatureSha256.P2.ToUpper() } }
+  }
+  if (Test-String -not $NewSignatureSha256 -IsNull) {
+    $Installer['SignatureSha256'] = $NewSignatureSha256
+  } elseif ($Installer.Keys -contains 'SignatureSha256' -and !$Preserve) {
+    $Installer.Remove('SignatureSha256')
+  }
+
+  # If the installer is msix or appx, try getting the new package family name
+  # If the new package family name can't be found, remove it if it exists
+  if ($script:dest -match '\.(msix|appx)(bundle){0,1}$') {
+    $PackageFamilyName = Get-PackageFamilyName $script:dest
+    if (Test-String $PackageFamilyName -MatchPattern $Patterns.FamilyName) {
+      $Installer['PackageFamilyName'] = $PackageFamilyName
+    } elseif ($Installer.Keys -contains 'PackageFamilyName' -and !$Preserve) {
+      $Installer.Remove('PackageFamilyName')
+    }
+  }
+
+  # Remove the downloaded files
+  SafeRemovePath -Path $script:dest
+
+  if ($ShowProgress) { Write-Host -ForegroundColor 'Green' "Installer updated!`n" }
+
+  return $Installer
+}
+
 # Prompts user for Installer Values using the `Quick Update` Method
 # Sets the $script:Installers value as an output
 # Returns void
@@ -1416,58 +1498,7 @@ Function Read-QuickInstallerEntry {
     }
 
     if ($_NewInstaller.Keys -notcontains 'InstallerSha256') {
-      try {
-        Write-Host -ForegroundColor 'Green' 'Downloading Installer. . .'
-        $script:dest = Get-InstallerFile -URI $_NewInstaller['InstallerUrl'] -PackageIdentifier $PackageIdentifier -PackageVersion $PackageVersion
-      } catch {
-        # Here we also want to pass any exceptions through for potential debugging
-        throw [System.Net.WebException]::new('The file could not be downloaded. Try running the script again', $_.Exception)
-      }
-      # Check that MSI's aren't actually WIX, and EXE's aren't NSIS, INNO or BURN
-      Write-Host -ForegroundColor 'Green' "Installer Downloaded!`nProcessing installer data. . . "
-      if ($_NewInstaller['InstallerType'] -in @('msi'; 'exe')) {
-        $DetectedType = Resolve-InstallerType $script:dest
-        if ($DetectedType -in @('msi'; 'wix'; 'nullsoft'; 'inno'; 'burn')) { $_NewInstaller['InstallerType'] = $DetectedType }
-      }
-      # Get the Sha256
-      $_NewInstaller['InstallerSha256'] = (Get-FileHash -Path $script:dest -Algorithm SHA256).Hash
-      # Update the product code, if a new one exists
-      # If a new product code doesn't exist, and the installer isn't an `.exe` file, remove the product code if it exists
-      $MSIProductCode = $null
-      if ([System.Environment]::OSVersion.Platform -match 'Win' -and ($script:dest).EndsWith('.msi')) {
-        $MSIProductCode = [string](Get-MSIProperty -Path $script:dest -Property 'ProductCode').Value
-      } elseif ([System.Environment]::OSVersion.Platform -match 'Unix' -and (Get-Item $script:dest).Name.EndsWith('.msi')) {
-        $MSIProductCode = ([string](file $script:dest) | Select-String -Pattern '{[A-Z0-9]{8}-([A-Z0-9]{4}-){3}[A-Z0-9]{12}}').Matches.Value
-      }
-      if (Test-String -not $MSIProductCode -IsNull) {
-        $_NewInstaller['ProductCode'] = $MSIProductCode
-      } elseif ( ($_NewInstaller.Keys -contains 'ProductCode') -and ((Get-EffectiveInstallerType $_NewInstaller) -in @('appx'; 'msi'; 'msix'; 'wix'; 'burn'))) {
-        $_NewInstaller.Remove('ProductCode')
-      }
-      # If the installer is msix or appx, try getting the new SignatureSha256
-      # If the new SignatureSha256 can't be found, remove it if it exists
-      $NewSignatureSha256 = $null
-      if ($_NewInstaller.InstallerType -in @('msix', 'appx')) {
-        if (Get-Command 'winget' -ErrorAction SilentlyContinue) { $NewSignatureSha256 = winget hash -m $script:dest | Select-String -Pattern 'SignatureSha256:' | ConvertFrom-String; if ($NewSignatureSha256.P2) { $NewSignatureSha256 = $NewSignatureSha256.P2.ToUpper() } }
-      }
-      if (Test-String -not $NewSignatureSha256 -IsNull) {
-        $_NewInstaller['SignatureSha256'] = $NewSignatureSha256
-      } elseif ($_NewInstaller.Keys -contains 'SignatureSha256') {
-        $_NewInstaller.Remove('SignatureSha256')
-      }
-      # If the installer is msix or appx, try getting the new package family name
-      # If the new package family name can't be found, remove it if it exists
-      if ($script:dest -match '\.(msix|appx)(bundle){0,1}$') {
-        $PackageFamilyName = Get-PackageFamilyName $script:dest
-        if (Test-String $PackageFamilyName -MatchPattern $Patterns.FamilyName) {
-          $_NewInstaller['PackageFamilyName'] = $PackageFamilyName
-        } elseif ($_NewInstaller.Keys -contains 'PackageFamilyName') {
-          $_NewInstaller.Remove('PackageFamilyName')
-        }
-      }
-      # Remove the downloaded files
-      SafeRemovePath -Path $script:dest
-      Write-Host -ForegroundColor 'Green' "Installer updated!`n"
+      $_NewInstaller = Update-InstallerEntry -Installer $_NewInstaller -ShowProgress -Preserve:$Preserve
     }
 
     # Force a re-check of the Nested Installer Paths in case they changed between versions
@@ -3062,56 +3093,7 @@ Switch ($script:Option) {
     foreach ($_Installer in $script:OldInstallerManifest.Installers) {
       $_Installer['InstallerUrl'] = [System.Web.HttpUtility]::UrlDecode($_Installer.InstallerUrl.Replace('+', '%2B'))
       $_Installer['InstallerUrl'] = $_Installer.InstallerUrl.Replace(' ', '%20')
-      try {
-        $script:dest = Get-InstallerFile -URI $_Installer.InstallerUrl -PackageIdentifier $PackageIdentifier -PackageVersion $PackageVersion
-      } catch {
-        # Here we also want to pass any exceptions through for potential debugging
-        throw [System.Net.WebException]::new('The file could not be downloaded. Try running the script again', $_.Exception)
-      }
-      # Check that MSI's aren't actually WIX, and EXE's aren't NSIS, INNO or BURN
-      if ($_Installer['InstallerType'] -in @('msi'; 'exe')) {
-        $DetectedType = Resolve-InstallerType $script:dest
-        if ($DetectedType -in @('msi'; 'wix'; 'nullsoft'; 'inno'; 'burn')) { $_Installer['InstallerType'] = $DetectedType }
-      }
-      # Get the Sha256
-      $_Installer['InstallerSha256'] = (Get-FileHash -Path $script:dest -Algorithm SHA256).Hash
-      # Update the product code, if a new one exists
-      # If a new product code doesn't exist, and the installer isn't an `.exe` file, remove the product code if it exists
-      $MSIProductCode = $null
-      if ([System.Environment]::OSVersion.Platform -match 'Win' -and ($script:dest).EndsWith('.msi')) {
-        $MSIProductCode = [string](Get-MSIProperty -Path $script:dest -Property 'ProductCode').Value
-      } elseif ([System.Environment]::OSVersion.Platform -match 'Unix' -and (Get-Item $script:dest).Name.EndsWith('.msi')) {
-        $MSIProductCode = ([string](file $script:dest) | Select-String -Pattern '{[A-Z0-9]{8}-([A-Z0-9]{4}-){3}[A-Z0-9]{12}}').Matches.Value
-      }
-      if (Test-String -not $MSIProductCode -IsNull) {
-        $_Installer['ProductCode'] = $MSIProductCode
-      } elseif ( ($_Installer.Keys -contains 'ProductCode') -and ($_Installer.InstallerType -in @('appx'; 'msi'; 'msix'; 'wix'; 'burn'))) {
-        $_Installer.Remove('ProductCode')
-      }
-      # If the installer is msix or appx, try getting the new SignatureSha256
-      # If the new SignatureSha256 can't be found, remove it if it exists
-      $NewSignatureSha256 = $null
-      if ($_Installer.InstallerType -in @('msix', 'appx')) {
-        if (Get-Command 'winget' -ErrorAction SilentlyContinue) { $NewSignatureSha256 = winget hash -m $script:dest | Select-String -Pattern 'SignatureSha256:' | ConvertFrom-String; if ($NewSignatureSha256.P2) { $NewSignatureSha256 = $NewSignatureSha256.P2.ToUpper() } }
-      }
-      if (Test-String -not $NewSignatureSha256 -IsNull) {
-        $_Installer['SignatureSha256'] = $NewSignatureSha256
-      } elseif ($_Installer.Keys -contains 'SignatureSha256') {
-        $_Installer.Remove('SignatureSha256')
-      }
-      # If the installer is msix or appx, try getting the new package family name
-      # If the new package family name can't be found, remove it if it exists
-      if ($script:dest -match '\.(msix|appx)(bundle){0,1}$') {
-        $PackageFamilyName = Get-PackageFamilyName $script:dest
-
-        if (Test-String $PackageFamilyName -MatchPattern $Patterns.FamilyName) {
-          $_Installer['PackageFamilyName'] = $PackageFamilyName
-        } elseif ($_NewInstaller.Keys -contains 'PackageFamilyName') {
-          $_Installer.Remove('PackageFamilyName')
-        }
-      }
-      # Remove the downloaded files
-      SafeRemovePath -Path $script:dest
+      $_Installer = Update-InstallerEntry -Installer $_Installer -Preserve:$Preserve
       $_NewInstallers += Restore-YamlKeyOrder $_Installer $InstallerEntryProperties -NoComments
     }
     # Write the new manifests
