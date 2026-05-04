@@ -1,0 +1,16 @@
+# Created with YamlCreate.ps1 v2.7.1 $debug=NVS1.CRLF.7-5-5.Win32NT
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.12.0.schema.json
+
+PackageIdentifier: RSMS.Inter
+PackageVersion: "4.1"
+InstallerType: zip
+UpgradeBehavior: install
+Installers:
+- Architecture: neutral
+  NestedInstallerType: font
+  NestedInstallerFiles:
+  - RelativeFilePath: Inter.ttc
+  InstallerUrl: https://github.com/rsms/inter/releases/download/v4.1/Inter-4.1.zip
+  InstallerSha256: 9883FDD4A49D4FB66BD8177BA6625EF9A64AA45899767DDE3D36AA425756B11E
+ManifestType: installer
+ManifestVersion: 1.12.0
